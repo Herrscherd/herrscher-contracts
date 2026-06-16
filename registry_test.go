@@ -1,16 +1,47 @@
 package contracts
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
-func TestRegistryCollectsGateways(t *testing.T) {
+func TestRegistryFiltersByCategory(t *testing.T) {
 	var r Registry
-	if len(r.Gateways()) != 0 {
+	if len(r.Plugins()) != 0 {
 		t.Fatalf("fresh registry should be empty")
 	}
-	g := &recGateway{manifest: Manifest{Kind: "discord", Category: CategoryGateway}}
-	r.RegisterGateway(g)
-	got := r.Gateways()
-	if len(got) != 1 || got[0].Manifest().Kind != "discord" {
-		t.Fatalf("registry did not return the registered gateway: %+v", got)
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "discord", Category: CategoryGateway},
+		Gateway:  func(context.Context, PluginConfig) (Gateway, error) { return nil, nil },
+	})
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, nil },
+	})
+
+	if got := r.Gateways(); len(got) != 1 || got[0].Manifest.Kind != "discord" {
+		t.Fatalf("Gateways() did not isolate the gateway plugin: %+v", got)
+	}
+	if got := r.Backends(); len(got) != 1 || got[0].Manifest.Kind != "claude" {
+		t.Fatalf("Backends() did not isolate the backend plugin: %+v", got)
+	}
+}
+
+func TestDefaultRegistryRegister(t *testing.T) {
+	before := len(Default.Plugins())
+	Register(Plugin{Manifest: Manifest{Kind: "x", Category: CategoryGateway}})
+	if len(Default.Plugins()) != before+1 {
+		t.Fatalf("Register did not append to Default")
+	}
+}
+
+func TestPluginConfigGet(t *testing.T) {
+	var zero PluginConfig
+	if zero.Get("missing") != "" {
+		t.Fatalf("nil-map Get should be empty")
+	}
+	c := PluginConfig{Settings: map[string]string{"token": "abc"}}
+	if c.Get("token") != "abc" {
+		t.Fatalf("Get returned wrong value")
 	}
 }
