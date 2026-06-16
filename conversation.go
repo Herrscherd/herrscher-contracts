@@ -18,6 +18,8 @@ type Choice struct {
 }
 
 type Attachment struct {
-	Filename string
-	URL      string
+	Filename    string
+	URL         string
+	ContentType string
+	Size        int
 }
