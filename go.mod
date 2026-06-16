@@ -1,3 +1,3 @@
-module github.com/Akayashuu/herrscher-contracts
+module github.com/Herrscherd/herrscher-contracts
 
 go 1.23
