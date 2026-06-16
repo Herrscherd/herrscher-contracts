@@ -8,21 +8,6 @@ type Channel struct {
 	Name string
 }
 
-// ChannelSource is a gateway's stream of inbound commands feeding the host
-// dispatch loop. Run connects and pushes onto Commands until ctx is cancelled or
-// the connection drops (returning an error so the host can reconnect). Each
-// InboundCommand carries its own neutral Responder, so the host answers without
-// any platform token.
-type ChannelSource interface {
-	Run(ctx context.Context) error
-	Commands() <-chan InboundCommand
-}
-
-// CommandRegistrar publishes the host's command surface to the gateway.
-type CommandRegistrar interface {
-	Register(ctx context.Context) error
-}
-
 // Prober measures gateway round-trip reachability for liveness.
 type Prober interface {
 	Probe(ctx context.Context) (latencyMS int64, err error)
@@ -45,8 +30,7 @@ type ChannelReader interface {
 // MenuRouter is an optional channel capability: post an interactive menu whose
 // picks are delivered back to a named neutral route (e.g. a session) rather than
 // to the channel the menu lives in. The plugin owns how a pick is encoded and
-// surfaced again as a KindChoicePick whose CustomID is this route — contracts
-// never sees the wire encoding.
+// delivered back to that route — contracts never sees the wire encoding.
 type MenuRouter interface {
 	RouteMenu(ctx context.Context, channelID, replyTo, prompt, route string, opts []Choice) (MessageID, error)
 }

@@ -17,17 +17,15 @@ func (c PluginConfig) Get(key string) string {
 
 // GatewaySet is the coherent channel a gateway plugin provides to the host: the
 // outbound messaging port plus every port the daemon and bridge loops need,
-// all built from one PluginConfig. Optional ports (Reader, Admin, Registrar,
-// Prober) may be nil; the host degrades. This is what lets "add a plugin = blank
-// import + rebuild": the host instantiates a GatewaySet from the registry and
-// drives it without any plugin-specific wiring.
+// all built from one PluginConfig. Optional ports (Reader, Admin, Prober) may be
+// nil; the host degrades. This is what lets "add a plugin = blank import +
+// rebuild": the host instantiates a GatewaySet from the registry and drives it
+// without any plugin-specific wiring.
 type GatewaySet struct {
-	Gateway   Gateway
-	Source    ChannelSource
-	Reader    ChannelReader
-	Admin     ChannelAdmin
-	Registrar CommandRegistrar
-	Prober    Prober
+	Gateway Gateway
+	Reader  ChannelReader
+	Admin   ChannelAdmin
+	Prober  Prober
 }
 
 // GatewayFactory and BackendFactory build a live plugin instance from runtime

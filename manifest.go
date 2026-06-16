@@ -24,4 +24,8 @@ type Manifest struct {
 	Kind         string
 	Category     Category
 	Capabilities Capabilities
+	// Config declares every setting the plugin reads, with the env var it binds
+	// from and whether it is required. The host resolves a PluginConfig from this
+	// (see Resolve) — it never needs to know a plugin's keys itself.
+	Config []Setting
 }
