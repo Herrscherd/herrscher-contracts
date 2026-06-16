@@ -35,15 +35,20 @@ type (
 	GatewayFactory func(ctx context.Context, cfg PluginConfig) (GatewaySet, error)
 	BackendFactory func(ctx context.Context, cfg PluginConfig) (Backend, error)
 	MemoryFactory  func(ctx context.Context, cfg PluginConfig) (Memory, error)
+	// OrchestratorFactory builds a session-scoped Orchestrator. Unlike the other
+	// factories it also receives the Memory port it composes (nil when no memory
+	// is wired); the session name arrives via cfg (key "session").
+	OrchestratorFactory func(ctx context.Context, cfg PluginConfig, mem Memory) (Orchestrator, error)
 )
 
 // Plugin is what a plugin declares about itself. Exactly one factory is non-nil,
 // consistent with Manifest.Category.
 type Plugin struct {
-	Manifest Manifest
-	Gateway  GatewayFactory // set iff Manifest.Category == CategoryGateway
-	Backend  BackendFactory // set iff Manifest.Category == CategoryBackend
-	Memory   MemoryFactory  // set iff Manifest.Category == CategoryMemory
+	Manifest     Manifest
+	Gateway      GatewayFactory      // set iff Manifest.Category == CategoryGateway
+	Backend      BackendFactory      // set iff Manifest.Category == CategoryBackend
+	Memory       MemoryFactory       // set iff Manifest.Category == CategoryMemory
+	Orchestrator OrchestratorFactory // set iff Manifest.Category == CategoryOrchestrator
 }
 
 // Registry collects plugins and queries them by category. Plugins self-register
@@ -65,9 +70,10 @@ func (r *Registry) byCategory(c Category) []Plugin {
 	return out
 }
 
-func (r *Registry) Gateways() []Plugin { return r.byCategory(CategoryGateway) }
-func (r *Registry) Backends() []Plugin { return r.byCategory(CategoryBackend) }
-func (r *Registry) Memories() []Plugin { return r.byCategory(CategoryMemory) }
+func (r *Registry) Gateways() []Plugin      { return r.byCategory(CategoryGateway) }
+func (r *Registry) Backends() []Plugin      { return r.byCategory(CategoryBackend) }
+func (r *Registry) Memories() []Plugin      { return r.byCategory(CategoryMemory) }
+func (r *Registry) Orchestrators() []Plugin { return r.byCategory(CategoryOrchestrator) }
 
 // Default is the global registry plugins self-register into via init(). Precedent
 // in the stdlib: image.RegisterFormat, database/sql.Register. A blank import of a
