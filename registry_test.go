@@ -45,3 +45,23 @@ func TestPluginConfigGet(t *testing.T) {
 		t.Fatalf("Get returned wrong value")
 	}
 }
+
+func TestRegistryIsolatesMemory(t *testing.T) {
+	var r Registry
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "obsidian", Category: CategoryMemory},
+		Memory:   func(context.Context, PluginConfig) (Memory, error) { return nil, nil },
+	})
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, nil },
+	})
+
+	got := r.Memories()
+	if len(got) != 1 || got[0].Manifest.Kind != "obsidian" {
+		t.Fatalf("Memories() did not isolate the memory plugin: %+v", got)
+	}
+	if len(r.Backends()) != 1 {
+		t.Fatalf("Backends() should still see exactly one backend")
+	}
+}
