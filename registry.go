@@ -34,6 +34,7 @@ type GatewaySet struct {
 type (
 	GatewayFactory func(ctx context.Context, cfg PluginConfig) (GatewaySet, error)
 	BackendFactory func(ctx context.Context, cfg PluginConfig) (Backend, error)
+	MemoryFactory  func(ctx context.Context, cfg PluginConfig) (Memory, error)
 )
 
 // Plugin is what a plugin declares about itself. Exactly one factory is non-nil,
@@ -42,6 +43,7 @@ type Plugin struct {
 	Manifest Manifest
 	Gateway  GatewayFactory // set iff Manifest.Category == CategoryGateway
 	Backend  BackendFactory // set iff Manifest.Category == CategoryBackend
+	Memory   MemoryFactory  // set iff Manifest.Category == CategoryMemory
 }
 
 // Registry collects plugins and queries them by category. Plugins self-register
@@ -63,8 +65,9 @@ func (r *Registry) byCategory(c Category) []Plugin {
 	return out
 }
 
-func (r *Registry) Gateways() []Plugin { return r.byCategory(CategoryGateway) }
-func (r *Registry) Backends() []Plugin { return r.byCategory(CategoryBackend) }
+func (r *Registry) Gateways() []Plugin  { return r.byCategory(CategoryGateway) }
+func (r *Registry) Backends() []Plugin  { return r.byCategory(CategoryBackend) }
+func (r *Registry) Memories() []Plugin  { return r.byCategory(CategoryMemory) }
 
 // Default is the global registry plugins self-register into via init(). Precedent
 // in the stdlib: image.RegisterFormat, database/sql.Register. A blank import of a
