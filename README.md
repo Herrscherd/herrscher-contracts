@@ -210,7 +210,7 @@ deliberately identical so the migration is a transport change, not a contract ch
 ## Using it
 
 ```go
-import "github.com/Akayashuu/herrscher-contracts"
+import "github.com/Herrscherd/herrscher-contracts"
 ```
 
 You don't run this module — you implement its interfaces. A backend implements
