@@ -15,11 +15,26 @@ func (c PluginConfig) Get(key string) string {
 	return c.Settings[key]
 }
 
+// GatewaySet is the coherent channel a gateway plugin provides to the host: the
+// outbound messaging port plus every port the daemon and bridge loops need,
+// all built from one PluginConfig. Optional ports (Reader, Admin, Registrar,
+// Prober) may be nil; the host degrades. This is what lets "add a plugin = blank
+// import + rebuild": the host instantiates a GatewaySet from the registry and
+// drives it without any plugin-specific wiring.
+type GatewaySet struct {
+	Gateway   Gateway
+	Source    ChannelSource
+	Reader    ChannelReader
+	Admin     ChannelAdmin
+	Registrar CommandRegistrar
+	Prober    Prober
+}
+
 // GatewayFactory and BackendFactory build a live plugin instance from runtime
 // config. Registering a factory (not an instance) is what lets a plugin announce
 // itself in init() before any token/command is known — the xcaddy pattern.
 type (
-	GatewayFactory func(ctx context.Context, cfg PluginConfig) (Gateway, error)
+	GatewayFactory func(ctx context.Context, cfg PluginConfig) (GatewaySet, error)
 	BackendFactory func(ctx context.Context, cfg PluginConfig) (Backend, error)
 )
 
