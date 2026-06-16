@@ -8,22 +8,14 @@ type Channel struct {
 	Name string
 }
 
-// CommandSource is a gateway's stream of inbound commands feeding the host
+// ChannelSource is a gateway's stream of inbound commands feeding the host
 // dispatch loop. Run connects and pushes onto Commands until ctx is cancelled or
-// the connection drops (returning an error so the host can reconnect).
-type CommandSource interface {
+// the connection drops (returning an error so the host can reconnect). Each
+// InboundCommand carries its own neutral Responder, so the host answers without
+// any platform token.
+type ChannelSource interface {
 	Run(ctx context.Context) error
 	Commands() <-chan InboundCommand
-}
-
-// CommandResponder answers an inbound command, addressed by its ResponseToken.
-// Slow returns whether a command needs the ack-then-edit (deferred) path.
-type CommandResponder interface {
-	Defer(ctx context.Context, tok ResponseToken, private bool) error
-	Respond(ctx context.Context, tok ResponseToken, resp CommandResponse) error
-	Edit(ctx context.Context, tok ResponseToken, resp CommandResponse) error
-	Autocomplete(ctx context.Context, tok ResponseToken, choices []AutocompleteChoice) error
-	AckComponent(ctx context.Context, tok ResponseToken, content string) error
 }
 
 // CommandRegistrar publishes the host's command surface to the gateway.
@@ -36,22 +28,35 @@ type Prober interface {
 	Probe(ctx context.Context) (latencyMS int64, err error)
 }
 
-// StatusReporter maintains a single self-updating status message, returning the
-// (possibly new) message id to persist.
-type StatusReporter interface {
-	Upsert(ctx context.Context, prevID, content string) (string, error)
-}
-
-// Platform is what the bridge loop needs from a chat platform beyond outbound
-// messaging (Gateway): reading a conversation, channel bootstrap, reaction
-// removal, the self-updating progress message, and a routed select menu whose
-// clicks return to the named session.
-type Platform interface {
+// ChannelReader is the neutral read/lifecycle side of a channel port: presence,
+// the default conversation, channel bootstrap, history reads, reaction removal,
+// and the single self-updating status message. A gateway that drives the bridge
+// and the status loop implements it alongside Gateway. Optional: a gateway that
+// only emits messages may omit it (the host degrades).
+type ChannelReader interface {
 	Enabled() bool
 	DefaultChannel() string
 	EnsureChannel(ctx context.Context, parentID, name string) (Channel, error)
 	Read(ctx context.Context, channelID string, limit int, after string) ([]Message, error)
 	Unreact(ctx context.Context, channelID, messageID, emoji string) error
 	UpsertStatusMessage(ctx context.Context, channelID, messageID, content string) (string, error)
-	SendSelectMenu(ctx context.Context, channelID, replyTo, content, session string, opts []Choice) (MessageID, error)
+}
+
+// MenuRouter is an optional channel capability: post an interactive menu whose
+// picks are delivered back to a named neutral route (e.g. a session) rather than
+// to the channel the menu lives in. The plugin owns how a pick is encoded and
+// surfaced again as a KindChoicePick whose CustomID is this route — contracts
+// never sees the wire encoding.
+type MenuRouter interface {
+	RouteMenu(ctx context.Context, channelID, replyTo, prompt, route string, opts []Choice) (MessageID, error)
+}
+
+// ChannelAdmin is the optional channel-management capability the manager needs to
+// create/archive session channels and post into them.
+type ChannelAdmin interface {
+	Kind(ctx context.Context, id string) (string, error)
+	CreateUnder(ctx context.Context, parentID, name string) (channelID string, err error)
+	ForumPost(ctx context.Context, forumID, name, content string) (channelID string, err error)
+	Archive(ctx context.Context, id string) error
+	Send(ctx context.Context, channelID, content string) error
 }

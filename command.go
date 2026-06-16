@@ -1,5 +1,7 @@
 package contracts
 
+import "context"
+
 // Command is a platform-agnostic slash-command invocation routed to the manager.
 type Command struct {
 	Invoker string
@@ -98,31 +100,40 @@ type CommandResponse struct {
 	Private bool
 }
 
-// CommandKind classifies an inbound command delivered by a CommandSource.
+// CommandKind classifies an inbound command a ChannelSource delivers.
+//   - KindCommand: a regular command invocation the host handles and answers.
+//   - KindChoicePick: the user picked an option from a routed menu; CustomID
+//     carries the resolved route (e.g. a session name), Values the pick(s).
+//   - KindSuggest: a partial-input suggestion request (autocomplete); the host
+//     answers with Responder.Suggest.
 type CommandKind int
 
 const (
-	KindSlash CommandKind = iota
-	KindComponent
-	KindAutocomplete
+	KindCommand CommandKind = iota
+	KindChoicePick
+	KindSuggest
 )
 
-// ResponseToken is an opaque, gateway-private handle correlating an inbound
-// command to its eventual response. The host shuttles it back to the responder
-// without inspecting it (the Discord adapter packs the interaction id+token).
-type ResponseToken any
-
-// InboundCommand is one command a CommandSource delivers to the host dispatch
-// loop. For KindComponent the Command's CustomID carries the resolved target
-// (e.g. a session name) and Values the picked value(s).
-type InboundCommand struct {
-	Kind    CommandKind
-	Command Command
-	Token   ResponseToken
+// Responder answers one inbound command. It is the neutral reply intent: the
+// host declares WHAT to say and whether the work is slow; the plugin decides HOW
+// (e.g. Discord's ack-then-edit defer dance, ephemeral flags, menu rendering)
+// entirely inside its own implementation. The host never sees a response token
+// or any platform mechanic.
+type Responder interface {
+	// Respond answers the command. When slow is true, produce runs after the
+	// plugin has acknowledged within the platform's callback deadline (the plugin
+	// owns that ack-then-edit detail); otherwise produce runs inline.
+	Respond(ctx context.Context, slow bool, produce func(context.Context) CommandResponse) error
+	// Suggest answers a KindSuggest request with completion choices.
+	Suggest(ctx context.Context, choices []Choice) error
+	// AckPick acknowledges a KindChoicePick with a short confirmation line.
+	AckPick(ctx context.Context, content string) error
 }
 
-// AutocompleteChoice is one suggestion for an autocomplete request.
-type AutocompleteChoice struct {
-	Label string
-	Value string
+// InboundCommand is one command a ChannelSource delivers to the host dispatch
+// loop, carrying the per-command Responder used to answer it.
+type InboundCommand struct {
+	Kind      CommandKind
+	Command   Command
+	Responder Responder
 }

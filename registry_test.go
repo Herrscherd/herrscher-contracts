@@ -12,7 +12,7 @@ func TestRegistryFiltersByCategory(t *testing.T) {
 	}
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "discord", Category: CategoryGateway},
-		Gateway:  func(context.Context, PluginConfig) (Gateway, error) { return nil, nil },
+		Gateway:  func(context.Context, PluginConfig) (GatewaySet, error) { return GatewaySet{}, nil },
 	})
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
