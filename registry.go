@@ -65,9 +65,9 @@ func (r *Registry) byCategory(c Category) []Plugin {
 	return out
 }
 
-func (r *Registry) Gateways() []Plugin  { return r.byCategory(CategoryGateway) }
-func (r *Registry) Backends() []Plugin  { return r.byCategory(CategoryBackend) }
-func (r *Registry) Memories() []Plugin  { return r.byCategory(CategoryMemory) }
+func (r *Registry) Gateways() []Plugin { return r.byCategory(CategoryGateway) }
+func (r *Registry) Backends() []Plugin { return r.byCategory(CategoryBackend) }
+func (r *Registry) Memories() []Plugin { return r.byCategory(CategoryMemory) }
 
 // Default is the global registry plugins self-register into via init(). Precedent
 // in the stdlib: image.RegisterFormat, database/sql.Register. A blank import of a

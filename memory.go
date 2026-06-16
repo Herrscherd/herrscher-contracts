@@ -73,11 +73,9 @@ type Memory interface {
 	Close() error
 }
 
-// CurationHook is the SEAM for proactive curation — the "nudge" that decides what
-// to record, when, and in what form (select → summarize → Record). It is declared
-// here but DELIBERATELY NOT IMPLEMENTED: the future Orchestrator implements it and
-// drives Memory.Record. Keeping it out of the Memory interface preserves the port
-// as passive verbs only.
+// CurationHook is the seam for proactive curation; the Orchestrator implements it
+// and drives Memory.Record — it is deliberately not implemented by the Memory port,
+// which stays passive verbs only.
 type CurationHook interface {
 	Consolidate(ctx context.Context) error
 }

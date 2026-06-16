@@ -14,7 +14,10 @@ type recMemory struct {
 func (m *recMemory) Recall(_ context.Context, key string, _ int) (Subgraph, error) {
 	return Subgraph{Root: Node{Key: key}}, nil
 }
-func (m *recMemory) Record(_ context.Context, n Node) error { m.recorded = append(m.recorded, n); return nil }
+func (m *recMemory) Record(_ context.Context, n Node) error {
+	m.recorded = append(m.recorded, n)
+	return nil
+}
 func (m *recMemory) Search(_ context.Context, _ Query) ([]Node, error) { return nil, nil }
 func (m *recMemory) Links(_ context.Context, _, _, _ string) error     { return nil }
 func (m *recMemory) Close() error                                      { m.closed = true; return nil }
