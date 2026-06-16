@@ -14,8 +14,8 @@ type Backend interface {
 // Prompt is the platform-neutral input a backend answers: the message text, who
 // sent it, its identity, and local filesystem paths to any attachments already
 // downloaded for the backend to reference. Context carries memory-recalled
-// background (empty when no Memory plugin is wired) that the backend prepends to
-// the turn so the model answers with continuity — it is not the user's words.
+// background (empty when no Memory plugin is wired) — data the backend fences
+// into the turn for continuity, never the user's instructions.
 type Prompt struct {
 	Content     string
 	Context     string
