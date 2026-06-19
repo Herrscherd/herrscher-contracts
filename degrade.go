@@ -45,3 +45,14 @@ func (d degrading) Menu(ctx context.Context, conv Conversation, replyTo MessageI
 	}
 	return d.g.Menu(ctx, conv, replyTo, prompt, opts)
 }
+
+// BindSessionControl forwards the runtime session controller to the wrapped
+// gateway when it drives the session lifecycle itself (e.g. slash commands).
+// Degradation never hides this capability, so the host's SessionControlReceiver
+// assertion succeeds even on a wrapped gateway; gateways that don't want it
+// simply aren't SessionControlReceivers underneath and the call is a no-op.
+func (d degrading) BindSessionControl(c SessionControl) {
+	if r, ok := d.g.(SessionControlReceiver); ok {
+		r.BindSessionControl(c)
+	}
+}
