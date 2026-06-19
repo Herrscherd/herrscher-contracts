@@ -6,25 +6,23 @@ narrow waist that lets the core stay ignorant of *which* chat platform delivers 
 message and *which* model answers it.
 
 - **Zero dependencies** — only the Go standard library.
-- **Zero logic** — type definitions plus one thin decorator (`Degrade`).
+- **Almost zero logic** — type definitions plus two thin helpers (`Degrade`, `Resolve`).
 - **Consumer-defined ports** — the interfaces are written from the point of view of
   the code that *calls* them (the core), not the code that implements them. Adapters
   satisfy them structurally; they never import each other.
 
-> Part of the [Herrscher](../herrscher-host/README.md) family:
-> **contracts** · [core](../herrscher-core/README.md) ·
-> [claude-backend](../herrscher-claude-backend/README.md) ·
-> [discord-gateway](../herrscher-discord-gateway/README.md) ·
-> [host](../herrscher-host/README.md)
+> Part of the Herrscher family: **contracts** ·
+> [herrscher](https://github.com/Herrscherd/herrscher) (the umbrella binary: core +
+> daemon + CLI + bridge) · [discord-gateway](https://github.com/Herrscherd/herrscher-discord-gateway).
 
 ---
 
 ## Why a separate repo
 
 Hexagonal architecture lives or dies on one rule: **the domain depends on
-abstractions, never on concretions.** If `core` imported the Discord adapter or the
-Claude backend, swapping either would mean editing the core. Instead, all three
-depend *only* on `contracts`:
+abstractions, never on concretions.** If the core imported the Discord adapter or a
+model backend, swapping either would mean editing the core. Instead every plugin and
+the core depend *only* on `contracts`:
 
 ```
 core ───► contracts ◄─── claude-backend
@@ -56,25 +54,21 @@ type Backend interface {
 | Type | Purpose |
 |------|---------|
 | `Prompt` | Platform-neutral input: `Content`, `Author`, `MessageID`, `ChannelID`, `Attachments []string` (local file paths). |
-| `BackendEvent` | One intermediate occurrence in a turn. `Kind` is `"tool"`, `"text"`, `"result"`, or `"reset"`; carries `Tool`, `Detail`, `Cost`, `IsError`. |
+| `BackendEvent` | One intermediate occurrence in a turn: `Kind` (`"tool"`/`"text"`/`"result"`/`"reset"`), plus `Tool`, `Detail`, `Cost`, `IsError`. |
 | `PendingChoice` | An interactive selection a backend is blocked on (`Question` + `[]Choice`). |
 
 Two optional capability interfaces let a backend pause on an interactive choice
 (e.g. a tool-permission prompt), serialized with its normal turns:
 
 ```go
-type ChoiceAware interface {
-    PendingChoice() (PendingChoice, bool)
-}
-type ChoiceInjector interface {
-    InjectChoice(ctx context.Context, value string) (string, error)
-}
+type ChoiceAware interface  { PendingChoice() (PendingChoice, bool) }
+type ChoiceInjector interface { InjectChoice(ctx context.Context, value string) (string, error) }
 ```
 
 ### Gateway port — the channel edge (`gateway.go`)
 
-A chat-platform plugin. The manager always calls the rich method; a decorator
-(`Degrade`) downgrades any action the plugin doesn't advertise.
+A chat-platform plugin. The manager always calls the rich method; the degrading
+decorator downgrades any action the plugin doesn't advertise.
 
 ```go
 type Gateway interface {
@@ -86,68 +80,116 @@ type Gateway interface {
 }
 ```
 
----
-
-## Host-facing ports (`host.go`)
-
-The always-on daemon needs more than a Gateway. These ports split the platform into
-small, independently-implementable surfaces:
-
-| Port | Method(s) | Role |
-|------|-----------|------|
-| `CommandSource` | `Run`, `Commands() <-chan InboundCommand` | Connects to the platform and streams inbound slash/component/autocomplete commands. |
-| `CommandResponder` | `Defer`, `Respond`, `Edit`, `Autocomplete`, `AckComponent` | Replies to an interaction by its opaque `ResponseToken`. |
-| `CommandRegistrar` | `Register` | Publishes the slash-command tree. |
-| `Prober` | `Probe() (latencyMS, err)` | Cheap round-trip for health. |
-| `StatusReporter` | `Upsert(prevID, content)` | Maintains a self-updating status message. |
-| `Platform` | `Read`, `EnsureChannel`, `Unreact`, `SendSelectMenu`, … | The bridge's view of a channel: read history, post menus, manage reactions. |
-
-`Liveness` (`liveness.go`) is a transport-level keepalive sink (`HeartbeatAck`).
+`Inbound` is a message arriving from a gateway into the manager (conversation,
+author, text, attachments, message id).
 
 ---
 
-## Commands (`command.go`)
+## Session control — the operator seam (`session_control.go`)
 
-A platform-agnostic model of a slash command, a clicked component, or an
-autocomplete request.
+This is how a gateway drives the running daemon's session lifecycle **without the
+core ever learning the gateway's command surface**. The hub implements
+`SessionControl`; a gateway receives it (via `SessionControlReceiver`) and calls it
+from its own command handlers, formatting its platform input (e.g. a Discord slash
+interaction) into a **neutral argv**.
 
 ```go
-type Command struct {
-    Invoker string
-    Data    CommandData
+type SessionControl interface {
+    Dispatch(ctx context.Context, args []string) (string, error) // {"session","create","--name","foo"}
+    Sessions() []SessionInfo
 }
 
-type CommandData struct {
-    Name     string
-    Options  []Option   // recursive: subcommands & groups nest here
-    CustomID string     // component interactions
-    Values   []string   // component selected value(s)
+type SessionControlReceiver interface {
+    BindSessionControl(SessionControl)
 }
 ```
 
-`CommandData` carries helpers so the core can read the option tree without knowing
-the platform's wire format:
+`Dispatch` runs one operator command over the same vocabulary the CLI uses and, for
+lifecycle changes, brings the affected sessions live (or tears them down) in the
+hub. `Sessions()` returns `[]SessionInfo` snapshots so a gateway can enumerate them
+(e.g. to autocomplete a session name). After the hub is built, the host calls
+`BindSessionControl` once on any Gateway that implements the receiver — the host
+never knows what the gateway does with it.
 
-- `Opt(name) (string, bool)` — recursive string lookup
-- `OptBool(name) bool` — recursive bool lookup
-- `Focused() (name, value, ok)` — the option being autocompleted
-- `Subcommand() (string, []Option)` — the first subcommand and its options
+---
 
-`InboundCommand{Kind, Command, Token}` bundles one command with its
-gateway-private `ResponseToken`. `CommandKind` is `KindSlash`, `KindComponent`, or
-`KindAutocomplete`. `OptionType` distinguishes `OptSubcommand` from
-`OptSubcommandGroup`.
+## The session event bus (`event.go`)
+
+`Event` is one message on the session bus: the bridge (a pure backend runner) emits
+turn events (`human`/`status`/`chunk`/`reply`/`reset`) for the hub to fan out, and
+the hub injects `input`/`pick` down to the bridge. One `Event` encodes to exactly one
+JSON line. The terminal reply carries the turn `Cost` (USD) so a renderer can show it.
+
+```go
+type EventSink interface { Emit(Event) }
+```
+
+`EventSink` is an optional gateway capability: a gateway that renders the live turn
+stream itself (the terminal TUI does) implements it and the hub fans every event to
+it; a gateway without it is driven by the host's default renderer over the
+Gateway/ChannelReader ports.
+
+---
+
+## Host-facing channel ports (`host.go`)
+
+The always-on daemon needs more than outbound messaging. These ports split the
+channel into small, independently-implementable surfaces; optional ones may be nil
+and the host degrades.
+
+| Port | Method(s) | Role |
+|------|-----------|------|
+| `Prober` | `Probe` | Cheap round-trip for health latency. |
+| `ChannelReader` | `Enabled`, `DefaultChannel`, `EnsureChannel`, `Read`, `Unreact`, `UpsertStatusMessage` | Read/lifecycle side: presence, default conversation, bootstrap, history, reaction removal, the single self-updating status message. |
+| `MenuRouter` | `RouteMenu` | Optional: post a menu whose picks route back to a named neutral route (e.g. a session), not the channel it lives in. |
+| `ChannelAdmin` | `Kind`, `CreateUnder`, `ForumPost`, `Archive`, `Send` | Create/archive session channels and post into them. |
+
+`Channel{ID, Name}` identifies a conversation a gateway can create or reuse.
+
+---
+
+## The command API (`command_api.go`)
+
+`Cmd` is the one neutral command concept the platform exposes: a namespaced `Path`,
+its `Params`, and an opaque `Run` handler. A command is declared once and a *format*
+(the CLI today, a gateway binding later) resolves an invocation to it; the registry
+that holds the `Cmd` stays agnostic of whatever `Run` closes over.
+
+```go
+cmd := contracts.New("session", "create").
+    Help("create a session").
+    Param("name", "session name", true).
+    Do(func(ctx context.Context, in contracts.Input) (string, error) { ... })
+```
+
+`Input{Args, Rest}` is the parsed, format-agnostic invocation handed to a handler
+(`Lookup`, `Get`, `Bool` accessors). `Param` declares one input; required params
+missing at dispatch are an error.
 
 ---
 
 ## Conversation & messages
 
 `Conversation{Gateway, ID}` (`conversation.go`) is an opaque, comparable address
-into a chat platform — usable as a map key (`Conversation → SessionID`).
-`SessionID` and `MessageID` are string aliases. `Choice{Label, Value}` and
-`Attachment{Filename, URL, ContentType, Size}` are the neutral selection and file
-primitives. `Message` (`message.go`) is the inbound envelope with full author
-metadata and attachments.
+into a chat platform — usable as a map key. `SessionID` and `MessageID` are string
+aliases. `Choice{Label, Value}` and `Attachment{Filename, URL, ContentType, Size}`
+are the neutral selection and file primitives. `Message` (`message.go`) is the
+inbound envelope with author metadata and attachments.
+
+---
+
+## Memory & orchestration (`memory.go`, `orchestrator.go`)
+
+`Memory` is the persistent-recall port: a storage-neutral knowledge graph of `Node`s
+(stable `Key`, `Kind`, markdown `Title`/`Body`, typed `Links`, flat `Meta`) with
+passive verbs `Recall`/`Record`/`Search`/`Links`/`Close`. The structural spine is
+`KindOrganization → KindProject → KindRepo`/`KindServer` plus documentary kinds.
+
+`Orchestrator` is the conversation-policy port: session-scoped, the host drives it
+around each turn (`Context` primes the next prompt, `Observe` records the finished
+turn) and it owns the curation strategy over `Memory`. Proactive curation lives
+behind `CurationHook.Consolidate` — implemented by the Orchestrator, never by the
+passive `Memory` port.
 
 ---
 
@@ -158,20 +200,14 @@ A plugin announces what it can do (`manifest.go`):
 ```go
 type Manifest struct {
     Kind         string
-    Category     Category      // "gateway" | "backend" | "memory" | "orchestrator"
-    Capabilities Capabilities
-}
-
-type Capabilities struct {
-    Reactions   bool
-    SelectMenus bool
-    Replies     bool
+    Category     Category       // "gateway" | "backend" | "memory" | "orchestrator"
+    Capabilities Capabilities   // Reactions, SelectMenus, Replies
+    Config       []Setting      // every setting the plugin reads
 }
 ```
 
 `Degrade(g Gateway) Gateway` (`degrade.go`) wraps a Gateway so the manager can
-*always* call the richest method while the fallback lives in one place, never in the
-domain:
+*always* call the richest method while the fallback lives in one place:
 
 | Called | If capability missing |
 |--------|----------------------|
@@ -180,13 +216,39 @@ domain:
 | `Menu` | falls back to a numbered-list `Post` |
 | `Post` | always passes through |
 
+The wrapper also **forwards `BindSessionControl`** to the underlying gateway when it
+implements `SessionControlReceiver`, so the session-control seam survives
+degradation.
+
 ---
 
-## Plugin registry (`registry.go`)
+## Plugins, config & registry (`registry.go`, `plugin_settings.go`)
 
-A minimal in-process registry — `RegisterGateway`, `Gateways()` — that stands in for
-what becomes NATS self-registration in a later phase. The `Manifest` shape is
-deliberately identical so the migration is a transport change, not a contract change.
+A gateway plugin hands the host a `GatewaySet{Gateway, Reader, Admin, Prober}` — one
+coherent channel built from one `PluginConfig`. Optional ports may be nil. This is
+what makes "add a plugin = blank import + rebuild": the host instantiates the set
+from the registry and drives it with no plugin-specific wiring.
+
+Plugins register a **factory** (not an instance) so they can announce themselves in
+`init()` before any token is known (the xcaddy pattern):
+
+```go
+type GatewayFactory      func(ctx, cfg PluginConfig) (GatewaySet, error)
+type BackendFactory      func(ctx, cfg PluginConfig) (Backend, error)
+type MemoryFactory       func(ctx, cfg PluginConfig) (Memory, error)
+type OrchestratorFactory func(ctx, cfg PluginConfig, mem Memory) (Orchestrator, error)
+```
+
+`Registry` collects `Plugin`s and queries them by category (`Gateways`/`Backends`/
+`Memories`/`Orchestrators`); plugins self-register into the global `Default` from
+their `init()` and the host queries it at startup. In a later phase the in-process
+registration becomes NATS self-registration with the same `Manifest` and the same
+query surface.
+
+Each plugin declares its config surface as `[]Setting` (neutral `Key`, the `Env` it
+binds from, `Required`, `Default`). `Resolve(settings, getenv)` builds a validated
+`PluginConfig` — a required value still empty fails the daemon at startup with a
+message naming every missing key, rather than surfacing deep inside the plugin.
 
 ---
 
@@ -196,26 +258,36 @@ deliberately identical so the migration is a transport change, not a contract ch
 |------|----------|
 | `backend.go` | `Backend`, `Prompt`, `BackendEvent`, `PendingChoice`, `ChoiceAware`, `ChoiceInjector` |
 | `gateway.go` | `Gateway`, `Inbound` |
-| `host.go` | `CommandSource`, `CommandResponder`, `CommandRegistrar`, `Prober`, `StatusReporter`, `Platform`, `Channel` |
-| `command.go` | `Command`, `CommandData` (+ helpers), `Option`, `CommandResponse`, `InboundCommand`, `AutocompleteChoice`, kinds & option-type constants |
+| `session_control.go` | `SessionControl`, `SessionInfo`, `SessionControlReceiver` |
+| `event.go` | `Event`, `EventSink` |
+| `host.go` | `Channel`, `Prober`, `ChannelReader`, `MenuRouter`, `ChannelAdmin` |
+| `command_api.go` | `Cmd`, `Param`, `Input` (+ accessors), `Builder`, `New` |
 | `conversation.go` | `Conversation`, `Choice`, `Attachment`, `SessionID`, `MessageID` |
 | `message.go` | `Message` |
+| `memory.go` | `Memory`, `Node`, `Link`, `Query`, `Subgraph`, `NodeKind`, `CurationHook` |
+| `orchestrator.go` | `Orchestrator` |
 | `manifest.go` | `Manifest`, `Capabilities`, `Category` |
-| `degrade.go` | `Degrade` decorator |
-| `registry.go` | in-process `Registry` |
-| `liveness.go` | `Liveness` |
+| `plugin_settings.go` | `Setting`, `Resolve` |
+| `registry.go` | `PluginConfig`, `GatewaySet`, factories, `Plugin`, `Registry`, `Default`, `Register` |
+| `degrade.go` | `Degrade` decorator (incl. `BindSessionControl` forwarding) |
+| `liveness.go` | `Liveness` keepalive sink |
 
 ---
 
 ## Using it
 
 ```go
-import "github.com/Herrscherd/herrscher-contracts"
+import contracts "github.com/Herrscherd/herrscher-contracts"
 ```
 
 You don't run this module — you implement its interfaces. A backend implements
-`contracts.Backend`; a platform adapter implements `contracts.Gateway` and the
-host-facing ports; the core consumes all of them. See the
-[core README](../herrscher-core/README.md) for who calls what.
+`contracts.Backend`; a platform adapter provides a `GatewaySet` (a `Gateway` plus the
+host-facing ports); the core consumes all of them.
 
-Go 1.23. No build step, no dependencies.
+Go 1.25. No build step, no dependencies.
+
+```bash
+go build ./...
+go vet ./...
+go test ./...
+```
