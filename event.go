@@ -9,7 +9,7 @@ package contracts
 //	{"t":"human","who":"alice","text":"refactor the env loader"}
 //	{"t":"status","text":"reading envfile.go"}
 //	{"t":"chunk","text":"proposing 3 changes"}
-//	{"t":"reply","text":"done","done":true}
+//	{"t":"reply","text":"done","done":true,"cost":0.0042}
 //	{"t":"input","who":"terminal","text":"apply them"}
 //	{"t":"pick","value":"2"}
 //	{"t":"reset"}  // discard the in-progress turn (backend was reset mid-turn)
@@ -19,6 +19,10 @@ type Event struct {
 	Text  string `json:"text,omitempty"`
 	Value string `json:"value,omitempty"`
 	Done  bool   `json:"done,omitempty"`
+	// Cost is the turn's total cost in USD, carried on the terminal reply
+	// (Done) so the hub can render it in the progress summary. Zero when the
+	// backend reports no cost.
+	Cost float64 `json:"cost,omitempty"`
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live
