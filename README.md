@@ -241,9 +241,12 @@ type OrchestratorFactory func(ctx, cfg PluginConfig, mem Memory) (Orchestrator, 
 
 `Registry` collects `Plugin`s and queries them by category (`Gateways`/`Backends`/
 `Memories`/`Orchestrators`); plugins self-register into the global `Default` from
-their `init()` and the host queries it at startup. In a later phase the in-process
-registration becomes NATS self-registration with the same `Manifest` and the same
-query surface.
+their `init()` and the host queries it at startup. That same `Manifest` and query
+surface now also project **out-of-process**: the released
+[`herrscher-transport`](https://github.com/Herrscherd/herrscher-transport) module
+lets a plugin announce itself over NATS and answer port calls over gRPC, so a
+category can run as a separate process without changing `contracts` — in-process
+stays the default (the `memory` port is carried first).
 
 Each plugin declares its config surface as `[]Setting` (neutral `Key`, the `Env` it
 binds from, `Required`, `Default`). `Resolve(settings, getenv)` builds a validated
