@@ -103,6 +103,27 @@ func TestRecallScopedMergesAndDedups(t *testing.T) {
 	}
 }
 
+func TestRecallScopedDedupsEdges(t *testing.T) {
+	edge := Link{To: "dup", Rel: RelContains}
+	m := &scopeMem{graphs: map[string]Subgraph{
+		"proj": {Root: Node{Key: "proj"}, Edges: []Link{edge}},
+		"ag":   {Root: Node{Key: "ag"}, Edges: []Link{edge}},
+	}}
+	sg, err := RecallScoped(context.Background(), m, MemoryScope{Project: "proj", Agent: "ag"}, 1)
+	if err != nil {
+		t.Fatalf("RecallScoped: %v", err)
+	}
+	n := 0
+	for _, e := range sg.Edges {
+		if e == edge {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("identical edge not de-duplicated: appears %d times", n)
+	}
+}
+
 func TestRecallScopedSharedOnlyWithoutAgent(t *testing.T) {
 	m := &scopeMem{graphs: map[string]Subgraph{
 		"proj": {Root: Node{Key: "proj"}, Nodes: []Node{{Key: "fact"}}},
