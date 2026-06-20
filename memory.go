@@ -3,7 +3,8 @@ package contracts
 import "context"
 
 // NodeKind classifies a memory node. The structural spine
-// (Organization → Project → Repo/Server) plus the documentary kinds.
+// (Organization → Project → Repo/Server) plus the documentary kinds, and the
+// durable Agent node that anchors per-agent private memory (see MemoryScope).
 type NodeKind string
 
 const (
@@ -16,6 +17,10 @@ const (
 	KindSession      NodeKind = "session"
 	KindDecision     NodeKind = "decision"
 	KindUser         NodeKind = "user"
+	// KindAgent is a durable companion. A game's shared memory hangs under its
+	// Project node; an agent's learned skills hang under its own Agent node, so
+	// the same graph carries both shared and private memory (see MemoryScope).
+	KindAgent NodeKind = "agent"
 )
 
 // Link is a directed, typed edge to another node, identified by its Key.
