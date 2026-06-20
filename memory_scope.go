@@ -79,7 +79,15 @@ func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	add(shared.Root, private.Root)
 	add(shared.Nodes...)
 	add(private.Nodes...)
-	out.Edges = append(out.Edges, shared.Edges...)
-	out.Edges = append(out.Edges, private.Edges...)
+	// Edges are deduplicated by value too: an identical (To, Rel) link present in
+	// both subgraphs is redundant, and would otherwise double up in the merge.
+	seenEdge := map[Link]bool{}
+	for _, e := range append(append([]Link{}, shared.Edges...), private.Edges...) {
+		if seenEdge[e] {
+			continue
+		}
+		seenEdge[e] = true
+		out.Edges = append(out.Edges, e)
+	}
 	return out
 }
