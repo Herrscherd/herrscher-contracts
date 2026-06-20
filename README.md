@@ -183,7 +183,22 @@ inbound envelope with author metadata and attachments.
 `Memory` is the persistent-recall port: a storage-neutral knowledge graph of `Node`s
 (stable `Key`, `Kind`, markdown `Title`/`Body`, typed `Links`, flat `Meta`) with
 passive verbs `Recall`/`Record`/`Search`/`Links`/`Close`. The structural spine is
-`KindOrganization → KindProject → KindRepo`/`KindServer` plus documentary kinds.
+`KindOrganization → KindProject → KindRepo`/`KindServer` plus `KindAgent` (a
+durable companion that anchors per-agent private memory) and documentary kinds.
+
+### Memory scope — shared vs private (P1, `memory_scope.go`)
+
+`MemoryScope{Project, Agent}` is the sharing **policy over the existing graph** —
+not a new port. A game's durable memory hangs under the shared `Project` node
+(every agent of the game recalls it); an agent's learned skills hang under its
+own `Agent` node (private to that agent). Composable helpers build on the plain
+`Memory` verbs:
+
+| Helper | Effect |
+|--------|--------|
+| `RecordShared(ctx, m, scope, n)` | upsert `n`, link it under the project root (visible to all agents). |
+| `RecordPrivate(ctx, m, scope, n)` | upsert `n`, link it under the agent root; falls back to **shared** when `scope.Agent == ""` so a fact is never dropped. |
+| `RecallScoped(ctx, m, scope, depth)` | merge the shared + private subgraphs, de-duplicated by node `Key` and by edge value; shared-only when there is no agent. |
 
 `Orchestrator` is the conversation-policy port: session-scoped, the host drives it
 around each turn (`Context` primes the next prompt, `Observe` records the finished
