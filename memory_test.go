@@ -40,9 +40,10 @@ func TestNodeKindConstants(t *testing.T) {
 	kinds := []NodeKind{
 		KindOrganization, KindProject, KindRepo, KindServer,
 		KindArchitecture, KindProduction, KindSession, KindDecision, KindUser,
+		KindAgent,
 	}
-	if len(kinds) != 9 {
-		t.Fatalf("expected 9 node kinds, got %d", len(kinds))
+	if len(kinds) != 10 {
+		t.Fatalf("expected 10 node kinds, got %d", len(kinds))
 	}
 }
 
