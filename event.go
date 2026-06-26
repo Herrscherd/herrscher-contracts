@@ -28,8 +28,8 @@ type Event struct {
 // EventSink is an optional gateway capability: a gateway that renders the live
 // turn event stream itself (the terminal TUI does) implements it. The hub fans
 // every turn event to each bound gateway implementing EventSink; a gateway
-// without it is driven by the host's default renderer, which posts the final
-// reply (and a progress view) through the Gateway/ChannelReader ports.
+// without it is driven by the host's default path, which posts only the final
+// reply (chunked) through the Gateway port — no platform-specific rendering.
 type EventSink interface {
 	Emit(Event)
 }
