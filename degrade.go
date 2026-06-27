@@ -56,3 +56,19 @@ func (d degrading) BindSessionControl(c SessionControl) {
 		r.BindSessionControl(c)
 	}
 }
+
+func (d degrading) Emit(e Event) {
+	if s, ok := d.g.(EventSink); ok {
+		s.Emit(e)
+	}
+}
+
+func (d degrading) EmitTo(conv Conversation, e Event) {
+	if s, ok := d.g.(RoutedEventSink); ok {
+		s.EmitTo(conv, e)
+		return
+	}
+	if s, ok := d.g.(EventSink); ok {
+		s.Emit(e) // inner renders unrouted; acceptable for single-conversation gateways
+	}
+}
