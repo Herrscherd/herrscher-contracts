@@ -57,12 +57,14 @@ func (d degrading) BindSessionControl(c SessionControl) {
 	}
 }
 
+// Emit forwards to the inner gateway when it implements EventSink; otherwise a no-op.
 func (d degrading) Emit(e Event) {
 	if s, ok := d.g.(EventSink); ok {
 		s.Emit(e)
 	}
 }
 
+// EmitTo forwards to the inner RoutedEventSink; if the inner is only an EventSink it falls back to an unrouted Emit; otherwise a no-op.
 func (d degrading) EmitTo(conv Conversation, e Event) {
 	if s, ok := d.g.(RoutedEventSink); ok {
 		s.EmitTo(conv, e)
