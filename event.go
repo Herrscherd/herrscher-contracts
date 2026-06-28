@@ -33,3 +33,13 @@ type Event struct {
 type EventSink interface {
 	Emit(Event)
 }
+
+// RoutedEventSink is an optional gateway capability for a gateway that renders
+// more than one conversation's live stream itself (the multi-session terminal
+// TUI). When a gateway implements it the hub prefers it over EventSink and tags
+// each event with the destination Conversation, so the gateway can demultiplex
+// the streams of every session bound to it. A gateway that implements only
+// EventSink (or neither) is unaffected.
+type RoutedEventSink interface {
+	EmitTo(conv Conversation, e Event)
+}
