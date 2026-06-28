@@ -6,6 +6,44 @@ import (
 	"testing"
 )
 
+// recordingSink is a Gateway that also records routed/plain sink calls.
+type recordingSink struct {
+	plain  []Event
+	routed []Conversation
+}
+
+func (r *recordingSink) Manifest() Manifest { return Manifest{Kind: "rec"} }
+func (r *recordingSink) Post(context.Context, Conversation, string) (MessageID, error) {
+	return "", nil
+}
+func (r *recordingSink) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
+	return "", nil
+}
+func (r *recordingSink) React(context.Context, Conversation, MessageID, string) error { return nil }
+func (r *recordingSink) Menu(context.Context, Conversation, MessageID, string, []Choice) error {
+	return nil
+}
+func (r *recordingSink) Emit(e Event)                   { r.plain = append(r.plain, e) }
+func (r *recordingSink) EmitTo(c Conversation, _ Event) { r.routed = append(r.routed, c) }
+
+// plainSink is a Gateway that only implements EventSink (not RoutedEventSink).
+type plainSink struct {
+	calls []Event
+}
+
+func (p *plainSink) Manifest() Manifest { return Manifest{Kind: "plain"} }
+func (p *plainSink) Post(context.Context, Conversation, string) (MessageID, error) {
+	return "", nil
+}
+func (p *plainSink) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
+	return "", nil
+}
+func (p *plainSink) React(context.Context, Conversation, MessageID, string) error { return nil }
+func (p *plainSink) Menu(context.Context, Conversation, MessageID, string, []Choice) error {
+	return nil
+}
+func (p *plainSink) Emit(e Event) { p.calls = append(p.calls, e) }
+
 func full() Capabilities { return Capabilities{Reactions: true, SelectMenus: true, Replies: true} }
 
 func TestDegradePassThroughWhenCapable(t *testing.T) {
@@ -57,5 +95,45 @@ func TestDegradeMenuToNumberedList(t *testing.T) {
 	got := rec.posts[0]
 	if !strings.Contains(got, "Choose:") || !strings.Contains(got, "1. Alpha") || !strings.Contains(got, "2. Beta") {
 		t.Fatalf("numbered list malformed: %q", got)
+	}
+}
+
+func TestDegradeForwardsSinks(t *testing.T) {
+	rec := &recordingSink{}
+	d := Degrade(rec)
+
+	es, ok := d.(EventSink)
+	if !ok {
+		t.Fatal("degraded gateway must satisfy EventSink")
+	}
+	es.Emit(Event{T: "chunk", Text: "x"})
+	if len(rec.plain) != 1 {
+		t.Fatalf("Emit not forwarded to inner: %+v", rec.plain)
+	}
+
+	rs, ok := d.(RoutedEventSink)
+	if !ok {
+		t.Fatal("degraded gateway must satisfy RoutedEventSink")
+	}
+	rs.EmitTo(Conversation{Gateway: "rec", ID: "c1"}, Event{T: "reply"})
+	if len(rec.routed) != 1 || rec.routed[0].ID != "c1" {
+		t.Fatalf("EmitTo not forwarded to inner: %+v", rec.routed)
+	}
+}
+
+func TestDegradeEmitToFallsBackToEmit(t *testing.T) {
+	plain := &plainSink{}
+	d := Degrade(plain)
+
+	rs, ok := d.(RoutedEventSink)
+	if !ok {
+		t.Fatal("degraded gateway must satisfy RoutedEventSink")
+	}
+	rs.EmitTo(Conversation{Gateway: "plain", ID: "c1"}, Event{T: "test", Text: "fallback"})
+	if len(plain.calls) != 1 {
+		t.Fatalf("EmitTo should fall back to Emit on plain sink: %+v", plain.calls)
+	}
+	if plain.calls[0].T != "test" || plain.calls[0].Text != "fallback" {
+		t.Fatalf("fallback event malformed: %+v", plain.calls[0])
 	}
 }
