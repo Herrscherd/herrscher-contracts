@@ -43,4 +43,9 @@ type ChannelAdmin interface {
 	ForumPost(ctx context.Context, forumID, name, content string) (channelID string, err error)
 	Archive(ctx context.Context, id string) error
 	Send(ctx context.Context, channelID, content string) error
+	// ChannelRef renders a channel id as the operator-facing reference for this
+	// platform (e.g. Discord's <#id> mention markup, or the bare id for a plain
+	// terminal). The gateway owns its own syntax so the manager never switches on
+	// platform — a new gateway adds rendering without touching core.
+	ChannelRef(id string) string
 }
