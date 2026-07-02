@@ -23,6 +23,12 @@ const (
 	RelAppliesTo = "applies-to" // a skill applies to a project/system
 )
 
+// ProjectKey / AgentKey are the single source of truth for scope-root Keys, so
+// the orchestrator (which derives a MemoryScope) and the provisioners (which
+// create the root nodes) can never drift apart. Scheme: flat, English, no /index.
+func ProjectKey(name string) string { return "projects/" + name }
+func AgentKey(name string) string   { return "agents/" + name }
+
 // RecordShared upserts n and links it under the project root, making it visible
 // to every agent of the game. Use for project memory (decisions, conventions,
 // the Studio tree map, …).
