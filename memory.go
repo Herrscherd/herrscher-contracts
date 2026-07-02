@@ -53,6 +53,11 @@ type Query struct {
 	Kinds []NodeKind
 	Tags  []string
 	Limit int // 0 = no limit
+	// Ranked, when true, asks the Memory to return results score-sorted by
+	// relevance to Text (highest first) instead of storage/walk order. The zero
+	// value (false) preserves the historical unranked behaviour, so existing
+	// callers are unaffected.
+	Ranked bool
 }
 
 // Subgraph is a Recall result: the root node plus every node reachable within the
