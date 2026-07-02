@@ -184,7 +184,9 @@ inbound envelope with author metadata and attachments.
 (stable `Key`, `Kind`, markdown `Title`/`Body`, typed `Links`, flat `Meta`) with
 passive verbs `Recall`/`Record`/`Search`/`Links`/`Close`. The structural spine is
 `KindOrganization → KindProject → KindRepo`/`KindServer` plus `KindAgent` (a
-durable companion that anchors per-agent private memory) and documentary kinds.
+durable companion that anchors per-agent private memory), `KindDomain` (a
+transverse area-of-concern root grouping projects topically), and documentary
+kinds.
 
 ### Memory scope — shared vs private (P1, `memory_scope.go`)
 
