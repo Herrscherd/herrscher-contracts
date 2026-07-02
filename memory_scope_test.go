@@ -136,3 +136,89 @@ func TestRecallScopedSharedOnlyWithoutAgent(t *testing.T) {
 		t.Fatalf("expected shared-only view, got %+v", sg)
 	}
 }
+
+func keysOf(ns []Node) []string {
+	out := make([]string, len(ns))
+	for i, n := range ns {
+		out[i] = n.Key
+	}
+	return out
+}
+
+func TestRecallRelevant_TopKByScoreAcrossScopes(t *testing.T) {
+	m := &scopeMem{graphs: map[string]Subgraph{
+		"proj": {
+			Root:  Node{Key: "proj", Kind: KindProject, Title: "root", Links: []Link{{To: "a", Rel: RelContains}, {To: "b", Rel: RelContains}}},
+			Nodes: []Node{{Key: "a", Kind: KindDecision, Title: "use nats transport"}, {Key: "b", Kind: KindSession, Title: "nats note"}},
+		},
+		"agent": {
+			Root:  Node{Key: "agent", Kind: KindAgent, Title: "me", Links: []Link{{To: "c", Rel: RelContains}}},
+			Nodes: []Node{{Key: "c", Kind: KindSession, Title: "redis cache"}}, // no match
+		},
+	}}
+	s := MemoryScope{Project: "proj", Agent: "agent"}
+
+	got, err := RecallRelevant(context.Background(), m, s, "nats transport", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want top-2, got %d (%v)", len(got), keysOf(got))
+	}
+	if got[0].Key != "a" {
+		t.Fatalf("highest-score node should be 'a', got %q", got[0].Key)
+	}
+	for _, n := range got {
+		if n.Key == "c" {
+			t.Fatal("zero-text-match node 'c' must never appear")
+		}
+	}
+}
+
+func TestRecallRelevant_ProximityBreaksTies(t *testing.T) {
+	// near and far have identical text/kind; near is a direct child of the root.
+	m := &scopeMem{graphs: map[string]Subgraph{
+		"proj": {
+			Root: Node{Key: "proj", Kind: KindProject, Title: "root", Links: []Link{{To: "near", Rel: RelContains}, {To: "mid", Rel: RelContains}}},
+			Nodes: []Node{
+				{Key: "near", Kind: KindDecision, Title: "nats"},
+				{Key: "mid", Kind: KindDecision, Title: "hop", Links: []Link{{To: "far", Rel: RelContains}}},
+				{Key: "far", Kind: KindDecision, Title: "nats"},
+			},
+		},
+	}}
+	s := MemoryScope{Project: "proj"}
+
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Key != "near" {
+		t.Fatalf("nearer node should rank first on tie; got %v", keysOf(got))
+	}
+}
+
+func TestRecallRelevant_ExcludesNonMatchesAndRespectsK(t *testing.T) {
+	m := &scopeMem{graphs: map[string]Subgraph{
+		"proj": {
+			Root: Node{Key: "proj", Kind: KindProject, Title: "root", Links: []Link{{To: "a", Rel: RelContains}, {To: "b", Rel: RelContains}, {To: "c", Rel: RelContains}}},
+			Nodes: []Node{
+				{Key: "a", Kind: KindDecision, Title: "nats one"},
+				{Key: "b", Kind: KindDecision, Title: "nats two nats"},
+				{Key: "c", Kind: KindDecision, Title: "unrelated"},
+			},
+		},
+	}}
+	s := MemoryScope{Project: "proj"}
+
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("k=1 should cap to a single result, got %v", keysOf(got))
+	}
+	if got[0].Key != "b" {
+		t.Fatalf("higher term-frequency node 'b' should win, got %q", got[0].Key)
+	}
+}
