@@ -58,3 +58,9 @@ func TestCurationHookIsImplementable(t *testing.T) {
 		t.Fatalf("Consolidate: %v", err)
 	}
 }
+
+func TestKindDomainConstant(t *testing.T) {
+	if KindDomain != "domain" {
+		t.Fatalf("KindDomain = %q, want %q", KindDomain, "domain")
+	}
+}

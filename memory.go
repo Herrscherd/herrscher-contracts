@@ -21,6 +21,10 @@ const (
 	// Project node; an agent's learned skills hang under its own Agent node, so
 	// the same graph carries both shared and private memory (see MemoryScope).
 	KindAgent NodeKind = "agent"
+	// KindDomain is a transverse area-of-concern root (dev, research, …) grouping
+	// projects and facts topically, above the ownership spine. A project links to
+	// its domain with "in-domain"; a fact carries Meta["domain"] for filtering.
+	KindDomain NodeKind = "domain"
 )
 
 // Link is a directed, typed edge to another node, identified by its Key.
