@@ -93,3 +93,15 @@ type Memory interface {
 type CurationHook interface {
 	Consolidate(ctx context.Context) error
 }
+
+// Provisioner is an optional Memory capability: ensuring the scope-root nodes a
+// MemoryScope points at exist before any Record/Recall runs against them. It is
+// deliberately NOT part of the Memory port — node-creating implementations (the
+// obsidian vault) satisfy it, and callers type-assert, so a remote memory proxy
+// that cannot create roots is simply skipped.
+type Provisioner interface {
+	// EnsureProject ensures the shared KindProject root at key exists (idempotent).
+	EnsureProject(ctx context.Context, key, title string) error
+	// EnsureAgent ensures the private KindAgent root at key exists (idempotent).
+	EnsureAgent(ctx context.Context, key, title string) error
+}
