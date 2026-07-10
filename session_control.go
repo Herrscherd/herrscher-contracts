@@ -47,6 +47,10 @@ type CreateSession struct {
 	Extractor        string
 	Journal          string
 	ConsolidateEvery int
+	// Base is the git ref the new session's worktree branches off (empty = the
+	// default fresh branch). A handoff sets it to the source's session/<A> so B
+	// continues A's committed tip without a merge.
+	Base string
 }
 
 // SessionInfo is a read-only view of a hub session.
