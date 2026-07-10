@@ -51,6 +51,10 @@ type CreateSession struct {
 	// default fresh branch). A handoff sets it to the source's session/<A> so B
 	// continues A's committed tip without a merge.
 	Base string
+	// Parent names the lead session that delegated this one (result-back P3).
+	// Empty = no parent (default; any non-delegated session). The coordinator
+	// uses it to deliver a worker's completion report back to its lead.
+	Parent string
 }
 
 // SessionInfo is a read-only view of a hub session.
