@@ -13,6 +13,7 @@ type fakeCoordinator struct {
 	gotMrg  MergeRequest
 	gotSeal SealRequest
 	gotFan  FanOutRequest
+	gotRoute RouteRequest
 }
 
 func (f *fakeCoordinator) Handoff(_ context.Context, req HandoffRequest) (string, error) {
@@ -43,6 +44,11 @@ func (f *fakeCoordinator) FanOut(_ context.Context, req FanOutRequest) ([]string
 		spawned[i] = req.ToAgent + "-worker"
 	}
 	return spawned, nil
+}
+
+func (f *fakeCoordinator) Route(_ context.Context, req RouteRequest) (string, string, error) {
+	f.gotRoute = req
+	return "picked", req.FromSession + "-routed", nil
 }
 
 func TestCoordinatorPortRoundTrip(t *testing.T) {
@@ -98,6 +104,7 @@ func (mergeStub) Report(context.Context, ReportRequest) (string, error)     { re
 func (mergeStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
 func (mergeStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 func (mergeStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
+func (mergeStub) Route(context.Context, RouteRequest) (string, string, error)  { return "", "", nil }
 
 func TestCoordinatorPortIncludesMerge(t *testing.T) {
 	var _ Coordinator = mergeStub{}
@@ -117,6 +124,7 @@ func (sealStub) Report(context.Context, ReportRequest) (string, error)     { ret
 func (sealStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
 func (sealStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 func (sealStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
+func (sealStub) Route(context.Context, RouteRequest) (string, string, error)   { return "", "", nil }
 
 func TestCoordinatorPortIncludesSeal(t *testing.T) {
 	var _ Coordinator = sealStub{}
@@ -136,11 +144,34 @@ func (fanoutStub) Report(context.Context, ReportRequest) (string, error)     { r
 func (fanoutStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
 func (fanoutStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 func (fanoutStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
+func (fanoutStub) Route(context.Context, RouteRequest) (string, string, error) { return "", "", nil }
 
 func TestCoordinatorPortIncludesFanOut(t *testing.T) {
 	var _ Coordinator = fanoutStub{}
 	req := FanOutRequest{FromSession: "lead", ToAgent: "scripter", Tasks: []string{"a", "b"}}
 	if req.FromSession != "lead" || req.ToAgent != "scripter" || len(req.Tasks) != 2 {
 		t.Fatalf("FanOutRequest fields not wired: %+v", req)
+	}
+}
+
+// routeStub carries the full Coordinator surface (incl. Route) to assert the
+// port shape at compile time.
+type routeStub struct{}
+
+func (routeStub) Handoff(context.Context, HandoffRequest) (string, error)   { return "", nil }
+func (routeStub) Delegate(context.Context, DelegateRequest) (string, error) { return "", nil }
+func (routeStub) Report(context.Context, ReportRequest) (string, error)     { return "", nil }
+func (routeStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
+func (routeStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
+func (routeStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
+func (routeStub) Route(context.Context, RouteRequest) (string, string, error) {
+	return "", "", nil
+}
+
+func TestCoordinatorPortIncludesRoute(t *testing.T) {
+	var _ Coordinator = routeStub{}
+	req := RouteRequest{FromSession: "lead", Task: "écris le module réseau"}
+	if req.FromSession != "lead" || req.Task == "" {
+		t.Fatalf("RouteRequest fields not wired: %+v", req)
 	}
 }
