@@ -38,6 +38,13 @@ type MergeRequest struct {
 	Worker      string // the worker whose session/<Worker> branch is aggregated
 }
 
+// SealRequest is a lead declaring how many workers its cohort expects, turning
+// the best-effort join count into a deterministic barrier.
+type SealRequest struct {
+	FromSession string // the lead that declares
+	Expected    int    // N expected (> 0)
+}
+
 // Coordinator is the inter-session coordination port. It lives at the layer that
 // sees every session and drives the hub (the host), NOT the per-session
 // Orchestrator plugin (which only sees its own turns and holds no hub handle).
@@ -61,4 +68,7 @@ type Coordinator interface {
 	// conflict is not an error: the merge is aborted (lead left clean) and the
 	// lead is seeded a diagnostic. W stays alive; join state is untouched.
 	Merge(ctx context.Context, req MergeRequest) (lead string, err error)
+	// Seal records the number of workers FromSession's cohort expects, so the
+	// join can report "cohort complete" deterministically instead of best-effort.
+	Seal(ctx context.Context, req SealRequest) (lead string, err error)
 }
