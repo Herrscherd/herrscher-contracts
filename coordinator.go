@@ -45,6 +45,15 @@ type SealRequest struct {
 	Expected    int    // N expected (> 0)
 }
 
+// FanOutRequest is a lead spawning a whole cohort in one signal: one worker per
+// task, all children of FromSession off its committed tip, all provisioned from
+// the single agent ToAgent. It is the batch counterpart of DelegateRequest.
+type FanOutRequest struct {
+	FromSession string   // the lead spawning the cohort (each worker's base and parent)
+	ToAgent     string   // durable agent profile shared by every worker
+	Tasks       []string // one task per worker (≥ 1); each seeds its worker's opening turn
+}
+
 // Coordinator is the inter-session coordination port. It lives at the layer that
 // sees every session and drives the hub (the host), NOT the per-session
 // Orchestrator plugin (which only sees its own turns and holds no hub handle).
@@ -71,4 +80,12 @@ type Coordinator interface {
 	// Seal records the number of workers FromSession's cohort expects, so the
 	// join can report "cohort complete" deterministically instead of best-effort.
 	Seal(ctx context.Context, req SealRequest) (lead string, err error)
+	// FanOut spawns one worker per task (all children of FromSession off its
+	// committed tip, all from ToAgent) and seals the cohort to its real size,
+	// returning the spawned worker names. It is the batch counterpart of Delegate.
+	// Same per-worker guards as Delegate (unknown agent, missing/dirty lead, failed
+	// create); a spawn failure mid-batch is not rolled back — the workers already
+	// created are returned alongside the error, and the cohort is sealed to what was
+	// actually spawned.
+	FanOut(ctx context.Context, req FanOutRequest) (spawned []string, err error)
 }
