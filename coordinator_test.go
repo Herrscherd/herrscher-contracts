@@ -7,12 +7,12 @@ import (
 
 // fakeCoordinator locks the port signature at compile time and exercises it.
 type fakeCoordinator struct {
-	got     HandoffRequest
-	gotDel  DelegateRequest
-	gotRep  ReportRequest
-	gotMrg  MergeRequest
-	gotSeal SealRequest
-	gotFan  FanOutRequest
+	got      HandoffRequest
+	gotDel   DelegateRequest
+	gotRep   ReportRequest
+	gotMrg   MergeRequest
+	gotSeal  SealRequest
+	gotFan   FanOutRequest
 	gotRoute RouteRequest
 }
 
@@ -98,13 +98,13 @@ func TestCreateSessionHasParent(t *testing.T) {
 // assert the port shape (including Merge) at compile time.
 type mergeStub struct{}
 
-func (mergeStub) Handoff(context.Context, HandoffRequest) (string, error)   { return "", nil }
-func (mergeStub) Delegate(context.Context, DelegateRequest) (string, error) { return "", nil }
-func (mergeStub) Report(context.Context, ReportRequest) (string, error)     { return "", nil }
-func (mergeStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
-func (mergeStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
-func (mergeStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
-func (mergeStub) Route(context.Context, RouteRequest) (string, string, error)  { return "", "", nil }
+func (mergeStub) Handoff(context.Context, HandoffRequest) (string, error)     { return "", nil }
+func (mergeStub) Delegate(context.Context, DelegateRequest) (string, error)   { return "", nil }
+func (mergeStub) Report(context.Context, ReportRequest) (string, error)       { return "", nil }
+func (mergeStub) Merge(context.Context, MergeRequest) (string, error)         { return "", nil }
+func (mergeStub) Seal(context.Context, SealRequest) (string, error)           { return "", nil }
+func (mergeStub) FanOut(context.Context, FanOutRequest) ([]string, error)     { return nil, nil }
+func (mergeStub) Route(context.Context, RouteRequest) (string, string, error) { return "", "", nil }
 
 func TestCoordinatorPortIncludesMerge(t *testing.T) {
 	var _ Coordinator = mergeStub{}
@@ -118,13 +118,13 @@ func TestCoordinatorPortIncludesMerge(t *testing.T) {
 // shape at compile time.
 type sealStub struct{}
 
-func (sealStub) Handoff(context.Context, HandoffRequest) (string, error)   { return "", nil }
-func (sealStub) Delegate(context.Context, DelegateRequest) (string, error) { return "", nil }
-func (sealStub) Report(context.Context, ReportRequest) (string, error)     { return "", nil }
-func (sealStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
-func (sealStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
-func (sealStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
-func (sealStub) Route(context.Context, RouteRequest) (string, string, error)   { return "", "", nil }
+func (sealStub) Handoff(context.Context, HandoffRequest) (string, error)     { return "", nil }
+func (sealStub) Delegate(context.Context, DelegateRequest) (string, error)   { return "", nil }
+func (sealStub) Report(context.Context, ReportRequest) (string, error)       { return "", nil }
+func (sealStub) Merge(context.Context, MergeRequest) (string, error)         { return "", nil }
+func (sealStub) Seal(context.Context, SealRequest) (string, error)           { return "", nil }
+func (sealStub) FanOut(context.Context, FanOutRequest) ([]string, error)     { return nil, nil }
+func (sealStub) Route(context.Context, RouteRequest) (string, string, error) { return "", "", nil }
 
 func TestCoordinatorPortIncludesSeal(t *testing.T) {
 	var _ Coordinator = sealStub{}
@@ -138,12 +138,12 @@ func TestCoordinatorPortIncludesSeal(t *testing.T) {
 // port shape at compile time.
 type fanoutStub struct{}
 
-func (fanoutStub) Handoff(context.Context, HandoffRequest) (string, error)   { return "", nil }
-func (fanoutStub) Delegate(context.Context, DelegateRequest) (string, error) { return "", nil }
-func (fanoutStub) Report(context.Context, ReportRequest) (string, error)     { return "", nil }
-func (fanoutStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
-func (fanoutStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
-func (fanoutStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
+func (fanoutStub) Handoff(context.Context, HandoffRequest) (string, error)     { return "", nil }
+func (fanoutStub) Delegate(context.Context, DelegateRequest) (string, error)   { return "", nil }
+func (fanoutStub) Report(context.Context, ReportRequest) (string, error)       { return "", nil }
+func (fanoutStub) Merge(context.Context, MergeRequest) (string, error)         { return "", nil }
+func (fanoutStub) Seal(context.Context, SealRequest) (string, error)           { return "", nil }
+func (fanoutStub) FanOut(context.Context, FanOutRequest) ([]string, error)     { return nil, nil }
 func (fanoutStub) Route(context.Context, RouteRequest) (string, string, error) { return "", "", nil }
 
 func TestCoordinatorPortIncludesFanOut(t *testing.T) {
