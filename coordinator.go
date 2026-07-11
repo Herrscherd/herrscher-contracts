@@ -54,6 +54,15 @@ type FanOutRequest struct {
 	Tasks       []string // one task per worker (≥ 1); each seeds its worker's opening turn
 }
 
+// RouteRequest is a lead handing off a task WITHOUT naming the agent: the host
+// picks the best-matching agent deterministically (capability match) and
+// delegates. No LLM judgment enters the host — the match is a pure score of the
+// agents' declared tags against the task text.
+type RouteRequest struct {
+	FromSession string // the lead routing (the chosen worker's base and parent)
+	Task        string // the task to route; also the text scored against agent tags
+}
+
 // Coordinator is the inter-session coordination port. It lives at the layer that
 // sees every session and drives the hub (the host), NOT the per-session
 // Orchestrator plugin (which only sees its own turns and holds no hub handle).
@@ -88,4 +97,11 @@ type Coordinator interface {
 	// created are returned alongside the error, and the cohort is sealed to what was
 	// actually spawned.
 	FanOut(ctx context.Context, req FanOutRequest) (spawned []string, err error)
+	// Route picks the best-matching agent for Task by a deterministic capability
+	// score (the agents' declared tags against the task text — no LLM), then
+	// delegates: the chosen worker is a child of FromSession off its committed tip,
+	// FromSession stays alive. Returns the chosen agent and the worker's session.
+	// It errors on an empty task, a missing lead, a spawn failure, or when no agent
+	// matches (the host refuses rather than falling back to a default).
+	Route(ctx context.Context, req RouteRequest) (agent string, session string, err error)
 }
