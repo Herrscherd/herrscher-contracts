@@ -10,6 +10,7 @@ type fakeCoordinator struct {
 	got    HandoffRequest
 	gotDel DelegateRequest
 	gotRep ReportRequest
+	gotMrg MergeRequest
 }
 
 func (f *fakeCoordinator) Handoff(_ context.Context, req HandoffRequest) (string, error) {
@@ -23,6 +24,10 @@ func (f *fakeCoordinator) Delegate(_ context.Context, req DelegateRequest) (stri
 func (f *fakeCoordinator) Report(_ context.Context, req ReportRequest) (string, error) {
 	f.gotRep = req
 	return "lead", nil
+}
+func (f *fakeCoordinator) Merge(_ context.Context, req MergeRequest) (string, error) {
+	f.gotMrg = req
+	return req.FromSession, nil
 }
 
 func TestCoordinatorPortRoundTrip(t *testing.T) {
@@ -65,5 +70,22 @@ func TestCreateSessionHasParent(t *testing.T) {
 	spec := CreateSession{Name: "w", Parent: "lead"}
 	if spec.Parent != "lead" {
 		t.Fatalf("Parent not set: %q", spec.Parent)
+	}
+}
+
+// mergeStub is the smallest type carrying the full Coordinator surface, to
+// assert the port shape (including Merge) at compile time.
+type mergeStub struct{}
+
+func (mergeStub) Handoff(context.Context, HandoffRequest) (string, error)   { return "", nil }
+func (mergeStub) Delegate(context.Context, DelegateRequest) (string, error) { return "", nil }
+func (mergeStub) Report(context.Context, ReportRequest) (string, error)     { return "", nil }
+func (mergeStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
+
+func TestCoordinatorPortIncludesMerge(t *testing.T) {
+	var _ Coordinator = mergeStub{}
+	req := MergeRequest{FromSession: "lead", Worker: "w"}
+	if req.FromSession != "lead" || req.Worker != "w" {
+		t.Fatalf("MergeRequest fields not wired: %+v", req)
 	}
 }
