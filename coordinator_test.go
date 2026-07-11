@@ -7,10 +7,11 @@ import (
 
 // fakeCoordinator locks the port signature at compile time and exercises it.
 type fakeCoordinator struct {
-	got    HandoffRequest
-	gotDel DelegateRequest
-	gotRep ReportRequest
-	gotMrg MergeRequest
+	got     HandoffRequest
+	gotDel  DelegateRequest
+	gotRep  ReportRequest
+	gotMrg  MergeRequest
+	gotSeal SealRequest
 }
 
 func (f *fakeCoordinator) Handoff(_ context.Context, req HandoffRequest) (string, error) {
@@ -27,6 +28,10 @@ func (f *fakeCoordinator) Report(_ context.Context, req ReportRequest) (string, 
 }
 func (f *fakeCoordinator) Merge(_ context.Context, req MergeRequest) (string, error) {
 	f.gotMrg = req
+	return req.FromSession, nil
+}
+func (f *fakeCoordinator) Seal(_ context.Context, req SealRequest) (string, error) {
+	f.gotSeal = req
 	return req.FromSession, nil
 }
 
@@ -81,11 +86,30 @@ func (mergeStub) Handoff(context.Context, HandoffRequest) (string, error)   { re
 func (mergeStub) Delegate(context.Context, DelegateRequest) (string, error) { return "", nil }
 func (mergeStub) Report(context.Context, ReportRequest) (string, error)     { return "", nil }
 func (mergeStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
+func (mergeStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 
 func TestCoordinatorPortIncludesMerge(t *testing.T) {
 	var _ Coordinator = mergeStub{}
 	req := MergeRequest{FromSession: "lead", Worker: "w"}
 	if req.FromSession != "lead" || req.Worker != "w" {
 		t.Fatalf("MergeRequest fields not wired: %+v", req)
+	}
+}
+
+// sealStub carries the full Coordinator surface (incl. Seal) to assert the port
+// shape at compile time.
+type sealStub struct{}
+
+func (sealStub) Handoff(context.Context, HandoffRequest) (string, error)   { return "", nil }
+func (sealStub) Delegate(context.Context, DelegateRequest) (string, error) { return "", nil }
+func (sealStub) Report(context.Context, ReportRequest) (string, error)     { return "", nil }
+func (sealStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
+func (sealStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
+
+func TestCoordinatorPortIncludesSeal(t *testing.T) {
+	var _ Coordinator = sealStub{}
+	req := SealRequest{FromSession: "lead", Expected: 5}
+	if req.FromSession != "lead" || req.Expected != 5 {
+		t.Fatalf("SealRequest fields not wired: %+v", req)
 	}
 }
