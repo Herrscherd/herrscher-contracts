@@ -26,6 +26,10 @@ type Param struct {
 type Input struct {
 	Args map[string]string
 	Rest []string
+	// JSON is the reserved global --json flag: the dispatcher strips it from
+	// argv before per-command parsing and sets this. A verb's Run consults it
+	// to emit machine JSON instead of human text. It is never a declared Param.
+	JSON bool
 }
 
 // Lookup returns a param value and whether it was supplied.
