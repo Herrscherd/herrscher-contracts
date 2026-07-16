@@ -99,20 +99,25 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 	// root can appear twice. Iterate {Root}+Nodes once, skipping repeats.
 	seen := map[string]bool{}
 	var hits []scored
-	for _, n := range append([]Node{sg.Root}, sg.Nodes...) {
+	// Score {Root}+Nodes once without materialising a combined slice.
+	consider := func(n Node) {
 		if n.Key == "" || seen[n.Key] {
-			continue
+			return
 		}
 		seen[n.Key] = true
 		base, ok := r.score(n)
 		if !ok {
-			continue // no textual match → excluded
+			return // no textual match → excluded
 		}
 		d, reached := depth[n.Key]
 		if !reached {
 			d = relevantDepth // unreached from either root: treat as farthest
 		}
 		hits = append(hits, scored{n: n, score: base + weightProx*proximityBoost(d)})
+	}
+	consider(sg.Root)
+	for _, n := range sg.Nodes {
+		consider(n)
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].score > hits[j].score })
 	if k > 0 && len(hits) > k {
@@ -187,12 +192,16 @@ func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	// Edges are deduplicated by value too: an identical (To, Rel) link present in
 	// both subgraphs is redundant, and would otherwise double up in the merge.
 	seenEdge := map[Link]bool{}
-	for _, e := range append(append([]Link{}, shared.Edges...), private.Edges...) {
-		if seenEdge[e] {
-			continue
+	addEdges := func(edges []Link) {
+		for _, e := range edges {
+			if seenEdge[e] {
+				continue
+			}
+			seenEdge[e] = true
+			out.Edges = append(out.Edges, e)
 		}
-		seenEdge[e] = true
-		out.Edges = append(out.Edges, e)
 	}
+	addEdges(shared.Edges)
+	addEdges(private.Edges)
 	return out
 }

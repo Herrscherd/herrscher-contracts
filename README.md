@@ -6,7 +6,8 @@ narrow waist that lets the core stay ignorant of *which* chat platform delivers 
 message and *which* model answers it.
 
 - **Zero dependencies** — only the Go standard library.
-- **Almost zero logic** — type definitions plus two thin helpers (`Degrade`, `Resolve`).
+- **Almost zero logic** — type definitions plus a handful of thin helpers (`Degrade`,
+  `Resolve`, and the memory-scope/ranking helpers `RecordShared`/`RecordPrivate`/`RecallScoped`/`RecallRelevant`).
 - **Consumer-defined ports** — the interfaces are written from the point of view of
   the code that *calls* them (the core), not the code that implements them. Adapters
   satisfy them structurally; they never import each other.
@@ -53,9 +54,9 @@ type Backend interface {
 
 | Type | Purpose |
 |------|---------|
-| `Prompt` | Platform-neutral input: `Content`, `Author`, `MessageID`, `ChannelID`, `Attachments []string` (local file paths). |
+| `Prompt` | Platform-neutral input: `Content`, `Context` (memory-recalled background), `Author`, `MessageID`, `ChannelID`, `Attachments []string` (local file paths). |
 | `BackendEvent` | One intermediate occurrence in a turn: `Kind` (`"tool"`/`"text"`/`"result"`/`"reset"`), plus `Tool`, `Detail`, `Cost`, `IsError`. |
-| `PendingChoice` | An interactive selection a backend is blocked on (`Question` + `[]Choice`). |
+| `PendingChoice` | An interactive selection a backend is blocked on (`Question` + `Options []Choice`). |
 
 Two optional capability interfaces let a backend pause on an interactive choice
 (e.g. a tool-permission prompt), serialized with its normal turns:
@@ -96,6 +97,8 @@ interaction) into a **neutral argv**.
 ```go
 type SessionControl interface {
     Dispatch(ctx context.Context, args []string) (string, error) // {"session","create","--name","foo"}
+    Create(ctx context.Context, spec CreateSession) (string, error) // typed "session create"
+    Close(ctx context.Context, name string, force bool) (string, error) // typed "session close"; force discards an uncommitted worktree
     Sessions() []SessionInfo
 }
 
@@ -142,7 +145,7 @@ and the host degrades.
 | `Prober` | `Probe` | Cheap round-trip for health latency. |
 | `ChannelReader` | `Enabled`, `DefaultChannel`, `EnsureChannel`, `Read`, `Unreact`, `UpsertStatusMessage` | Read/lifecycle side: presence, default conversation, bootstrap, history, reaction removal, the single self-updating status message. |
 | `MenuRouter` | `RouteMenu` | Optional: post a menu whose picks route back to a named neutral route (e.g. a session), not the channel it lives in. |
-| `ChannelAdmin` | `Kind`, `CreateUnder`, `ForumPost`, `Archive`, `Send` | Create/archive session channels and post into them. |
+| `ChannelAdmin` | `Kind`, `CreateUnder`, `ForumPost`, `Archive`, `Send`, `ChannelRef` | Create/archive session channels, post into them, and render a platform-native channel reference. |
 
 `Channel{ID, Name}` identifies a conversation a gateway can create or reuse.
 
@@ -278,8 +281,12 @@ message naming every missing key, rather than surfacing deep inside the plugin.
 |------|----------|
 | `backend.go` | `Backend`, `Prompt`, `BackendEvent`, `PendingChoice`, `ChoiceAware`, `ChoiceInjector` |
 | `gateway.go` | `Gateway`, `Inbound` |
-| `session_control.go` | `SessionControl`, `SessionInfo`, `SessionControlReceiver` |
-| `event.go` | `Event`, `EventSink` |
+| `session_control.go` | `SessionControl`, `SessionInfo`, `SessionControlReceiver`, `CreateSession` |
+| `event.go` | `Event`, `EventSink`, `RoutedEventSink` |
+| `coordinator.go` | `Coordinator`, `HandoffRequest`, `DelegateRequest`, `ReportRequest`, `MergeRequest`, `SealRequest`, `FanOutRequest`, `RouteRequest` |
+| `foreground.go` | `Foreground` |
+| `scoring.go` | `Score` (relevance ranker) |
+| `memory_scope.go` | `MemoryScope`, `ProjectKey`, `AgentKey`, `RecordShared`, `RecordPrivate`, `RecallScoped`, `RecallRelevant` |
 | `host.go` | `Channel`, `Prober`, `ChannelReader`, `MenuRouter`, `ChannelAdmin` |
 | `command_api.go` | `Cmd`, `Param`, `Input` (+ accessors), `Builder`, `New` |
 | `conversation.go` | `Conversation`, `Choice`, `Attachment`, `SessionID`, `MessageID` |
