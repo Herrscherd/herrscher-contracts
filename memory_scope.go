@@ -95,11 +95,10 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 		n     Node
 		score float64
 	}
-	// Dedup by Key: RecallScoped's merge lists both roots inside Nodes, so the
-	// root can appear twice. Iterate {Root}+Nodes once, skipping repeats.
-	seen := map[string]bool{}
-	var hits []scored
-	// Score {Root}+Nodes once without materialising a combined slice.
+	// Dedup by Key while scoring {Root}+Nodes once, without materialising a
+	// combined slice; the seen map guards against any repeat across the two.
+	seen := make(map[string]bool, len(sg.Nodes)+1)
+	hits := make([]scored, 0, len(sg.Nodes)+1)
 	consider := func(n Node) {
 		if n.Key == "" || seen[n.Key] {
 			return
@@ -135,11 +134,12 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 // source, so Edges alone can't drive the walk). Roots are depth 0; nodes
 // unreachable from either root are absent from the map.
 func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
-	byKey := map[string]Node{sg.Root.Key: sg.Root}
+	byKey := make(map[string]Node, len(sg.Nodes)+1)
+	byKey[sg.Root.Key] = sg.Root
 	for _, n := range sg.Nodes {
 		byKey[n.Key] = n
 	}
-	depth := map[string]int{}
+	depth := make(map[string]int, len(sg.Nodes)+1)
 	var frontier []string
 	for _, root := range []string{s.Project, s.Agent} {
 		if root == "" {
@@ -173,7 +173,10 @@ func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
 }
 
 // mergeSubgraphs unions two subgraphs, keeping the shared root and dropping
-// duplicate nodes by Key (the shared view wins on collisions).
+// duplicate nodes by Key (the shared view wins on collisions). Nodes stays
+// root-excluded like a Recall result: out.Root is never listed in out.Nodes.
+// The private root is a genuine non-root node in the merged view, so it is
+// added to Nodes; the shared root — being out.Root — is not.
 func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	out := Subgraph{Root: shared.Root}
 	seen := map[string]bool{}
@@ -186,7 +189,7 @@ func mergeSubgraphs(shared, private Subgraph) Subgraph {
 			out.Nodes = append(out.Nodes, n)
 		}
 	}
-	add(shared.Root, private.Root)
+	add(private.Root)
 	add(shared.Nodes...)
 	add(private.Nodes...)
 	// Edges are deduplicated by value too: an identical (To, Rel) link present in

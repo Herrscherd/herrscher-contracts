@@ -63,22 +63,26 @@ func (r ranker) score(n Node) (total float64, textHit bool) {
 	if len(r.terms) == 0 {
 		return 0, false
 	}
-	var tf float64
-	for _, tok := range tokenize(n.Title + "\n" + n.Body) {
+	// Tokenize Title and Body once each: title tokens drive both the TF count and
+	// the distinct-title-hit count, so the title is never tokenized twice.
+	var tf, titleHits float64
+	seen := map[string]bool{}
+	for _, tok := range tokenize(n.Title) {
+		if r.terms[tok] {
+			tf++
+			if !seen[tok] {
+				seen[tok] = true
+				titleHits++
+			}
+		}
+	}
+	for _, tok := range tokenize(n.Body) {
 		if r.terms[tok] {
 			tf++
 		}
 	}
 	if tf == 0 {
 		return 0, false
-	}
-	var titleHits float64
-	seen := map[string]bool{}
-	for _, tok := range tokenize(n.Title) {
-		if r.terms[tok] && !seen[tok] {
-			seen[tok] = true
-			titleHits++
-		}
 	}
 	total = weightTF*tf + weightTitleHit*titleHits
 	total += weightRecency * r.recencyScore(n)

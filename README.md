@@ -134,6 +134,25 @@ Gateway/ChannelReader ports.
 
 ---
 
+## Inter-session coordination (`coordinator.go`)
+
+`Coordinator` is the port at the layer that sees *every* session and drives the hub
+(the host), not the per-session `Orchestrator` (which only sees its own turns). An
+agent signals a coordination *intent* as a typed request; the host validates it and
+the `Coordinator` executes — no LLM judgment enters the host.
+
+| Method | Request | Effect |
+|--------|---------|--------|
+| `Handoff` | `HandoffRequest` | Relay A→B: B continues A's committed work off A's branch; A finishes. |
+| `Delegate` | `DelegateRequest` | Lead L hands a task to worker W branched off L's tip; L stays alive and is recorded as W's parent. |
+| `Report` | `ReportRequest` | Worker W delivers a summary + branch ref back to its parent; W stays alive. |
+| `Merge` | `MergeRequest` | Lead L aggregates worker W's branch into L's worktree via a real git merge; a conflict aborts cleanly, not an error. |
+| `Seal` | `SealRequest` | Lead declares its cohort's expected worker count, turning the join into a deterministic barrier. |
+| `FanOut` | `FanOutRequest` | Lead spawns a whole cohort (one worker per task, all from one agent) and seals it to its real size. |
+| `Route` | `RouteRequest` | Lead hands off a task *without* naming an agent; the host picks the best match by a deterministic capability score (agent tags vs task text) and delegates. |
+
+---
+
 ## Host-facing channel ports (`host.go`)
 
 The always-on daemon needs more than outbound messaging. These ports split the

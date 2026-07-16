@@ -93,7 +93,12 @@ func TestRecallScopedMergesAndDedups(t *testing.T) {
 	for _, n := range sg.Nodes {
 		keys[n.Key]++
 	}
-	for _, want := range []string{"proj", "ag", "fact", "skill", "dup"} {
+	// Nodes stays root-excluded: the shared root "proj" is sg.Root, not a node.
+	// The private root "ag" is a genuine non-root node, so it does appear.
+	if keys["proj"] != 0 {
+		t.Fatalf("shared root should not be listed in Nodes: %+v", sg.Nodes)
+	}
+	for _, want := range []string{"ag", "fact", "skill", "dup"} {
 		if keys[want] == 0 {
 			t.Fatalf("merged subgraph missing %q: %+v", want, sg.Nodes)
 		}
