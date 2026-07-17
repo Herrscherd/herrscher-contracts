@@ -9,7 +9,7 @@ import (
 type capStub struct{}
 
 func (capStub) Locate(context.Context, string) (Location, error) { return Location{}, nil }
-func (capStub) Delete(context.Context, string) error            { return nil }
+func (capStub) Delete(context.Context, string) error             { return nil }
 
 var (
 	_ Locator = capStub{}
