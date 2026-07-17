@@ -105,3 +105,27 @@ type Provisioner interface {
 	// EnsureAgent ensures the private KindAgent root at key exists (idempotent).
 	EnsureAgent(ctx context.Context, key, title string) error
 }
+
+// Location porte les manières d'ouvrir la note d'un nœud. Obsidian est le lien
+// humain préféré ; File est le fallback direct (éditeur/OS par défaut). Au moins
+// un champ est non vide pour une mémoire fichier.
+type Location struct {
+	Obsidian string // "obsidian://open?vault=<vault>&file=<key>", "" si indisponible
+	File     string // "file:///abs/chemin.md"
+}
+
+// Locator est une capability OPTIONNELLE : une mémoire adossée à des fichiers
+// (le vault obsidian) sait localiser la note d'un Key et la rendre ouvrable par
+// un humain. Une mémoire non-fichier ne l'implémente pas ; le caller type-assert
+// et dégrade proprement — même patron que Provisioner.
+type Locator interface {
+	// Locate renvoie les URIs ouvrables de la note du Key, ou une erreur si le
+	// Key est invalide ou absent.
+	Locate(ctx context.Context, key string) (Location, error)
+}
+
+// Deleter est une capability OPTIONNELLE : retirer un nœud par Key (« oublier »).
+type Deleter interface {
+	// Delete retire le nœud au Key. Idempotent : un Key absent n'est pas une erreur.
+	Delete(ctx context.Context, key string) error
+}
