@@ -210,6 +210,19 @@ durable companion that anchors per-agent private memory), `KindDomain` (a
 transverse area-of-concern root grouping projects topically), and documentary
 kinds.
 
+Two optional capability interfaces let a Memory implementation advertise more
+than the passive verbs; callers type-assert and degrade gracefully if a given
+implementation doesn't satisfy them:
+
+```go
+type Locator interface { Locate(ctx context.Context, key string) (Location, error) }
+type Deleter interface { Delete(ctx context.Context, key string) error }
+```
+
+`Locator` resolves a `Key` to openable URIs (`Location{Obsidian, File}`), e.g. a
+file-backed memory pointing at its vault note. `Deleter` removes a node by `Key`
+("forget"); it is idempotent — deleting an absent `Key` is not an error.
+
 ### Memory scope — shared vs private (P1, `memory_scope.go`)
 
 `MemoryScope{Project, Agent}` is the sharing **policy over the existing graph** —
