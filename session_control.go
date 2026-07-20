@@ -27,6 +27,21 @@ type SessionControl interface {
 	// Sessions returns a snapshot of the hub's sessions, for a gateway that needs
 	// to enumerate them (e.g. autocompleting a session name).
 	Sessions() []SessionInfo
+	// Scrollback returns the last recorded transcript lines for a session (empty
+	// when none), so a gateway can seed a reopened view with history before live
+	// events arrive. Best-effort: a session with no transcript yields nil.
+	Scrollback(name string) []ScrollbackLine
+	// Resume revives an archived session: it unarchives it and brings it live
+	// (backend resumed via its stored token). A live session is a no-op success.
+	Resume(name string) error
+}
+
+// ScrollbackLine is one replayed transcript entry, carried across the seam so a
+// gateway (the terminal TUI) can repaint history without reading the state dir
+// (which lives behind the core's internal packages).
+type ScrollbackLine struct {
+	Role string // "user" | "assistant"
+	Text string
 }
 
 // CreateSession is the typed spec for SessionControl.Create — the structured
@@ -63,6 +78,19 @@ type SessionInfo struct {
 	ChannelID string
 	Type      string // "text" | "forum"
 	Gateways  []string
+	// Vendor is the agent backend vendor ("claude"/"codex"/"cursor"), shown as a
+	// /resume picker column. Empty when unknown.
+	Vendor string
+	// Project is the workspace sub-dir the session started from, a picker column.
+	Project string
+	// Archived is true for a closed-but-kept session: a gateway skips it when
+	// building live tabs and lists it in the /resume picker.
+	Archived bool
+	// Resumable is true when the session carries a backend resume token (⟲ column).
+	Resumable bool
+	// LastTs is the last transcript entry's timestamp (RFC3339), for sorting the
+	// picker by recency. Empty when the session has no transcript.
+	LastTs string
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's
