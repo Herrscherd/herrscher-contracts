@@ -11,6 +11,13 @@ type Backend interface {
 	Close() error
 }
 
+// ResumeAware is implemented by backends that can be resumed later. The host
+// reads the opaque token after a turn, persists it, and feeds it back at
+// construction via cfg.Settings["resume"]. "" means "no resumable id yet".
+type ResumeAware interface {
+	ResumeToken() string
+}
+
 // Prompt is the platform-neutral input a backend answers: the message text, who
 // sent it, its identity, and local filesystem paths to any attachments already
 // downloaded for the backend to reference. Context carries memory-recalled

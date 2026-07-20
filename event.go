@@ -23,6 +23,11 @@ type Event struct {
 	// (Done) so the hub can render it in the progress summary. Zero when the
 	// backend reports no cost.
 	Cost float64 `json:"cost,omitempty"`
+	// Resume carries the backend's opaque resume token (e.g. claude's stable
+	// session_id), piggybacked on the terminal reply{done} so the daemon can
+	// persist it for cross-restart --resume. Empty when the backend is not
+	// ResumeAware or has no id yet.
+	Resume string `json:"resume,omitempty"`
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live
