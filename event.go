@@ -12,6 +12,7 @@ package contracts
 //	{"t":"reply","text":"done","done":true,"cost":0.0042}
 //	{"t":"input","who":"terminal","text":"apply them"}
 //	{"t":"pick","value":"2"}
+//	{"t":"interrupt"}  // cancel the in-flight turn (esc-to-interrupt from a gateway)
 //	{"t":"reset"}  // discard the in-progress turn (backend was reset mid-turn)
 type Event struct {
 	T     string `json:"t"`
@@ -23,6 +24,11 @@ type Event struct {
 	// (Done) so the hub can render it in the progress summary. Zero when the
 	// backend reports no cost.
 	Cost float64 `json:"cost,omitempty"`
+	// Tokens is the turn's cumulative output-token count, carried live on
+	// status/chunk events so a gateway can render a growing counter, and finally
+	// on the terminal reply (Done) — the same piggyback path as Cost. Zero when
+	// the backend reports no usage.
+	Tokens int `json:"tokens,omitempty"`
 	// Resume carries the backend's opaque resume token, piggybacked on the
 	// terminal reply{done} so the daemon can persist it for cross-restart
 	// --resume. Empty when the backend is not ResumeAware or has no id yet.
