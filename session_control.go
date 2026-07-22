@@ -34,6 +34,11 @@ type SessionControl interface {
 	// Resume revives an archived session: it unarchives it and brings it live
 	// (backend resumed via its stored token). A live session is a no-op success.
 	Resume(name string) error
+	// Interrupt cancels the named session's in-flight turn (esc-to-interrupt from
+	// a gateway). The running backend turn is stopped and the conversation is
+	// preserved for the next turn; the partial turn is discarded. Reports false
+	// when no live session by that name is driving. Best-effort and non-blocking.
+	Interrupt(name string) bool
 }
 
 // ScrollbackLine is one replayed transcript entry, carried across the seam so a
