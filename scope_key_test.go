@@ -14,6 +14,27 @@ func TestScopeKeyHelpers(t *testing.T) {
 	}
 }
 
+// TestScopeKeyNormalizes pins case- and separator-folding so the same logical
+// scope can never split into two vault files (the neublox/Neublox duplicate).
+func TestScopeKeyNormalizes(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"neublox", "projects/neublox"},
+		{"Neublox", "projects/neublox"},
+		{"NEUBLOX", "projects/neublox"},
+		{"  Neu Blox  ", "projects/neu-blox"},
+		{"my/evil..name", "projects/my-evil-name"},
+		{"Café", "projects/café"},
+	}
+	for _, c := range cases {
+		if got := ProjectKey(c.in); got != c.want {
+			t.Fatalf("ProjectKey(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	if got := AgentKey("Scripter Bot"); got != "agents/scripter-bot" {
+		t.Fatalf("AgentKey normalize: got %q, want agents/scripter-bot", got)
+	}
+}
+
 // compile-time check that the interface shape is what callers depend on.
 type stubProvisioner struct{}
 

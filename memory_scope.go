@@ -3,7 +3,9 @@ package contracts
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
+	"unicode"
 )
 
 // MemoryScope expresses the P1 sharing policy *over the existing graph* — not a
@@ -26,8 +28,35 @@ const (
 // ProjectKey / AgentKey are the single source of truth for scope-root Keys, so
 // the orchestrator (which derives a MemoryScope) and the provisioners (which
 // create the root nodes) can never drift apart. Scheme: flat, English, no /index.
-func ProjectKey(name string) string { return "projects/" + name }
-func AgentKey(name string) string   { return "agents/" + name }
+func ProjectKey(name string) string { return "projects/" + normalizeScopeName(name) }
+func AgentKey(name string) string   { return "agents/" + normalizeScopeName(name) }
+
+// normalizeScopeName folds a raw scope name into a single stable path segment:
+// lowercased, with every run of separators or unsafe characters collapsed to a
+// single hyphen and trimmed. Case- and whitespace-insensitivity is what stops the
+// same logical scope from splitting into two vault files (e.g. Neublox vs
+// neublox). A name that reduces to nothing falls back to "scope" so the key stays
+// a valid, non-empty segment.
+func normalizeScopeName(name string) string {
+	var b strings.Builder
+	pendingSep := false
+	for _, r := range strings.TrimSpace(name) {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			if pendingSep && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			pendingSep = false
+			b.WriteRune(unicode.ToLower(r))
+		default:
+			pendingSep = true
+		}
+	}
+	if b.Len() == 0 {
+		return "scope"
+	}
+	return b.String()
+}
 
 // RecordShared upserts n and links it under the project root, making it visible
 // to every agent of the game. Use for project memory (decisions, conventions,
