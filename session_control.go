@@ -88,6 +88,10 @@ type SessionInfo struct {
 	Vendor string
 	// Project is the workspace sub-dir the session started from, a picker column.
 	Project string
+	// Dir is the session's resolved run directory (its worktree, or the workspace/
+	// project root) — the base a gateway lists for @ file-mention completion. Empty
+	// means the session inherits the launcher's working directory.
+	Dir string
 	// Archived is true for a closed-but-kept session: a gateway skips it when
 	// building live tabs and lists it in the /resume picker.
 	Archived bool
