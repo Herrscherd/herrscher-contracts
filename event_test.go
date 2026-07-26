@@ -1,6 +1,9 @@
 package contracts
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestEventSinkIsOptionalCapability(t *testing.T) {
 	// A type implementing EventSink must satisfy the interface; the compiler
@@ -15,3 +18,18 @@ func TestEventSinkIsOptionalCapability(t *testing.T) {
 type sinkStub struct{}
 
 func (sinkStub) Emit(Event) {}
+
+func TestEventCarriesTokenBreakdown(t *testing.T) {
+	e := Event{T: "reply", Done: true, Cost: 0.004, Tokens: 55, TokensIn: 30, CacheRead: 12, CacheCreate: 3}
+	b, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got Event
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.TokensIn != 30 || got.CacheRead != 12 || got.CacheCreate != 3 {
+		t.Fatalf("token breakdown lost: %+v", got)
+	}
+}

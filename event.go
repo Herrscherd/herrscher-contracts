@@ -29,6 +29,13 @@ type Event struct {
 	// on the terminal reply (Done) — the same piggyback path as Cost. Zero when
 	// the backend reports no usage.
 	Tokens int `json:"tokens,omitempty"`
+	// TokensIn is the turn's input-token count; CacheRead/CacheCreate the
+	// prompt-cache read/creation tokens. Carried on the terminal reply next to
+	// Tokens (output) so a consumer can render the full usage breakdown. Zero
+	// when the backend reports no usage.
+	TokensIn    int `json:"tokens_in,omitempty"`
+	CacheRead   int `json:"cache_read,omitempty"`
+	CacheCreate int `json:"cache_create,omitempty"`
 	// Resume carries the backend's opaque resume token, piggybacked on the
 	// terminal reply{done} so the daemon can persist it for cross-restart
 	// --resume. Empty when the backend is not ResumeAware or has no id yet.
