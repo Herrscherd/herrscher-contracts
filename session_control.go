@@ -75,6 +75,13 @@ type CreateSession struct {
 	// Empty = no parent (default; any non-delegated session). The coordinator
 	// uses it to deliver a worker's completion report back to its lead.
 	Parent string
+	// Budget caps (0 = uncapped). Cohort caps apply to the parent forest this
+	// session belongs to; they are carried per-session and reconciled by the
+	// turn-boundary fold.
+	CostCap        float64
+	TokenCap       uint64
+	CohortCostCap  float64
+	CohortTokenCap uint64
 }
 
 // SessionInfo is a read-only view of a hub session.
