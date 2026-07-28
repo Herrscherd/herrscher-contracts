@@ -32,6 +32,20 @@ func TestBuilderProducesCmd(t *testing.T) {
 	}
 }
 
+func TestBuilderDeclaresOptionalValueParam(t *testing.T) {
+	c := New("session", "seed").
+		ValueParam("turn_id", "turn identity", false).
+		Do(func(context.Context, Input) (string, error) { return "", nil })
+
+	if len(c.Params) != 1 {
+		t.Fatalf("params = %+v, want one", c.Params)
+	}
+	got := c.Params[0]
+	if got.Name != "turn_id" || got.Required || !got.ValueRequired {
+		t.Fatalf("optional value param = %+v", got)
+	}
+}
+
 func TestInputAccessors(t *testing.T) {
 	in := Input{Args: map[string]string{"name": "x", "flag": "true"}, Rest: []string{"a"}}
 	if v, ok := in.Lookup("name"); !ok || v != "x" {

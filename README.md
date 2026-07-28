@@ -192,7 +192,9 @@ cmd := contracts.New("session", "create").
 
 `Input{Args, Rest}` is the parsed, format-agnostic invocation handed to a handler
 (`Lookup`, `Get`, `Bool` accessors). `Param` declares one input; required params
-missing at dispatch are an error.
+missing at dispatch are an error. `ValueParam` declares an optional value whose
+flag must still be followed by a value when present, unlike a valueless boolean
+`Param`.
 
 ---
 

@@ -15,10 +15,13 @@ type Cmd struct {
 }
 
 // Param is one declared input. Required params missing at dispatch are an error.
+// ValueRequired distinguishes an optional valued parameter from a valueless
+// boolean flag: when true, supplying the parameter without a value is an error.
 type Param struct {
-	Name     string
-	Help     string
-	Required bool
+	Name          string
+	Help          string
+	Required      bool
+	ValueRequired bool
 }
 
 // Input is the parsed, format-agnostic invocation handed to a handler. A CLI
@@ -53,7 +56,19 @@ func New(path ...string) *Builder { return &Builder{c: Cmd{Path: path}} }
 func (b *Builder) Help(text string) *Builder { b.c.Help = text; return b }
 
 func (b *Builder) Param(name, help string, required bool) *Builder {
-	b.c.Params = append(b.c.Params, Param{Name: name, Help: help, Required: required})
+	b.c.Params = append(b.c.Params, Param{
+		Name: name, Help: help, Required: required, ValueRequired: required,
+	})
+	return b
+}
+
+// ValueParam declares a parameter that requires a value whenever it is
+// supplied. required=false makes the parameter optional without turning a
+// valueless occurrence into the boolean string "true".
+func (b *Builder) ValueParam(name, help string, required bool) *Builder {
+	b.c.Params = append(b.c.Params, Param{
+		Name: name, Help: help, Required: required, ValueRequired: true,
+	})
 	return b
 }
 
