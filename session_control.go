@@ -74,10 +74,13 @@ type CreateSession struct {
 
 // SessionInfo is a read-only view of a hub session.
 type SessionInfo struct {
-	Name      string
-	ChannelID string
-	Type      string // "text" | "forum"
-	Gateways  []string
+	Name string
+	// Incarnation is the stable opaque identity of this specific persisted
+	// session object. Closing and recreating the same Name yields a new value.
+	Incarnation string
+	ChannelID   string
+	Type        string // "text" | "forum"
+	Gateways    []string
 	// Vendor is the agent backend vendor ("claude"/"codex"/"cursor"), shown as a
 	// /resume picker column. Empty when unknown.
 	Vendor string

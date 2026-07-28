@@ -32,6 +32,13 @@ type Event struct {
 	// before enqueueing the turn, and the bridge folds these into Prompt so the
 	// backend can reference them as image blocks. Only set on "input" frames.
 	Attachments []string `json:"attachments,omitempty"`
+	// SessionIncarnation is the stable identity of the session object that
+	// emitted this event.
+	SessionIncarnation string `json:"session_incarnation,omitempty"`
+	// TurnID uniquely identifies the turn this event belongs to.
+	TurnID string `json:"turn_id,omitempty"`
+	// Agent is the authoritative agent or role at the time of this turn.
+	Agent string `json:"agent,omitempty"`
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live
