@@ -25,6 +25,27 @@ func TestEventJSONLegacyPayloadIsUnchanged(t *testing.T) {
 	}
 }
 
+func TestEventJSONPreservesCoordinationOutcome(t *testing.T) {
+	want := Event{
+		T: "reply", Text: "delegating", Done: true,
+		Coordination: &CoordinationEvent{
+			Kind: "delegated", SourceSession: "lead",
+			TargetSession: "lead-roblox-scripter", Agent: "roblox-scripter",
+		},
+	}
+	encoded, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got Event
+	if err := json.Unmarshal(encoded, &got); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("coordination mismatch: got %+v want %+v", got, want)
+	}
+}
+
 func TestEventJSONPreservesTurnIdentity(t *testing.T) {
 	want := Event{
 		T:                  "reply",
