@@ -1,5 +1,14 @@
 package contracts
 
+type CoordinationEvent struct {
+	Kind          string `json:"kind"`
+	SourceSession string `json:"source_session"`
+	ParentSession string `json:"parent_session,omitempty"`
+	TargetSession string `json:"target_session,omitempty"`
+	Agent         string `json:"agent,omitempty"`
+	Summary       string `json:"summary,omitempty"`
+}
+
 // Event is one message on the session bus. The bridge (a pure backend runner)
 // emits turn events for the hub to fan out; the hub injects input/pick down to
 // the bridge. One Event encodes to exactly one JSON line on the wire.
@@ -45,6 +54,14 @@ type Event struct {
 	// before enqueueing the turn, and the bridge folds these into Prompt so the
 	// backend can reference them as image blocks. Only set on "input" frames.
 	Attachments []string `json:"attachments,omitempty"`
+	// SessionIncarnation is the stable identity of the session object that
+	// emitted this event.
+	SessionIncarnation string `json:"session_incarnation,omitempty"`
+	// TurnID uniquely identifies the turn this event belongs to.
+	TurnID string `json:"turn_id,omitempty"`
+	// Agent is the authoritative agent or role at the time of this turn.
+	Agent        string             `json:"agent,omitempty"`
+	Coordination *CoordinationEvent `json:"coordination,omitempty"`
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live

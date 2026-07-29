@@ -110,7 +110,9 @@ type SessionControlReceiver interface {
 `Dispatch` runs one operator command over the same vocabulary the CLI uses and, for
 lifecycle changes, brings the affected sessions live (or tears them down) in the
 hub. `Sessions()` returns `[]SessionInfo` snapshots so a gateway can enumerate them
-(e.g. to autocomplete a session name). After the hub is built, the host calls
+(e.g. to autocomplete a session name). Each snapshot carries an opaque
+`Incarnation` that identifies that specific persisted session object independently
+of its reusable name. After the hub is built, the host calls
 `BindSessionControl` once on any Gateway that implements the receiver — the host
 never knows what the gateway does with it.
 
@@ -122,6 +124,10 @@ never knows what the gateway does with it.
 turn events (`human`/`status`/`chunk`/`reply`/`reset`) for the hub to fan out, and
 the hub injects `input`/`pick` down to the bridge. One `Event` encodes to exactly one
 JSON line. The terminal reply carries the turn `Cost` (USD) so a renderer can show it.
+An event may also carry `SessionIncarnation` (the stable identity of its session
+object), `TurnID` (the turn's unique identity), and `Agent` (the authoritative
+agent or role at that turn). These optional fields serialize as
+`session_incarnation`, `turn_id`, and `agent`; absent values preserve legacy JSON.
 
 ```go
 type EventSink interface { Emit(Event) }
@@ -186,7 +192,9 @@ cmd := contracts.New("session", "create").
 
 `Input{Args, Rest}` is the parsed, format-agnostic invocation handed to a handler
 (`Lookup`, `Get`, `Bool` accessors). `Param` declares one input; required params
-missing at dispatch are an error.
+missing at dispatch are an error. `ValueParam` declares an optional value whose
+flag must still be followed by a value when present, unlike a valueless boolean
+`Param`.
 
 ---
 
