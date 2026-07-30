@@ -58,6 +58,10 @@ type Query struct {
 	// value (false) preserves the historical unranked behaviour, so existing
 	// callers are unaffected.
 	Ranked bool
+	// IncludeArchived includes nodes whose Meta[MetaState] == StateArchived in the
+	// result. Default false: archived nodes are hidden from ordinary Search/Recall.
+	// The curator sweep sets it true so it can still reach (and reactivate) them.
+	IncludeArchived bool
 }
 
 // Subgraph is a Recall result: the root node plus every node reachable within the
