@@ -25,6 +25,12 @@ const (
 	// projects and facts topically, above the ownership spine. A project links to
 	// its domain with "in-domain"; a fact carries Meta["domain"] for filtering.
 	KindDomain NodeKind = "domain"
+	// KindTranscript is one raw per-turn transcript chunk — the append-only,
+	// full-text-searchable archival tier (G7). It is HIDDEN from ordinary
+	// Search/Recall (and from the curator sweep/merge/promote) unless a caller
+	// sets Query.IncludeRaw, mirroring how StateArchived nodes hide behind
+	// IncludeArchived. Raw chunks are never distilled, swept, merged, or promoted.
+	KindTranscript NodeKind = "transcript"
 )
 
 // Link is a directed, typed edge to another node, identified by its Key.
@@ -62,6 +68,11 @@ type Query struct {
 	// result. Default false: archived nodes are hidden from ordinary Search/Recall.
 	// The curator sweep sets it true so it can still reach (and reactivate) them.
 	IncludeArchived bool
+	// IncludeRaw includes KindTranscript nodes (the G7 raw archival tier) in the
+	// result. Default false: raw chunks are hidden from ordinary Search/Recall and
+	// from the curator's sweep/merge/promote passes, so the distilled memory is
+	// unaffected. Only an explicit raw search (memory search --raw) sets it true.
+	IncludeRaw bool
 }
 
 // Subgraph is a Recall result: the root node plus every node reachable within the

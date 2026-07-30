@@ -64,3 +64,13 @@ func TestKindDomainConstant(t *testing.T) {
 		t.Fatalf("KindDomain = %q, want %q", KindDomain, "domain")
 	}
 }
+
+func TestKindTranscriptAndIncludeRaw(t *testing.T) {
+	if KindTranscript != "transcript" {
+		t.Fatalf("KindTranscript = %q, want %q", KindTranscript, "transcript")
+	}
+	var q Query // zero value
+	if q.IncludeRaw {
+		t.Fatal("Query.IncludeRaw must default to false so the raw tier is hidden from existing callers")
+	}
+}
