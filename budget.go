@@ -1,6 +1,9 @@
 package contracts
 
-import "fmt"
+import (
+	"fmt"
+	"unicode/utf8"
+)
 
 // BudgetError is returned by Memory.Record when a node's Body exceeds the
 // configured per-node budget. It carries the sizes so the caller (a Learner or
@@ -18,4 +21,17 @@ func (e *BudgetError) Error() string {
 		"memory: node %q body is %d runes, over the %d-rune budget; consolidate before recording",
 		e.Key, e.Runes, e.Limit,
 	)
+}
+
+// EnforceBudget returns a *BudgetError when body exceeds limit runes. A limit
+// of zero or less disables the check and returns nil. key labels the rejected
+// item in the returned error. Rune count, not byte length, is authoritative.
+func EnforceBudget(key, body string, limit int) error {
+	if limit <= 0 {
+		return nil
+	}
+	if r := utf8.RuneCountInString(body); r > limit {
+		return &BudgetError{Key: key, Runes: r, Limit: limit}
+	}
+	return nil
 }

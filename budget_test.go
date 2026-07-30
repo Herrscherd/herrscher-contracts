@@ -26,3 +26,30 @@ func TestBudgetErrorMessageAndAs(t *testing.T) {
 		t.Fatalf("unexpected fields: %+v", be)
 	}
 }
+
+func TestEnforceBudgetOverReturnsBudgetError(t *testing.T) {
+	// "é" is 2 bytes / 1 rune; 100 of them = 100 runes, 200 bytes.
+	body := strings.Repeat("é", 100)
+	err := contracts.EnforceBudget("user:alice", body, 50)
+	var be *contracts.BudgetError
+	if !errors.As(err, &be) {
+		t.Fatalf("want *BudgetError, got %T (%v)", err, err)
+	}
+	if be.Runes != 100 || be.Limit != 50 || be.Key != "user:alice" {
+		t.Fatalf("got Key=%q Runes=%d Limit=%d", be.Key, be.Runes, be.Limit)
+	}
+}
+
+func TestEnforceBudgetUnderReturnsNil(t *testing.T) {
+	if err := contracts.EnforceBudget("k", strings.Repeat("é", 40), 50); err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+}
+
+func TestEnforceBudgetDisabledByNonPositiveLimit(t *testing.T) {
+	for _, limit := range []int{0, -1} {
+		if err := contracts.EnforceBudget("k", strings.Repeat("x", 999), limit); err != nil {
+			t.Fatalf("limit %d should disable, got %v", limit, err)
+		}
+	}
+}
