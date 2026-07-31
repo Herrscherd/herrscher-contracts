@@ -97,8 +97,13 @@ type Memory interface {
 	Record(ctx context.Context, n Node) error
 	// Search finds nodes matching the query (keyword/kind/tag).
 	Search(ctx context.Context, q Query) ([]Node, error)
-	// Links creates a typed edge from one node to another.
+	// Links creates a typed edge from one node to another. Its inverse is Unlink.
 	Links(ctx context.Context, from, to, rel string) error
+	// Unlink removes the typed edge from→to — the inverse of Links. Every
+	// relation targeting `to` is removed (identity is the (from, to) pair, no
+	// rel, mirroring Links' to-only dedup). Idempotent: an absent edge is not
+	// an error.
+	Unlink(ctx context.Context, from, to string) error
 	// Close releases any resources the implementation holds.
 	Close() error
 }

@@ -27,6 +27,17 @@ func (m *scopeMem) Links(_ context.Context, from, to, rel string) error {
 	m.links = append(m.links, [3]string{from, to, rel})
 	return nil
 }
+func (m *scopeMem) Unlink(_ context.Context, from, to string) error {
+	kept := m.links[:0:0]
+	for _, l := range m.links {
+		if l[0] == from && l[1] == to {
+			continue
+		}
+		kept = append(kept, l)
+	}
+	m.links = kept
+	return nil
+}
 func (m *scopeMem) Close() error { return nil }
 
 func hasLink(m *scopeMem, from, to, rel string) bool {
