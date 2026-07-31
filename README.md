@@ -55,7 +55,9 @@ A plugin declares a `Plugin{Manifest, <one factory>}` in `init()` and calls
 returns a `GatewaySet{Gateway, Reader, Admin, Prober}` — one channel, optional
 ports nil. `Manifest.Config []Setting` declares each env-bound setting;
 `Resolve` builds a validated `PluginConfig` and fails startup naming every
-missing required key.
+missing required key. `Manifest.Status` is the plugin's own maturity claim
+(`StatusLive` — the zero value — `StatusWIP`, `StatusExperimental`,
+`StatusDeprecated`); it is descriptive only and never affects discovery.
 
 ## Helpers
 
