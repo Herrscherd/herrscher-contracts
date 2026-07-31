@@ -2,9 +2,10 @@ package contracts
 
 import "context"
 
-// NodeKind classifies a memory node. The structural spine
-// (Organization → Project → Repo/Server) plus the documentary kinds, and the
-// durable Agent node that anchors per-agent private memory (see MemoryScope).
+// NodeKind classifies a memory node. Kinds span the structural spine
+// (Organization → Project → Repo/Server), the documentary kinds, the durable
+// Agent node that anchors per-agent private memory (see MemoryScope), and the
+// raw archival tier. See the individual Kind* constants below for the full set.
 type NodeKind string
 
 const (
