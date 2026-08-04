@@ -17,7 +17,10 @@ type Gateway interface {
 type Inbound struct {
 	Conversation Conversation
 	Author       string
-	Text         string
-	Attachments  []Attachment
-	MessageID    MessageID
+	// AuthorID is the platform's stable id for the author, used for participant
+	// journalling. Author is the display name shown to the agent.
+	AuthorID    string
+	Text        string
+	Attachments []Attachment
+	MessageID   MessageID
 }
