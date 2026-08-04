@@ -12,8 +12,8 @@ func TestRoutePolicyAllows(t *testing.T) {
 		{PolicyAll, RouteGateway, true},
 		{PolicyGatewayOnly, RouteGateway, true},
 		{PolicyGatewayOnly, RouteNative, false},
-		// Le zéro value doit être permissif : un host qui ne configure rien se
-		// comporte comme avant ce changement.
+		// The zero value must be permissive: a host that configures nothing
+		// behaves as it did before this change.
 		{RoutePolicy(""), RouteNative, true},
 	}
 	for _, c := range cases {
@@ -27,6 +27,20 @@ func TestValidateModelsRejectsEmptyID(t *testing.T) {
 	err := ValidateModels("claude", []ModelSpec{{Label: "Sans id", Arg: "x", Route: RouteNative}})
 	if err == nil {
 		t.Fatal("ValidateModels accepted a model with an empty ID")
+	}
+}
+
+func TestValidateModelsRejectsEmptyLabel(t *testing.T) {
+	err := ValidateModels("claude", []ModelSpec{{ID: "a", Arg: "a", Route: RouteNative}})
+	if err == nil {
+		t.Fatal("ValidateModels accepted a model with an empty Label")
+	}
+}
+
+func TestValidateModelsRejectsEmptyArg(t *testing.T) {
+	err := ValidateModels("claude", []ModelSpec{{ID: "a", Label: "A", Route: RouteNative}})
+	if err == nil {
+		t.Fatal("ValidateModels accepted a model with an empty Arg")
 	}
 }
 
@@ -78,6 +92,20 @@ func TestFilterModelsAllKeepsEverything(t *testing.T) {
 	}
 }
 
+// Serialized, a nil slice becomes `null` and an empty slice becomes `[]`. The
+// `models list --json` CLI must always emit `[]`, never `null` — this is the
+// boundary where the non-nil guarantee matters, so it is the one to test.
+func TestFilterModelsReturnsEmptyNotNil(t *testing.T) {
+	models := []ModelSpec{{ID: "n", Label: "N", Arg: "n", Route: RouteNative}}
+	got := FilterModels(models, PolicyGatewayOnly)
+	if got == nil {
+		t.Fatal("FilterModels returned nil when everything was filtered out; want an empty slice")
+	}
+	if len(got) != 0 {
+		t.Fatalf("FilterModels(gateway-only) kept a native model: %+v", got)
+	}
+}
+
 func TestGatewayCredsRefusesPartial(t *testing.T) {
 	if _, err := NewGatewayCreds("https://gw.example", ""); err == nil {
 		t.Fatal("NewGatewayCreds accepted a base URL without a token — the forbidden shape")
@@ -88,6 +116,11 @@ func TestGatewayCredsRefusesPartial(t *testing.T) {
 	if _, err := NewGatewayCreds("  ", "tok"); err == nil {
 		t.Fatal("NewGatewayCreds accepted a blank base URL")
 	}
+	// A whitespace-only token is the dangerous variant: it looks present to any
+	// naive `!= ""` check, yet it does not authenticate.
+	if _, err := NewGatewayCreds("https://gw.example", "   "); err == nil {
+		t.Fatal("NewGatewayCreds accepted a blank token — the forbidden shape in disguise")
+	}
 }
 
 func TestGatewayCredsAcceptsPair(t *testing.T) {
@@ -95,8 +128,18 @@ func TestGatewayCredsAcceptsPair(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGatewayCreds rejected a complete pair: %v", err)
 	}
-	if c.BaseURL != "https://gw.example" || c.Token != "tok" {
-		t.Fatalf("NewGatewayCreds mangled its inputs: %+v", c)
+	if c.BaseURL() != "https://gw.example" || c.Token() != "tok" {
+		t.Fatalf("NewGatewayCreds mangled its inputs: %q %q", c.BaseURL(), c.Token())
+	}
+}
+
+// The zero value is constructible outside the package
+// (`contracts.GatewayCreds{}`) but it is empty on BOTH sides, so never a
+// half-pair.
+func TestGatewayCredsZeroValueIsEmptyOnBothSides(t *testing.T) {
+	var c GatewayCreds
+	if c.BaseURL() != "" || c.Token() != "" {
+		t.Fatalf("zero GatewayCreds carried data: %q %q", c.BaseURL(), c.Token())
 	}
 }
 

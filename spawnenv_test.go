@@ -16,10 +16,10 @@ func TestMergeEnvAppendsPairs(t *testing.T) {
 }
 
 func TestMergeEnvOverridesInherited(t *testing.T) {
-	// Une variable injectée doit gagner sur celle héritée du daemon : sinon un
-	// ANTHROPIC_BASE_URL traînant dans l'environnement du daemon détournerait
-	// silencieusement une session. Et exec.Cmd a un comportement dépendant de la
-	// plateforme quand une clé apparaît deux fois.
+	// An injected variable must win over the one inherited from the daemon:
+	// otherwise a stale ANTHROPIC_BASE_URL lingering in the daemon's
+	// environment would silently hijack a session. And exec.Cmd has
+	// platform-dependent behavior when a key appears twice.
 	got := MergeEnv([]string{"ANTHROPIC_BASE_URL=https://stale"}, map[string]string{"ANTHROPIC_BASE_URL": "https://gw"})
 	var n int
 	for _, e := range got {
@@ -36,12 +36,22 @@ func TestMergeEnvOverridesInherited(t *testing.T) {
 }
 
 func TestMergeEnvNilIsIdentity(t *testing.T) {
-	// Non-régression de la route native : sans injection, l'environnement produit
-	// est exactement celui reçu.
+	// Non-regression for the native route: with no injection, the produced
+	// environment is exactly the one received.
 	base := []string{"PATH=/bin", "HOME=/home/x"}
 	got := MergeEnv(base, nil)
 	if len(got) != 2 || got[0] != "PATH=/bin" || got[1] != "HOME=/home/x" {
 		t.Fatalf("MergeEnv with no injection changed the environment: %v", got)
+	}
+}
+
+// This is the shape the native route actually produces: ParseEnvSetting("")
+// returns a non-nil empty map, not nil. Identity must hold for it too.
+func TestMergeEnvEmptyMapIsIdentity(t *testing.T) {
+	base := []string{"PATH=/bin", "HOME=/home/x"}
+	got := MergeEnv(base, map[string]string{})
+	if len(got) != 2 || got[0] != "PATH=/bin" || got[1] != "HOME=/home/x" {
+		t.Fatalf("MergeEnv with an empty map changed the environment: %v", got)
 	}
 }
 
@@ -56,17 +66,17 @@ func TestParseEnvSetting(t *testing.T) {
 }
 
 func TestParseEnvSettingKeepsEqualsInValue(t *testing.T) {
-	// Les jetons sont souvent en base64 et contiennent des '='. Seul le premier
-	// sépare la clé de la valeur.
+	// Tokens are often base64-encoded and contain '='. Only the first one
+	// separates the key from the value.
 	if got := ParseEnvSetting("T=a=b=c"); got["T"] != "a=b=c" {
 		t.Fatalf("ParseEnvSetting mangled a value containing '=': %q", got["T"])
 	}
 }
 
 func TestEncodeEnvSettingIsDeterministic(t *testing.T) {
-	// Les clés sont triées : sans ça la valeur change à chaque appel, donc elle
-	// n'est pas testable et le réglage transporté diffère entre deux spawns
-	// identiques.
+	// Keys are sorted: without that the value changes on every call, so it is
+	// not testable and the transported setting differs between two identical
+	// spawns.
 	env := map[string]string{"B": "2", "A": "1", "C": "3"}
 	first := EncodeEnvSetting(env)
 	for i := 0; i < 20; i++ {
@@ -86,8 +96,9 @@ func TestEncodeEnvSettingEmptyIsEmpty(t *testing.T) {
 }
 
 func TestEncodeParseRoundTrip(t *testing.T) {
-	// LE test qui justifie que ces deux fonctions soient dans le même dépôt :
-	// le host encode, le backend décode, et rien d'autre ne relie les deux.
+	// THE test that justifies these two functions living in the same repo:
+	// the host encodes, the backend decodes, and nothing else ties the two
+	// together.
 	want := map[string]string{
 		"ANTHROPIC_BASE_URL":   "https://gw.example/v1",
 		"ANTHROPIC_AUTH_TOKEN": "sk-abc=def==",

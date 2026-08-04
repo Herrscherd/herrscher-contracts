@@ -6,24 +6,25 @@ import (
 	"strings"
 )
 
-// Ces trois fonctions transportent les variables d'environnement qu'un host
-// injecte dans le process enfant d'un backend au spawn.
+// These three functions carry the environment variables a host injects into a
+// backend's child process at spawn time.
 //
-// Elles vivent dans contracts, et non dans chaque backend, parce que le host
-// ENCODE et les backends DÉCODENT : séparer les deux moitiés entre dépôts les
-// ferait diverger sans qu'aucune suite de tests ne puisse le voir.
+// They live in contracts, not in each backend, because the host ENCODES and
+// the backends DECODE: splitting the two halves across repos would let them
+// drift apart without any test suite able to see it.
 //
-// Le transport passe par PluginConfig.Settings, qui est un map[string]string.
-// Il n'existe pas de canal typé jusqu'au plugin, et en ajouter un obligerait à
-// changer la signature de toutes les factories.
+// The transport goes through PluginConfig.Settings, which is a
+// map[string]string. There is no typed channel down to the plugin, and adding
+// one would force a signature change on every factory.
 
-// MergeEnv superpose extra sur base, au format "K=V" de os.Environ(). Une clé
-// injectée REMPLACE celle héritée plutôt que de s'y ajouter : un exec.Cmd avec
-// deux entrées pour la même variable a un comportement dépendant de la
-// plateforme, et une valeur périmée héritée du daemon détournerait
-// silencieusement la session.
+// MergeEnv overlays extra onto base, in the "K=V" format of os.Environ(). An
+// injected key REPLACES the inherited one rather than being appended
+// alongside it: an exec.Cmd with two entries for the same variable has
+// platform-dependent behavior, and a stale value inherited from the daemon
+// would silently hijack the session.
 //
-// extra vide retourne base tel quel — c'est la non-régression de la route native.
+// An empty extra returns base unchanged — that is the native route's
+// non-regression case.
 func MergeEnv(base []string, extra map[string]string) []string {
 	if len(extra) == 0 {
 		return base
@@ -48,9 +49,9 @@ func MergeEnv(base []string, extra map[string]string) []string {
 	return out
 }
 
-// ParseEnvSetting décode la valeur du réglage "env" : des paires K=V séparées
-// par des sauts de ligne. Seul le PREMIER '=' sépare la clé de la valeur — les
-// jetons sont souvent en base64 et en contiennent.
+// ParseEnvSetting decodes the value of the "env" setting: K=V pairs separated
+// by newlines. Only the FIRST '=' separates the key from the value — tokens
+// are often base64-encoded and contain one.
 func ParseEnvSetting(s string) map[string]string {
 	out := map[string]string{}
 	for _, line := range strings.Split(s, "\n") {
@@ -67,9 +68,9 @@ func ParseEnvSetting(s string) map[string]string {
 	return out
 }
 
-// EncodeEnvSetting est l'inverse de ParseEnvSetting. Les clés sont triées pour
-// que la valeur soit déterministe : sans ça deux spawns identiques
-// transporteraient des chaînes différentes, et la fonction ne serait pas testable.
+// EncodeEnvSetting is the inverse of ParseEnvSetting. Keys are sorted so the
+// value is deterministic: without that, two identical spawns would carry
+// different strings, and the function would not be testable.
 func EncodeEnvSetting(env map[string]string) string {
 	if len(env) == 0 {
 		return ""

@@ -5,34 +5,34 @@ import (
 	"strings"
 )
 
-// Route dit qui sert un modèle. C'est la seule notion de « fournisseur » que le
-// système porte, et elle est binaire : soit le CLI vendor parle à son propre
-// service avec le login présent sur la machine, soit il parle à la passerelle
-// Neublox, qui route vers l'amont réel côté serveur. herrscher n'a donc jamais à
-// connaître Z.ai, Alibaba ou DeepSeek.
+// Route says who serves a model. It is the only notion of "provider" the
+// system carries, and it is binary: either the vendor CLI talks to its own
+// service with the login present on the machine, or it talks to the Neublox
+// gateway, which routes to the real upstream server-side. herrscher therefore
+// never needs to know about Z.ai, Alibaba, or DeepSeek.
 type Route string
 
 const (
-	// RouteNative : le CLI utilise l'authentification de l'utilisateur.
+	// RouteNative: the CLI uses the user's own authentication.
 	RouteNative Route = "native"
-	// RouteGateway : le CLI est pointé vers la passerelle Neublox.
+	// RouteGateway: the CLI is pointed at the Neublox gateway.
 	RouteGateway Route = "gateway"
 )
 
-// RoutePolicy borne les routes qu'un host accepte de servir. Le build public de
-// l'app pose PolicyGatewayOnly : un modèle natif n'y est pas masqué, il est
-// absent du catalogue, donc impossible à sélectionner, persister ou reprendre.
+// RoutePolicy bounds the routes a host is willing to serve. The app's public
+// build sets PolicyGatewayOnly: a native model is not hidden there, it is
+// absent from the catalog, so it cannot be selected, persisted, or resumed.
 type RoutePolicy string
 
 const (
-	// PolicyAll est le zéro value : un host qui ne configure rien se comporte
-	// comme avant ce changement. Le build interne reste sur cette valeur.
+	// PolicyAll is the zero value: a host that configures nothing behaves as
+	// it did before this change. The internal build stays on this value.
 	PolicyAll RoutePolicy = ""
-	// PolicyGatewayOnly n'expose que les modèles servis par la passerelle.
+	// PolicyGatewayOnly exposes only models served by the gateway.
 	PolicyGatewayOnly RoutePolicy = "gateway-only"
 )
 
-// Allows dit si la politique accepte cette route.
+// Allows reports whether the policy accepts this route.
 func (p RoutePolicy) Allows(r Route) bool {
 	if p == PolicyGatewayOnly {
 		return r == RouteGateway
@@ -40,32 +40,32 @@ func (p RoutePolicy) Allows(r Route) bool {
 	return true
 }
 
-// ModelSpec est un modèle qu'un backend déclare savoir exécuter. Il vit dans le
-// Manifest — donc lisible sans instancier de backend, ce dont l'app a besoin pour
-// peupler son sélecteur avant qu'une session existe.
+// ModelSpec is a model a backend declares it knows how to run. It lives in the
+// Manifest — so it is readable without instantiating a backend, which the app
+// needs in order to populate its selector before a session exists.
 type ModelSpec struct {
-	// ID est l'identifiant stable persisté dans l'état de session. C'est lui,
-	// et non Label ni Arg, qui permet de retrouver la route au resume.
+	// ID is the stable identifier persisted in session state. It, not Label
+	// or Arg, is what lets a resume recover the route.
 	ID string
-	// Label est ce que l'utilisateur voit. Aucune notion de vendor, de
-	// fournisseur ou de protocole ne doit y apparaître.
+	// Label is what the user sees. No notion of vendor, provider, or
+	// protocol should appear in it.
 	Label string
-	// Arg est la valeur passée à --model au CLI. Elle diffère souvent de l'ID
-	// (cursor encode l'effort dedans, la passerelle renomme).
+	// Arg is the value passed to --model on the CLI. It often differs from
+	// the ID (cursor encodes effort into it, the gateway renames it).
 	Arg string
-	// Efforts liste les niveaux acceptés. Vide = pas d'axe effort séparé.
+	// Efforts lists the accepted levels. Empty means no separate effort axis.
 	Efforts []string
 	Route   Route
-	// InputPrice est le prix affiché en USD par million de tokens d'entrée.
-	// Pour une route gateway c'est NOTRE prix, pas celui de l'amont. 0 =
-	// inconnu, le coût s'affiche alors en tokens seuls.
+	// InputPrice is the price shown in USD per million input tokens. For a
+	// gateway route this is OUR price, not the upstream's. 0 = unknown, and
+	// the cost is then displayed in tokens alone.
 	InputPrice float64
 }
 
-// ValidateModels vérifie l'intégrité du catalogue d'un backend. kind nomme le
-// backend dans les messages d'erreur. Appelé par le host au démarrage : un
-// catalogue incohérent doit tuer le daemon avec un message clair, pas produire
-// un sélecteur silencieusement faux.
+// ValidateModels checks the integrity of a backend's catalog. kind names the
+// backend in error messages. Called by the host at startup: an inconsistent
+// catalog must kill the daemon with a clear message, not silently produce a
+// wrong selector.
 func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
 	for i, m := range models {
@@ -89,9 +89,8 @@ func ValidateModels(kind string, models []ModelSpec) error {
 	return nil
 }
 
-// FilterModels garde les modèles que la politique autorise. Le résultat est
-// toujours non-nil pour que les appelants puissent le sérialiser en JSON sans
-// produire `null`.
+// FilterModels keeps the models the policy allows. The result is always
+// non-nil so callers can serialize it to JSON without producing `null`.
 func FilterModels(models []ModelSpec, p RoutePolicy) []ModelSpec {
 	out := make([]ModelSpec, 0, len(models))
 	for _, m := range models {
@@ -102,20 +101,31 @@ func FilterModels(models []ModelSpec, p RoutePolicy) []ModelSpec {
 	return out
 }
 
-// GatewayCreds est la paire (base URL, jeton) qu'une route gateway exige. Elle
-// est atomique PAR CONSTRUCTION : NewGatewayCreds est le seul moyen d'en obtenir
-// une valide, et il refuse toute moitié manquante.
+// GatewayCreds is the (base URL, token) pair a gateway route requires. Its
+// fields are unexported, so no package outside this one can construct a
+// half-filled value — NewGatewayCreds is the only path to one.
 //
-// La raison est légale, pas esthétique. Poser la base URL sans jeton envoie le
-// trafic vers la passerelle tout en le débitant sur l'abonnement claude.ai de
-// l'utilisateur — la forme qu'Anthropic interdit explicitement aux développeurs
-// tiers. Rendre cet état inexprimable vaut mieux que le tester après coup.
+// The reason is legal, not aesthetic. A base URL with no token sends traffic
+// to the gateway while billing it against the user's own claude.ai
+// subscription — the shape Anthropic explicitly forbids third-party
+// developers from producing. Making that state unrepresentable is better than
+// testing for it after the fact.
+//
+// The zero value stays constructible outside the package
+// (`contracts.GatewayCreds{}`) but it is empty on BOTH sides, so it is never a
+// half-pair.
 type GatewayCreds struct {
-	BaseURL string
-	Token   string
+	baseURL string
+	token   string
 }
 
-// NewGatewayCreds construit une paire complète, ou échoue.
+// BaseURL is the gateway URL. Empty only for the zero value.
+func (c GatewayCreds) BaseURL() string { return c.baseURL }
+
+// Token is the authentication token. Empty only for the zero value.
+func (c GatewayCreds) Token() string { return c.token }
+
+// NewGatewayCreds builds a complete pair, or fails.
 func NewGatewayCreds(baseURL, token string) (GatewayCreds, error) {
 	baseURL, token = strings.TrimSpace(baseURL), strings.TrimSpace(token)
 	switch {
@@ -126,5 +136,5 @@ func NewGatewayCreds(baseURL, token string) (GatewayCreds, error) {
 	case token == "":
 		return GatewayCreds{}, fmt.Errorf("gateway credentials: base URL without a token — refusing to run on the user's own subscription")
 	}
-	return GatewayCreds{BaseURL: baseURL, Token: token}, nil
+	return GatewayCreds{baseURL: baseURL, token: token}, nil
 }
