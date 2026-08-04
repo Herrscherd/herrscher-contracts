@@ -57,4 +57,9 @@ type Manifest struct {
 	// from and whether it is required. The host resolves a PluginConfig from this
 	// (see Resolve) — it never needs to know a plugin's keys itself.
 	Config []Setting
+	// Models déclare les modèles que ce backend sait exécuter. Vide pour les
+	// plugins non-backend. Le host agrège ce champ sur tous les backends
+	// compilés pour former le catalogue offert à l'utilisateur — sans jamais
+	// instancier un backend, ce dont l'app a besoin avant qu'une session existe.
+	Models []ModelSpec
 }
