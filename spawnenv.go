@@ -17,6 +17,35 @@ import (
 // map[string]string. There is no typed channel down to the plugin, and adding
 // one would force a signature change on every factory.
 
+// The environment variable NAMES that carry a gateway route from the host
+// down to a vendor CLI. They live here, next to MergeEnv and the round-trip
+// test, for exactly the same reason those functions do: the host WRITES these
+// keys and a backend (or the vendor CLI itself) READS them, and nothing else
+// ties the two sides together. Spelled as literals on both sides, a rename is
+// green in every repo and only fails at run time — and for claude it fails
+// SILENTLY: an unrecognised base-URL variable makes the child run natively, on
+// the machine's own subscription, while the session is still marked gateway.
+//
+// Anything that writes or matches one of these names must use these constants.
+const (
+	// EnvAnthropicBaseURL redirects the claude CLI at the gateway. Alone, it
+	// is the forbidden shape: gateway traffic billed to the user's own login.
+	// It travels with EnvAnthropicAuthToken or not at all.
+	EnvAnthropicBaseURL = "ANTHROPIC_BASE_URL"
+	// EnvAnthropicAuthToken is the gateway credential. It takes precedence
+	// over the subscription OAuth in the claude CLI's own precedence order,
+	// which is what guarantees the session runs on the product's account.
+	EnvAnthropicAuthToken = "ANTHROPIC_AUTH_TOKEN"
+	// EnvOpenAIBaseURL is the codex counterpart of EnvAnthropicBaseURL. The
+	// codex backend also treats its presence as the signal that this spawn is
+	// on the gateway route and needs a generated CODEX_HOME.
+	EnvOpenAIBaseURL = "OPENAI_BASE_URL"
+	// EnvNeubloxToken is the gateway credential for codex. It is referenced by
+	// env_key from the generated config.toml rather than written into it, so
+	// the token never lands on disk.
+	EnvNeubloxToken = "NEUBLOX_TOKEN"
+)
+
 // MergeEnv overlays extra onto base, in the "K=V" format of os.Environ(). An
 // injected key REPLACES the inherited one rather than being appended
 // alongside it: an exec.Cmd with two entries for the same variable has

@@ -5,6 +5,25 @@ import (
 	"testing"
 )
 
+// TestGatewayEnvKeyNames pins the wire names themselves. The constants exist
+// so the host and the backends stop spelling four magic strings independently,
+// but a constant is only a contract if its VALUE is pinned: the vendor CLIs
+// are third-party binaries that recognise these exact names, so changing one
+// here would not break compilation anywhere while silently disabling the
+// gateway route at run time.
+func TestGatewayEnvKeyNames(t *testing.T) {
+	for _, tc := range []struct{ got, want string }{
+		{EnvAnthropicBaseURL, "ANTHROPIC_BASE_URL"},
+		{EnvAnthropicAuthToken, "ANTHROPIC_AUTH_TOKEN"},
+		{EnvOpenAIBaseURL, "OPENAI_BASE_URL"},
+		{EnvNeubloxToken, "NEUBLOX_TOKEN"},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("gateway env key = %q, want %q (the vendor CLI reads this exact name)", tc.got, tc.want)
+		}
+	}
+}
+
 func TestMergeEnvAppendsPairs(t *testing.T) {
 	got := MergeEnv([]string{"PATH=/bin", "HOME=/home/x"}, map[string]string{"ANTHROPIC_BASE_URL": "https://gw"})
 	if !hasEntry(got, "ANTHROPIC_BASE_URL=https://gw") {
