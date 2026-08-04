@@ -62,4 +62,11 @@ type Manifest struct {
 	// backends to form the catalog offered to the user — without ever
 	// instantiating a backend, which the app needs before a session exists.
 	Models []ModelSpec
+	// AttachmentHosts are the hostnames this gateway's Attachment URLs may point
+	// at — its own CDN, and nothing else. The host downloads those URLs, so it
+	// pins them to an allowlist rather than fetching whatever a remote author put
+	// in a message; declaring the list here is how it gets one without knowing
+	// what a "Discord CDN" is. Empty means the gateway hands over no https
+	// attachments, which is the safe default: nothing is downloaded.
+	AttachmentHosts []string
 }
