@@ -24,7 +24,7 @@ func TestRoutePolicyAllows(t *testing.T) {
 }
 
 func TestValidateModelsRejectsEmptyID(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{Label: "Sans id", Arg: "x", Route: RouteNative}})
+	err := ValidateModels("claude", []ModelSpec{{Label: "No id", Arg: "x", Route: RouteNative}})
 	if err == nil {
 		t.Fatal("ValidateModels accepted a model with an empty ID")
 	}
