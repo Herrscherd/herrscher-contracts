@@ -3,7 +3,21 @@ package contracts
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
+
+// hasControlChar reports whether s carries a control character.
+//
+// The values guarded by this function all end up in the newline-delimited
+// "env" setting (see spawnenv.go) or in the child's argv. A newline there is
+// not cosmetic: EncodeEnvSetting has no way to escape it and no way to report
+// an error without a signature change, so "tok\nK=v" decodes in the child as a
+// truncated token PLUS a forged variable K. The whole control-character class
+// is refused rather than '\n' alone — none of them is legitimate in a URL, a
+// token, a model ID or a CLI argument, and \r would split lines just as well.
+func hasControlChar(s string) bool {
+	return strings.ContainsFunc(s, unicode.IsControl)
+}
 
 // Route says who serves a model. It is the only notion of "provider" the
 // system carries, and it is binary: either the vendor CLI talks to its own
@@ -82,6 +96,18 @@ func ValidateModels(kind string, models []ModelSpec) error {
 		if strings.TrimSpace(m.Arg) == "" {
 			return fmt.Errorf("backend %q: model %q has an empty Arg", kind, m.ID)
 		}
+		for _, f := range []struct{ name, value string }{
+			{"ID", m.ID}, {"Label", m.Label}, {"Arg", m.Arg},
+		} {
+			if hasControlChar(f.value) {
+				return fmt.Errorf("backend %q: model %q has a control character in %s", kind, m.ID, f.name)
+			}
+		}
+		for _, e := range m.Efforts {
+			if hasControlChar(e) {
+				return fmt.Errorf("backend %q: model %q has a control character in effort %q", kind, m.ID, e)
+			}
+		}
 		if m.Route != RouteNative && m.Route != RouteGateway {
 			return fmt.Errorf("backend %q: model %q has unknown route %q", kind, m.ID, m.Route)
 		}
@@ -135,6 +161,10 @@ func NewGatewayCreds(baseURL, token string) (GatewayCreds, error) {
 		return GatewayCreds{}, fmt.Errorf("gateway credentials: token without a base URL")
 	case token == "":
 		return GatewayCreds{}, fmt.Errorf("gateway credentials: base URL without a token — refusing to run on the user's own subscription")
+	case hasControlChar(baseURL):
+		return GatewayCreds{}, fmt.Errorf("gateway credentials: base URL contains a control character")
+	case hasControlChar(token):
+		return GatewayCreds{}, fmt.Errorf("gateway credentials: token contains a control character")
 	}
 	return GatewayCreds{baseURL: baseURL, token: token}, nil
 }

@@ -142,3 +142,27 @@ func hasEntry(hay []string, needle string) bool {
 	}
 	return false
 }
+
+// The "env" transport is newline-delimited and EncodeEnvSetting cannot report
+// an error without a signature change, so a value carrying a newline does NOT
+// round-trip: it decodes as two variables. This test pins that documented
+// limitation, and pins that the guards upstream (NewGatewayCreds,
+// ValidateModels) are what make it unreachable — if either guard is ever
+// removed, the adversarial value below is what walks through.
+func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
+	forged := "line1\nB=evil"
+	got := ParseEnvSetting(EncodeEnvSetting(map[string]string{"A": forged}))
+	if len(got) == 1 && got["A"] == forged {
+		t.Fatal("the transport now round-trips newlines; drop the upstream guards' justification or this test")
+	}
+	if got["B"] != "evil" {
+		t.Fatalf("expected the newline to forge a second variable, got %#v", got)
+	}
+	// The producers of these values refuse the input in the first place.
+	if _, err := NewGatewayCreds("https://gw.example", forged); err == nil {
+		t.Fatal("NewGatewayCreds no longer guards the transport")
+	}
+	if err := ValidateModels("k", []ModelSpec{{ID: "x", Label: "X", Arg: forged, Route: RouteNative}}); err == nil {
+		t.Fatal("ValidateModels no longer guards the transport")
+	}
+}

@@ -151,3 +151,49 @@ func TestManifestCarriesModels(t *testing.T) {
 		t.Fatalf("Manifest.Models did not round-trip: %+v", m.Models)
 	}
 }
+
+// A newline in either half is not a cosmetic problem: the value travels to the
+// child through the newline-delimited "env" setting, where an embedded newline
+// forges a second variable (and truncates the token). Reject it at the only
+// constructor, next to the blank guard.
+func TestGatewayCredsRejectsControlCharacters(t *testing.T) {
+	cases := []struct {
+		name           string
+		baseURL, token string
+	}{
+		{"newline in token", "https://gw.example", "tok\nANTHROPIC_BASE_URL=http://evil"},
+		{"newline in base URL", "https://gw.example\nX=1", "tok"},
+		{"carriage return in token", "https://gw.example", "tok\rmore"},
+		{"NUL in token", "https://gw.example", "tok\x00more"},
+		{"escape in base URL", "https://gw.example\x1b[2J", "tok"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := NewGatewayCreds(tc.baseURL, tc.token); err == nil {
+				t.Fatal("NewGatewayCreds accepted a control character — it would forge a variable in the child")
+			}
+		})
+	}
+}
+
+// A malformed catalog must fail at registration, not at spawn: Arg and Efforts
+// reach the child's argv, ID is persisted, and any of them reaching the "env"
+// transport with a newline forges a second variable.
+func TestValidateModelsRejectsControlCharacters(t *testing.T) {
+	cases := []struct {
+		name string
+		spec ModelSpec
+	}{
+		{"newline in Arg", ModelSpec{ID: "x", Label: "X", Arg: "x\nOPENAI_BASE_URL=http://evil", Route: RouteNative}},
+		{"newline in ID", ModelSpec{ID: "x\ny", Label: "X", Arg: "x", Route: RouteNative}},
+		{"newline in Label", ModelSpec{ID: "x", Label: "X\ny", Arg: "x", Route: RouteNative}},
+		{"newline in an effort", ModelSpec{ID: "x", Label: "X", Arg: "x", Efforts: []string{"low\nhigh"}, Route: RouteNative}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := ValidateModels("k", []ModelSpec{tc.spec}); err == nil {
+				t.Fatal("ValidateModels accepted a control character in a field that reaches the child")
+			}
+		})
+	}
+}
