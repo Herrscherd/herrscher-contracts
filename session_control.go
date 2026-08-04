@@ -39,6 +39,30 @@ type SessionControl interface {
 	// preserved for the next turn; the partial turn is discarded. Reports false
 	// when no live session by that name is driving. Best-effort and non-blocking.
 	Interrupt(name string) bool
+	// Submit injects one inbound message into the named session's turn queue, as
+	// if the session had read it from its own conversation. The host resolves
+	// in.Attachments against that session's own download allowlist, so a gateway
+	// never fetches remote content itself. Reports false when no live session by
+	// that name is driving — the caller's binding is stale.
+	Submit(name string, in Inbound) bool
+	// Pick answers the named session's pending choice with a menu value. Reports
+	// false when no live session by that name is driving (mirror of Submit).
+	Pick(name, value string) bool
+	// Repos lists the targets a session can be created on: the workspace
+	// sub-directories already on disk, plus the repositories the configured forge
+	// can clone. A gateway uses it to offer the operator a choice; contracts never
+	// learns how either list is obtained.
+	Repos(ctx context.Context) ([]RepoRef, error)
+}
+
+// RepoRef is one selectable work target returned by SessionControl.Repos. Local
+// reports whether Name is a workspace sub-directory already on disk — create it
+// with CreateSession.Project — rather than a remote to clone, which uses
+// CreateSession.Clone.
+type RepoRef struct {
+	Name        string
+	Description string
+	Local       bool
 }
 
 // ScrollbackLine is one replayed transcript entry, carried across the seam so a
@@ -55,7 +79,13 @@ type ScrollbackLine struct {
 // required. Gateways selects the bound gateways; an empty slice with
 // TerminalOnly true binds the terminal only.
 type CreateSession struct {
-	Name             string
+	Name string
+	// ChannelID adopts an existing conversation instead of creating one: the new
+	// session binds to it and posts there, and no home needs to be configured.
+	// Empty keeps the default — create a channel under the configured home. A
+	// gateway already talking to the operator in a conversation sets this so the
+	// session lands where the conversation already is.
+	ChannelID        string
 	Project          string
 	Clone            string
 	Cmd              string
