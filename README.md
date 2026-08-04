@@ -61,6 +61,9 @@ ports nil. `Manifest.Config []Setting` declares each env-bound setting;
 missing required key. `Manifest.Status` is the plugin's own maturity claim
 (`StatusLive` — the zero value — `StatusWIP`, `StatusExperimental`,
 `StatusDeprecated`); it is descriptive only and never affects discovery.
+`Manifest.AttachmentHosts []string` names the hosts a gateway's attachment URLs
+may point at; the host pins its downloads to that allowlist, so a gateway that
+declares none has none downloaded.
 
 ## Model routing
 
