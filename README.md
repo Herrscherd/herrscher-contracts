@@ -46,6 +46,9 @@ Optional ones are capabilities: the host type-asserts and degrades when absent.
 | `Coordinator` | `coordinator.go` | host | `Handoff`, `Delegate`, `Report`, `Merge`, `Seal`, `FanOut`, `Route`. |
 | `RosterProvider` | `roster.go` | host | `Agents()` — the agents a session may delegate to. |
 | `Liveness` | `liveness.go` | host | `HeartbeatAck` — sink for a gateway's keepalive. |
+| **Model routing (types & helpers, not ports)** | | | |
+| `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | types | The model catalog a backend declares, its route, and the policy that bounds it; plus `ValidateModels`, `FilterModels`, `GatewayCreds`/`NewGatewayCreds`. |
+| `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | helpers | Encode/decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use. |
 
 ## Registration & config
 
@@ -58,6 +61,42 @@ ports nil. `Manifest.Config []Setting` declares each env-bound setting;
 missing required key. `Manifest.Status` is the plugin's own maturity claim
 (`StatusLive` — the zero value — `StatusWIP`, `StatusExperimental`,
 `StatusDeprecated`); it is descriptive only and never affects discovery.
+
+## Model routing
+
+A backend declares the models it knows how to run in `Manifest.Models`
+(`[]ModelSpec{ID, Label, Arg, Efforts, Route, InputPrice}`), so the catalog is
+readable without instantiating anything. `ID` is what the host persists in
+session state — `Arg` is only what goes on the CLI's `--model`, and the two
+often differ. `ValidateModels(kind, models)` is what the host calls at startup:
+an empty ID/Label/Arg, a duplicate ID, or an unknown route is a startup
+failure, not a silently wrong selector.
+
+`Route` is binary: `RouteNative` (the vendor CLI uses the login present on the
+machine) or `RouteGateway` (it is pointed at the product's own paid account).
+`RoutePolicy` bounds which of them a build serves — `PolicyAll` (the zero
+value, unchanged behavior) or `PolicyGatewayOnly`, the public build. Under
+`gateway-only` a native model is not hidden, it is **absent**: `FilterModels`
+drops it, so it cannot be listed, selected, persisted, or resumed.
+`RoutePolicy.Allows(Route)` is the single predicate.
+
+`GatewayCreds` carries the (base URL, token) pair a gateway route needs. Its
+fields are **unexported** and `NewGatewayCreds` is the only constructor, which
+refuses a blank half: a base URL without a token would send traffic to the
+gateway while billing it to the user's own subscription — the shape Anthropic
+forbids third-party developers from producing. Making that state
+unrepresentable is stronger than testing for it afterwards. The zero value
+stays constructible but is empty on both sides, so it is never a half-pair.
+
+`MergeEnv`, `ParseEnvSetting` and `EncodeEnvSetting` carry the environment the
+host injects into a spawned child. They live here, not in each backend,
+because the host encodes and the backends decode: split across repos, the two
+halves could drift with no test able to see it. `MergeEnv` **replaces** an
+inherited key rather than appending a second entry for it. The variable names
+themselves are constants for the same reason — `EnvAnthropicBaseURL`,
+`EnvAnthropicAuthToken`, `EnvOpenAIBaseURL`, `EnvNeubloxToken` — since a
+rename spelled as a literal on both sides compiles green everywhere and fails
+only at run time, silently, by running natively on the user's own login.
 
 ## Helpers
 
