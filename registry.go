@@ -1,6 +1,9 @@
 package contracts
 
-import "context"
+import (
+	"context"
+	"io/fs"
+)
 
 // PluginConfig is the neutral settings bag a factory receives at startup. The
 // host fills it from env > config.json; a plugin reads only the keys it knows
@@ -49,6 +52,22 @@ type Plugin struct {
 	Backend      BackendFactory      // set iff Manifest.Category == CategoryBackend
 	Memory       MemoryFactory       // set iff Manifest.Category == CategoryMemory
 	Orchestrator OrchestratorFactory // set iff Manifest.Category == CategoryOrchestrator
+	// Skills are the playbooks teaching an agent to use what this plugin
+	// contributes, installed by the host only when the plugin is in the build —
+	// so a Discord playbook never sits in the context of a machine that has no
+	// Discord. A static field and not a method on the instance: a gateway missing
+	// its credentials never instantiates, and it must still ship its playbook.
+	// Nil when a plugin contributes none.
+	Skills fs.FS
+}
+
+// CommandSource is an optional capability of a live plugin instance: the verbs
+// it contributes to the daemon's own command registry. The host namespaces them
+// under the plugin's Manifest Kind, so two gateways declaring the same path do
+// not collide. A Cmd's Run may close over anything the plugin holds — the
+// registry only ever sees a Cmd, which is what keeps the core agnostic.
+type CommandSource interface {
+	Commands() []Cmd
 }
 
 // Registry collects plugins and queries them by category. Plugins self-register
