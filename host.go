@@ -49,3 +49,13 @@ type ChannelAdmin interface {
 	// platform — a new gateway adds rendering without touching core.
 	ChannelRef(id string) string
 }
+
+// MessageEditor is an optional channel capability: changing or removing a
+// message already sent. Optional because it is not universal — a line already
+// printed to a terminal cannot be unprinted, and the in-tree terminal gateway
+// does not implement it. Putting these on Gateway would force every gateway to
+// carry a method whose only honest implementation is an error.
+type MessageEditor interface {
+	Delete(ctx context.Context, channelID, messageID string) error
+	Edit(ctx context.Context, channelID, messageID, content string) error
+}
