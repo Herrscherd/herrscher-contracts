@@ -14,7 +14,7 @@ import (
 func TestGatewayEnvKeyNames(t *testing.T) {
 	for _, tc := range []struct{ got, want string }{
 		{EnvAnthropicBaseURL, "ANTHROPIC_BASE_URL"},
-		{EnvAnthropicAuthToken, "ANTHROPIC_AUTH_TOKEN"},
+		{EnvAnthropicAPIKey, "ANTHROPIC_API_KEY"},
 		{EnvOpenAIBaseURL, "OPENAI_BASE_URL"},
 		{EnvNeubloxToken, "NEUBLOX_TOKEN"},
 	} {
@@ -119,9 +119,9 @@ func TestEncodeParseRoundTrip(t *testing.T) {
 	// the host encodes, the backend decodes, and nothing else ties the two
 	// together.
 	want := map[string]string{
-		"ANTHROPIC_BASE_URL":   "https://gw.example/v1",
-		"ANTHROPIC_AUTH_TOKEN": "sk-abc=def==",
-		"ANTHROPIC_MODEL":      "glm-4.7",
+		"ANTHROPIC_BASE_URL": "https://gw.example/v1",
+		"ANTHROPIC_API_KEY":  "sk-abc=def==",
+		"ANTHROPIC_MODEL":    "glm-4.7",
 	}
 	got := ParseEnvSetting(EncodeEnvSetting(want))
 	if len(got) != len(want) {
