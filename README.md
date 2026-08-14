@@ -54,7 +54,9 @@ Optional ones are capabilities: the host type-asserts and degrades when absent.
 
 A plugin declares a `Plugin{Manifest, <one factory>}` in `init()` and calls
 `Register`. Exactly one of `GatewayFactory` / `BackendFactory` / `MemoryFactory`
-/ `OrchestratorFactory` is set, matching `Manifest.Category`. A gateway factory
+/ `OrchestratorFactory` is set, matching `Manifest.Category` — unless that
+category is `CategorySkills`, which has no port to build and declares no port
+factory. A gateway factory
 returns a `GatewaySet{Gateway, Reader, Admin, Prober}` — one channel, optional
 ports nil. `Manifest.Config []Setting` declares each env-bound setting;
 `Resolve` builds a validated `PluginConfig` and fails startup naming every
@@ -64,6 +66,14 @@ missing required key. `Manifest.Status` is the plugin's own maturity claim
 `Manifest.AttachmentHosts []string` names the hosts a gateway's attachment URLs
 may point at; the host pins its downloads to that allowlist, so a gateway that
 declares none has none downloaded.
+
+`Plugin.Skills` is a `SkillsFactory` and is orthogonal to the category: any
+plugin may carry the playbooks that teach an agent to use what it contributes,
+and a plugin of `CategorySkills` carries nothing else. The host calls it apart
+from the port factory, so a gateway that never instantiates for want of a token
+still ships its playbook; a factory that returns an error installs nothing,
+which is how a plugin declines on a machine that lacks the tool its playbook
+describes.
 
 ## Model routing
 
