@@ -2,7 +2,9 @@ package contracts
 
 import (
 	"context"
+	"io/fs"
 	"testing"
+	"testing/fstest"
 )
 
 func TestRegistryFiltersByCategory(t *testing.T) {
@@ -63,5 +65,53 @@ func TestRegistryIsolatesMemory(t *testing.T) {
 	}
 	if len(r.Backends()) != 1 {
 		t.Fatalf("Backends() should still see exactly one backend")
+	}
+}
+
+// A plugin may contribute skills and nothing else. The category is what makes it
+// findable and countable next to the gateways and the backends, and the absence
+// of a port factory is what makes it legal.
+func TestRegistryIsolatesSkills(t *testing.T) {
+	var r Registry
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "superset", Category: CategorySkills},
+		Skills: func(context.Context, PluginConfig) (fs.FS, error) {
+			return fstest.MapFS{"demo/SKILL.md": &fstest.MapFile{Data: []byte("# demo")}}, nil
+		},
+	})
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, nil },
+	})
+
+	got := r.Skills()
+	if len(got) != 1 || got[0].Manifest.Kind != "superset" {
+		t.Fatalf("Skills() did not isolate the skills plugin: %+v", got)
+	}
+	if got[0].Gateway != nil || got[0].Backend != nil || got[0].Memory != nil || got[0].Orchestrator != nil {
+		t.Error("a skills plugin sets no port factory")
+	}
+	if len(r.Backends()) != 1 {
+		t.Fatalf("Backends() should still see exactly one backend")
+	}
+}
+
+// Skills are orthogonal to the category: a gateway carries the playbook that
+// teaches an agent to use it, and stays a gateway.
+func TestAGatewayMayAlsoCarrySkills(t *testing.T) {
+	var r Registry
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "chat", Category: CategoryGateway},
+		Gateway:  func(context.Context, PluginConfig) (GatewaySet, error) { return GatewaySet{}, nil },
+		Skills: func(context.Context, PluginConfig) (fs.FS, error) {
+			return fstest.MapFS{"chat/SKILL.md": &fstest.MapFile{Data: []byte("# chat")}}, nil
+		},
+	})
+	if len(r.Skills()) != 0 {
+		t.Error("Skills() reports the skills category, not every plugin that carries a playbook")
+	}
+	gws := r.Gateways()
+	if len(gws) != 1 || gws[0].Skills == nil {
+		t.Fatalf("a gateway carrying skills is still a gateway that carries skills: %+v", gws)
 	}
 }

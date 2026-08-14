@@ -42,23 +42,31 @@ type (
 	// factories it also receives the Memory port it composes (nil when no memory
 	// is wired); the session name arrives via cfg (key "session").
 	OrchestratorFactory func(ctx context.Context, cfg PluginConfig, mem Memory) (Orchestrator, error)
+	// SkillsFactory produces the plugin's playbook tree, one directory per skill.
+	// A factory and not a fixed tree so a plugin can decline: a playbook for a
+	// tool this machine does not have would sit in every agent's context forever,
+	// and only the plugin knows whether the tool is there. Returning an error
+	// installs nothing and is reported, never fatal.
+	SkillsFactory func(ctx context.Context, cfg PluginConfig) (fs.FS, error)
 )
 
-// Plugin is what a plugin declares about itself. Exactly one factory is non-nil,
-// consistent with Manifest.Category.
+// Plugin is what a plugin declares about itself. Exactly one *port* factory is
+// non-nil, consistent with Manifest.Category — except for CategorySkills, which
+// has no port and declares none. Skills is orthogonal to all of that: any plugin
+// may carry playbooks alongside the port it builds.
 type Plugin struct {
 	Manifest     Manifest
 	Gateway      GatewayFactory      // set iff Manifest.Category == CategoryGateway
 	Backend      BackendFactory      // set iff Manifest.Category == CategoryBackend
 	Memory       MemoryFactory       // set iff Manifest.Category == CategoryMemory
 	Orchestrator OrchestratorFactory // set iff Manifest.Category == CategoryOrchestrator
-	// Skills are the playbooks teaching an agent to use what this plugin
+	// Skills builds the playbooks teaching an agent to use what this plugin
 	// contributes, installed by the host only when the plugin is in the build —
 	// so a Discord playbook never sits in the context of a machine that has no
-	// Discord. A static field and not a method on the instance: a gateway missing
-	// its credentials never instantiates, and it must still ship its playbook.
-	// Nil when a plugin contributes none.
-	Skills fs.FS
+	// Discord. The host calls it on its own, never through the port factory: a
+	// gateway missing its credentials never instantiates, and it must still ship
+	// its playbook. Nil when a plugin contributes none.
+	Skills SkillsFactory
 }
 
 // CommandSource is an optional capability of a live plugin instance: the verbs
@@ -93,6 +101,12 @@ func (r *Registry) Gateways() []Plugin      { return r.byCategory(CategoryGatewa
 func (r *Registry) Backends() []Plugin      { return r.byCategory(CategoryBackend) }
 func (r *Registry) Memories() []Plugin      { return r.byCategory(CategoryMemory) }
 func (r *Registry) Orchestrators() []Plugin { return r.byCategory(CategoryOrchestrator) }
+
+// Skills returns the plugins whose whole contribution is playbooks. A gateway
+// that also carries a playbook is not one of them — it is reported by Gateways,
+// and the host installs from every plugin carrying a non-nil Skills whatever its
+// category.
+func (r *Registry) Skills() []Plugin { return r.byCategory(CategorySkills) }
 
 // Default is the global registry plugins self-register into via init(). Precedent
 // in the stdlib: image.RegisterFormat, database/sql.Register. A blank import of a

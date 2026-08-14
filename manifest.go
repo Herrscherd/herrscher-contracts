@@ -7,6 +7,11 @@ const (
 	CategoryBackend      Category = "backend"
 	CategoryMemory       Category = "memory"
 	CategoryOrchestrator Category = "orchestrator"
+	// CategorySkills is a plugin that contributes only playbooks. It has no port
+	// to build, so it declares no port factory — what it adds to a build is what
+	// the agent is told it can do, which is worth being a plugin like the others:
+	// installed, listed, versioned and removable by the same commands.
+	CategorySkills Category = "skills"
 )
 
 // Capabilities are announced by a plugin. The degrading decorator reads them to
