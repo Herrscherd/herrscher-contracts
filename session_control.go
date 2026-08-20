@@ -85,15 +85,26 @@ type CreateSession struct {
 	// Empty keeps the default — create a channel under the configured home. A
 	// gateway already talking to the operator in a conversation sets this so the
 	// session lands where the conversation already is.
-	ChannelID        string
-	Project          string
-	Clone            string
-	Cmd              string
-	Backend          string
-	Gateways         []string
-	TerminalOnly     bool
-	Shared           bool
-	Agent            string
+	ChannelID    string
+	Project      string
+	Clone        string
+	Cmd          string
+	Backend      string
+	Gateways     []string
+	TerminalOnly bool
+	Shared       bool
+	Agent        string
+	// MemoryProject and MemoryAgent name the shared and private memory roots this
+	// session files what it learns under, and nothing else. They are deliberately
+	// separate from Project and Agent, which place the session: Project steers the
+	// workspace sub-directory the bridge runs in, and Agent demands an isolated
+	// worktree be provisioned into. A session that only wants somewhere to put what
+	// it learned should not have to move house to get it.
+	MemoryProject string
+	MemoryAgent   string
+	// ProjectPinned marks MemoryProject as a human's choice rather than the host's
+	// guess. Only a guess may be revised by the session's first prompt.
+	ProjectPinned    bool
 	Extractor        string
 	Journal          string
 	ConsolidateEvery int
