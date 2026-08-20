@@ -31,6 +31,12 @@ const (
 func ProjectKey(name string) string { return "projects/" + normalizeScopeName(name) }
 func AgentKey(name string) string   { return "agents/" + normalizeScopeName(name) }
 
+// NormalizeScope exposes the folding ProjectKey and AgentKey apply. A host that
+// derives a scope name from somewhere else — a directory, a prompt — uses it to
+// produce exactly the segment the key would, so the two can never disagree about
+// whether Neublox and neublox are one project or two.
+func NormalizeScope(name string) string { return normalizeScopeName(name) }
+
 // normalizeScopeName folds a raw scope name into a single stable path segment:
 // lowercased, with every run of separators or unsafe characters collapsed to a
 // single hyphen and trimmed. Case- and whitespace-insensitivity is what stops the

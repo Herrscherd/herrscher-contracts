@@ -49,6 +49,11 @@ type Event struct {
 	// terminal reply{done} so the daemon can persist it for cross-restart
 	// --resume. Empty when the backend is not ResumeAware or has no id yet.
 	Resume string `json:"resume,omitempty"`
+	// Project carries the memory project this session settled on, piggybacked on
+	// the terminal reply{done} so the daemon can persist it — the same path Resume
+	// takes. Empty when the turn settled nothing, which is every turn of every
+	// session whose project a human already chose.
+	Project string `json:"project,omitempty"`
 	// Attachments carries local filesystem paths to any images resolved for an
 	// input frame — the host downloads/passes-through a message's attachments
 	// before enqueueing the turn, and the bridge folds these into Prompt so the
