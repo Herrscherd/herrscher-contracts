@@ -32,6 +32,15 @@ const (
 	// sets Query.IncludeRaw, mirroring how StateArchived nodes hide behind
 	// IncludeArchived. Raw chunks are never distilled, swept, merged, or promoted.
 	KindTranscript NodeKind = "transcript"
+	// KindSkill is one procedure the agent learned and can be told to follow: the
+	// executable half of its memory, as opposed to the facts it recalls. The vault
+	// is the source of truth and the host projects each active KindSkill node into
+	// a SKILL.md the skills engine discovers, so a learned procedure gets the same
+	// progressive disclosure as one a repository committed. It is deliberately an
+	// ordinary node: the staleness machine ages it, the merge pass folds it, and
+	// cross-agent promotion carries it from an agent's private scope to the shared
+	// project scope, all without a rule of its own.
+	KindSkill NodeKind = "skill"
 )
 
 // Link is a directed, typed edge to another node, identified by its Key.
