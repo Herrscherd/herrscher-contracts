@@ -119,3 +119,57 @@ func EncodeEnvSetting(env map[string]string) string {
 	}
 	return b.String()
 }
+
+// The environment variable NAMES that carry a session's approval policy from
+// the host down to a backend that gates in-process. They live here for the same
+// reason the gateway route names do: the host WRITES them and a backend READS
+// them, and nothing else ties the two sides together.
+const (
+	// EnvApprovalsMode carries the session's approval mode: "ask" or "strict".
+	// Absent or empty means ungated, which is how herrscher behaved before
+	// approvals existed.
+	EnvApprovalsMode = "HERRSCHER_APPROVALS_MODE"
+	// EnvApprovalsSession is the session name a backend passes back when it
+	// asks, without which there is nothing to ask about. It deliberately
+	// reuses HERRSCHER_SESSION, which the supervisor already exports on every
+	// bridge spawn: a second variable holding the same string could only ever
+	// disagree with the first one.
+	EnvApprovalsSession = "HERRSCHER_SESSION"
+	// EnvApprovalsBin is the herrscher binary a backend asks with. It is the
+	// same trusted binary the materialized hook invokes, and it is passed
+	// rather than resolved from PATH so a session cannot be gated by a
+	// different herrscher than the one supervising it.
+	EnvApprovalsBin = "HERRSCHER_APPROVALS_BIN"
+)
+
+// approvalsModeBypass is the one mode that means "do not gate". It is spelled
+// here rather than imported because contracts depends on nothing.
+const approvalsModeBypass = "bypass"
+
+// ApprovalsEnv encodes a session's gate for a backend child process. A bypass
+// or empty mode returns nil: there is nothing to carry, and a variable set to a
+// value meaning "ignore me" is a variable that will eventually be misread.
+func ApprovalsEnv(session, mode, bin string) map[string]string {
+	if session == "" || bin == "" || mode == "" || mode == approvalsModeBypass {
+		return nil
+	}
+	return map[string]string{
+		EnvApprovalsMode:    mode,
+		EnvApprovalsSession: session,
+		EnvApprovalsBin:     bin,
+	}
+}
+
+// ApprovalsFromEnv decodes what ApprovalsEnv wrote. gated is false unless all
+// three are present and the mode is not bypass, so a partial set fails open, in
+// the same direction every other approval failure does.
+func ApprovalsFromEnv(look func(string) string) (session, mode, bin string, gated bool) {
+	if look == nil {
+		return "", "", "", false
+	}
+	mode = strings.TrimSpace(look(EnvApprovalsMode))
+	session = strings.TrimSpace(look(EnvApprovalsSession))
+	bin = strings.TrimSpace(look(EnvApprovalsBin))
+	gated = mode != "" && mode != approvalsModeBypass && session != "" && bin != ""
+	return session, mode, bin, gated
+}

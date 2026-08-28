@@ -166,3 +166,56 @@ func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
 		t.Fatal("ValidateModels no longer guards the transport")
 	}
 }
+
+func TestApprovalsEnvRoundTrip(t *testing.T) {
+	env := ApprovalsEnv("api", "strict", "/usr/local/bin/herrscher")
+	look := func(k string) string { return env[k] }
+	session, mode, bin, gated := ApprovalsFromEnv(look)
+	if !gated {
+		t.Fatalf("gated = false, want true for %v", env)
+	}
+	if session != "api" || mode != "strict" || bin != "/usr/local/bin/herrscher" {
+		t.Fatalf("got %q %q %q", session, mode, bin)
+	}
+}
+
+func TestApprovalsEnvBypassCarriesNothing(t *testing.T) {
+	// Bypass is the operator's explicit choice to run ungated. Emitting the
+	// variables anyway would leave a backend deciding for itself what "bypass"
+	// means, and a reader guessing whether the session is gated.
+	if env := ApprovalsEnv("api", "bypass", "/bin/herrscher"); len(env) != 0 {
+		t.Fatalf("bypass emitted %v, want nothing", env)
+	}
+}
+
+func TestApprovalsFromEnvPartialSetFailsOpen(t *testing.T) {
+	// A partial set is a bug somewhere upstream. It must fail in the same
+	// direction every other approval failure does: open.
+	cases := []map[string]string{
+		{EnvApprovalsMode: "ask", EnvApprovalsSession: "api"},
+		{EnvApprovalsMode: "ask", EnvApprovalsBin: "/bin/herrscher"},
+		{EnvApprovalsSession: "api", EnvApprovalsBin: "/bin/herrscher"},
+		{EnvApprovalsMode: "bypass", EnvApprovalsSession: "api", EnvApprovalsBin: "/bin/herrscher"},
+	}
+	for i, env := range cases {
+		look := func(k string) string { return env[k] }
+		if _, _, _, gated := ApprovalsFromEnv(look); gated {
+			t.Fatalf("case %d: gated = true for %v, want false", i, env)
+		}
+	}
+}
+
+func TestApprovalsFromEnvNilLook(t *testing.T) {
+	if _, _, _, gated := ApprovalsFromEnv(nil); gated {
+		t.Fatal("nil look reported gated")
+	}
+}
+
+func TestGrainNoneIsZeroValue(t *testing.T) {
+	// Every manifest written before this field must stay correct as written,
+	// which is only true if the zero value means "enforces nothing".
+	var c Capabilities
+	if c.Gate != GrainNone {
+		t.Fatalf("zero Capabilities.Gate = %q, want GrainNone", c.Gate)
+	}
+}

@@ -14,6 +14,25 @@ const (
 	CategorySkills Category = "skills"
 )
 
+// GateGrain is how finely a backend can enforce an approval policy on its own
+// tool calls. It is declarative, and it sits on the manifest rather than behind
+// a method because the host reads it before any backend exists: a session's
+// gate has to be described to the operator at create time, and instantiating a
+// backend to ask would mean spawning a vendor CLI to answer a question about a
+// session that does not exist yet. Models is on the manifest for that same
+// reason.
+type GateGrain string
+
+const (
+	// GrainNone is the zero value: this backend enforces nothing. A session on
+	// it runs ungated whatever the approval rules say, which is why the host
+	// warns instead of pretending.
+	GrainNone GateGrain = ""
+	// GrainTool gates every tool call individually, which is the granularity
+	// the approval rules are written against.
+	GrainTool GateGrain = "tool"
+)
+
 // Capabilities are announced by a plugin. The degrading decorator reads them to
 // rabat unsupported actions. This is the single source of truth (no separate
 // Capabilities() method on the port).
@@ -21,6 +40,14 @@ type Capabilities struct {
 	Reactions   bool
 	SelectMenus bool
 	Replies     bool
+	// Gate is how finely this backend enforces approvals. The zero value is
+	// GrainNone, so every manifest that predates this field stays correct as
+	// written: they enforce nothing, and that is the truth about them.
+	Gate GateGrain
+	// GateWhy is the one line an operator reads when Gate is GrainNone and they
+	// asked for approvals anyway. It belongs to the plugin because the plugin is
+	// what knows the reason. Empty for a backend that does gate.
+	GateWhy string
 }
 
 // Status is a plugin's own claim about its maturity. It exists so maturity is
