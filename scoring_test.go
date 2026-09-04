@@ -92,3 +92,46 @@ func TestScore_ExportedMatchesInternal(t *testing.T) {
 		t.Fatalf("Score() must match ranker.score(): (%.3f,%v) vs (%.3f,%v)", got, hit, want, wantHit)
 	}
 }
+
+func TestTokenize_KeepsNonASCIILetters(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"décision", []string{"décision"}},
+		{"設計", []string{"設計"}},
+		{"ça va", []string{"ça", "va"}},
+		{"où ?", []string{"où"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			got := tokenize(tc.in)
+			if len(got) != len(tc.want) {
+				t.Fatalf("want %v, got %v", tc.want, got)
+			}
+			for i := range tc.want {
+				if got[i] != tc.want[i] {
+					t.Fatalf("token %d: want %q, got %q", i, tc.want[i], got[i])
+				}
+			}
+		})
+	}
+}
+
+func TestScore_MatchesAccentedAndNonLatinQueries(t *testing.T) {
+	cases := []struct {
+		query string
+		node  Node
+	}{
+		{"décision", Node{Title: "Décision", Body: "on garde nats"}},
+		{"設計", Node{Title: "設計", Body: "graph"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.query, func(t *testing.T) {
+			total, hit := Score(tc.query, time.Time{}, tc.node)
+			if !hit || total <= 0 {
+				t.Fatalf("query %q should match %+v, got %.3f hit=%v", tc.query, tc.node, total, hit)
+			}
+		})
+	}
+}

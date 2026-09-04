@@ -137,3 +137,40 @@ func TestDegradeEmitToFallsBackToEmit(t *testing.T) {
 		t.Fatalf("fallback event malformed: %+v", plain.calls[0])
 	}
 }
+
+type postOnlyGateway struct{ posts []string }
+
+func (p *postOnlyGateway) Manifest() Manifest { return Manifest{Kind: "postonly"} }
+func (p *postOnlyGateway) Post(_ context.Context, _ Conversation, text string) (MessageID, error) {
+	p.posts = append(p.posts, text)
+	return "", nil
+}
+func (p *postOnlyGateway) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
+	return "", nil
+}
+func (p *postOnlyGateway) React(context.Context, Conversation, MessageID, string) error { return nil }
+func (p *postOnlyGateway) Menu(context.Context, Conversation, MessageID, string, []Choice) error {
+	return nil
+}
+
+func TestDegradeDoesNotWidenSinkInterfaces(t *testing.T) {
+	cases := []struct {
+		name     string
+		inner    Gateway
+		wantSink bool
+	}{
+		{"post only", &postOnlyGateway{}, false},
+		{"plain sink", &plainSink{}, true},
+		{"routed sink", &recordingSink{}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := Degrade(tc.inner)
+			_, isEvent := d.(EventSink)
+			_, isRouted := d.(RoutedEventSink)
+			if isEvent != tc.wantSink || isRouted != tc.wantSink {
+				t.Fatalf("EventSink=%v RoutedEventSink=%v, want %v", isEvent, isRouted, tc.wantSink)
+			}
+		})
+	}
+}

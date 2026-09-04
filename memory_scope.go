@@ -48,7 +48,7 @@ func normalizeScopeName(name string) string {
 	pendingSep := false
 	for _, r := range strings.TrimSpace(name) {
 		switch {
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
+		case isWordRune(r):
 			if pendingSep && b.Len() > 0 {
 				b.WriteByte('-')
 			}
@@ -215,6 +215,9 @@ func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
 func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	out := Subgraph{Root: shared.Root}
 	seen := map[string]bool{}
+	if shared.Root.Key != "" {
+		seen[shared.Root.Key] = true
+	}
 	add := func(nodes ...Node) {
 		for _, n := range nodes {
 			if n.Key == "" || seen[n.Key] {
