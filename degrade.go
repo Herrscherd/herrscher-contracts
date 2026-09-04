@@ -9,7 +9,21 @@ import (
 // Degrade wraps a Gateway and rabats actions the plugin does not announce. The
 // manager always calls the rich method; degradation lives here, never in the
 // domain.
-func Degrade(g Gateway) Gateway { return degrading{g} }
+func Degrade(g Gateway) Gateway {
+	d := degrading{g}
+	if isEventSink(g) {
+		return degradingSink{d}
+	}
+	return d
+}
+
+func isEventSink(g Gateway) bool {
+	if _, ok := g.(RoutedEventSink); ok {
+		return true
+	}
+	_, ok := g.(EventSink)
+	return ok
+}
 
 type degrading struct{ g Gateway }
 
@@ -57,20 +71,20 @@ func (d degrading) BindSessionControl(c SessionControl) {
 	}
 }
 
-// Emit forwards to the inner gateway when it implements EventSink; otherwise a no-op.
-func (d degrading) Emit(e Event) {
+type degradingSink struct{ degrading }
+
+func (d degradingSink) Emit(e Event) {
 	if s, ok := d.g.(EventSink); ok {
 		s.Emit(e)
 	}
 }
 
-// EmitTo forwards to the inner RoutedEventSink; if the inner is only an EventSink it falls back to an unrouted Emit; otherwise a no-op.
-func (d degrading) EmitTo(conv Conversation, e Event) {
+func (d degradingSink) EmitTo(conv Conversation, e Event) {
 	if s, ok := d.g.(RoutedEventSink); ok {
 		s.EmitTo(conv, e)
 		return
 	}
 	if s, ok := d.g.(EventSink); ok {
-		s.Emit(e) // inner renders unrouted; acceptable for single-conversation gateways
+		s.Emit(e)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Ranking weights. Constants for now; a later PR may make them configurable.
@@ -26,8 +27,12 @@ const (
 // Shared by query parsing and node scanning so both sides tokenize identically.
 func tokenize(s string) []string {
 	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+		return !isWordRune(r)
 	})
+}
+
+func isWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
 // ranker scores nodes against a fixed query. now is the reference time for

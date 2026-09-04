@@ -238,3 +238,30 @@ func TestRecallRelevant_ExcludesNonMatchesAndRespectsK(t *testing.T) {
 		t.Fatalf("higher term-frequency node 'b' should win, got %q", got[0].Key)
 	}
 }
+
+func TestMergeSubgraphsNeverListsSharedRootInNodes(t *testing.T) {
+	cases := []struct {
+		name    string
+		private Subgraph
+	}{
+		{"root in private nodes", Subgraph{Root: Node{Key: "ag"}, Nodes: []Node{{Key: "proj"}, {Key: "skill"}}}},
+		{"root is private root", Subgraph{Root: Node{Key: "proj"}, Nodes: []Node{{Key: "skill"}}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := &scopeMem{graphs: map[string]Subgraph{
+				"proj": {Root: Node{Key: "proj", Kind: KindProject}, Nodes: []Node{{Key: "fact"}}},
+				"ag":   tc.private,
+			}}
+			sg, err := RecallScoped(context.Background(), m, MemoryScope{Project: "proj", Agent: "ag"}, 1)
+			if err != nil {
+				t.Fatalf("RecallScoped: %v", err)
+			}
+			for _, n := range sg.Nodes {
+				if n.Key == "proj" {
+					t.Fatalf("shared root leaked into Nodes: %+v", sg.Nodes)
+				}
+			}
+		})
+	}
+}
