@@ -67,6 +67,8 @@ type Event struct {
 	// Agent is the authoritative agent or role at the time of this turn.
 	Agent        string             `json:"agent,omitempty"`
 	Coordination *CoordinationEvent `json:"coordination,omitempty"`
+	Todos        []TodoItem         `json:"todos,omitempty"`
+	Subagent     *Subagent          `json:"subagent,omitempty"`
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live

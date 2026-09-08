@@ -36,7 +36,7 @@ type Prompt struct {
 // progress consumer: a tool invocation, streamed assistant text, or the terminal
 // result carrying cost.
 type BackendEvent struct {
-	Kind        string  // "tool" | "text" | "thinking" | "usage" | "result" | "reset"
+	Kind        string  // "tool" | "text" | "thinking" | "usage" | "result" | "reset" | "todos" | "subagent"
 	Tool        string  // tool name (Kind == "tool")
 	Detail      string  // tool: salient input field; text/thinking: the assistant text
 	Cost        float64 // Kind == "result": total cost in USD
@@ -45,6 +45,8 @@ type BackendEvent struct {
 	OutTokens   int     // Kind == "usage" (live) and "result" (final): output tokens
 	CacheRead   int     // Kind == "usage"/"result": prompt-cache read tokens
 	CacheCreate int     // Kind == "usage"/"result": prompt-cache creation tokens
+	Todos       []TodoItem
+	Subagent    *Subagent
 }
 
 // PendingChoice is an interactive selection a backend is waiting on after a turn
