@@ -158,6 +158,11 @@ type SessionInfo struct {
 	// LastTs is the last transcript entry's timestamp (RFC3339), for sorting the
 	// picker by recency. Empty when the session has no transcript.
 	LastTs string
+	// ContextTokens is how much of the model's context window the session's last
+	// recorded turn occupied (input + cache read + cache creation). It lets a
+	// frontend show an occupancy on attach, before it has watched a turn of its
+	// own. Zero when no turn was ever recorded with usage.
+	ContextTokens int
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's
