@@ -137,6 +137,13 @@ type SessionInfo struct {
 	// Vendor is the agent backend vendor ("claude"/"codex"/"cursor"), shown as a
 	// /resume picker column. Empty when unknown.
 	Vendor string
+	// Model is the model the session runs on, as a frontend should name it to a
+	// human ("claude-opus-5"). Empty when the session was created before the
+	// catalog existed and its invocation names no model.
+	Model string
+	// Effort is the reasoning effort the session runs at ("low"/"medium"/"high"),
+	// read from its invocation. Empty when the backend takes no such flag.
+	Effort string
 	// Project is the workspace sub-dir the session started from, a picker column.
 	Project string
 	// Dir is the session's resolved run directory (its worktree, or the workspace/
