@@ -87,7 +87,7 @@ func TestEventSinkIsOptionalCapability(t *testing.T) {
 
 type sinkStub struct{}
 
-func (sinkStub) Emit(Event) {}
+func (sinkStub) Emit(*Event) {}
 
 func TestEventCarriesTokenBreakdown(t *testing.T) {
 	e := Event{T: "reply", Done: true, Cost: 0.004, Tokens: 55, TokensIn: 30, CacheRead: 12, CacheCreate: 3}

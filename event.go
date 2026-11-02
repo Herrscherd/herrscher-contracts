@@ -77,7 +77,7 @@ type Event struct {
 // without it is driven by the host's default path, which posts only the final
 // reply (chunked) through the Gateway port. No platform-specific rendering.
 type EventSink interface {
-	Emit(Event)
+	Emit(*Event)
 }
 
 // RoutedEventSink is an optional gateway capability for a gateway that renders
@@ -87,5 +87,5 @@ type EventSink interface {
 // the streams of every session bound to it. A gateway that implements only
 // EventSink (or neither) is unaffected.
 type RoutedEventSink interface {
-	EmitTo(conv Conversation, e Event)
+	EmitTo(conv Conversation, e *Event)
 }

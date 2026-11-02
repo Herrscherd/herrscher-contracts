@@ -103,9 +103,9 @@ type Memory interface {
 	Recall(ctx context.Context, key string, depth int) (Subgraph, error)
 	// Record upserts a node by Key. Re-recording an existing Key updates it in
 	// place rather than creating a duplicate.
-	Record(ctx context.Context, n Node) error
+	Record(ctx context.Context, n *Node) error
 	// Search finds nodes matching the query (keyword/kind/tag).
-	Search(ctx context.Context, q Query) ([]Node, error)
+	Search(ctx context.Context, q *Query) ([]Node, error)
 	// Links creates a typed edge from one node to another. Its inverse is Unlink.
 	Links(ctx context.Context, from, to, rel string) error
 	// Unlink removes the typed edge from→to. The inverse of Links. Every

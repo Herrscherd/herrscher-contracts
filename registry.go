@@ -84,14 +84,14 @@ type CommandSource interface {
 // and the same query surface.
 type Registry struct{ plugins []Plugin }
 
-func (r *Registry) Register(p Plugin) { r.plugins = append(r.plugins, p) }
-func (r *Registry) Plugins() []Plugin { return r.plugins }
+func (r *Registry) Register(p *Plugin) { r.plugins = append(r.plugins, *p) }
+func (r *Registry) Plugins() []Plugin  { return r.plugins }
 
 func (r *Registry) byCategory(c Category) []Plugin {
 	var out []Plugin
-	for _, p := range r.plugins {
-		if p.Manifest.Category == c {
-			out = append(out, p)
+	for i := range r.plugins {
+		if r.plugins[i].Manifest.Category == c {
+			out = append(out, r.plugins[i])
 		}
 	}
 	return out
@@ -114,4 +114,4 @@ func (r *Registry) Skills() []Plugin { return r.byCategory(CategorySkills) }
 var Default Registry
 
 // Register adds a plugin to the Default registry.
-func Register(p Plugin) { Default.Register(p) }
+func Register(p *Plugin) { Default.Register(p) }

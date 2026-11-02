@@ -23,8 +23,8 @@ func (r *recordingSink) React(context.Context, Conversation, MessageID, string) 
 func (r *recordingSink) Menu(context.Context, Conversation, MessageID, string, []Choice) error {
 	return nil
 }
-func (r *recordingSink) Emit(e Event)                   { r.plain = append(r.plain, e) }
-func (r *recordingSink) EmitTo(c Conversation, _ Event) { r.routed = append(r.routed, c) }
+func (r *recordingSink) Emit(e *Event)                   { r.plain = append(r.plain, *e) }
+func (r *recordingSink) EmitTo(c Conversation, _ *Event) { r.routed = append(r.routed, c) }
 
 type plainSink struct {
 	calls []Event
@@ -42,7 +42,7 @@ func (p *plainSink) React(context.Context, Conversation, MessageID, string) erro
 func (p *plainSink) Menu(context.Context, Conversation, MessageID, string, []Choice) error {
 	return nil
 }
-func (p *plainSink) Emit(e Event) { p.calls = append(p.calls, e) }
+func (p *plainSink) Emit(e *Event) { p.calls = append(p.calls, *e) }
 
 func full() Capabilities { return Capabilities{Reactions: true, SelectMenus: true, Replies: true} }
 
@@ -117,7 +117,7 @@ func TestDegradeForwardsSinks(t *testing.T) {
 	if !ok {
 		t.Fatal("degraded gateway must satisfy EventSink")
 	}
-	es.Emit(Event{T: "chunk", Text: "x"})
+	es.Emit(&Event{T: "chunk", Text: "x"})
 	if len(rec.plain) != 1 {
 		t.Fatalf("Emit not forwarded to inner: %+v", rec.plain)
 	}
@@ -126,7 +126,7 @@ func TestDegradeForwardsSinks(t *testing.T) {
 	if !ok {
 		t.Fatal("degraded gateway must satisfy RoutedEventSink")
 	}
-	rs.EmitTo(Conversation{Gateway: "rec", ID: "c1"}, Event{T: "reply"})
+	rs.EmitTo(Conversation{Gateway: "rec", ID: "c1"}, &Event{T: "reply"})
 	if len(rec.routed) != 1 || rec.routed[0].ID != "c1" {
 		t.Fatalf("EmitTo not forwarded to inner: %+v", rec.routed)
 	}
@@ -140,7 +140,7 @@ func TestDegradeEmitToFallsBackToEmit(t *testing.T) {
 	if !ok {
 		t.Fatal("degraded gateway must satisfy RoutedEventSink")
 	}
-	rs.EmitTo(Conversation{Gateway: "plain", ID: "c1"}, Event{T: "test", Text: "fallback"})
+	rs.EmitTo(Conversation{Gateway: "plain", ID: "c1"}, &Event{T: "test", Text: "fallback"})
 	if len(plain.calls) != 1 {
 		t.Fatalf("EmitTo should fall back to Emit on plain sink: %+v", plain.calls)
 	}

@@ -34,8 +34,8 @@ func TestStatusString(t *testing.T) {
 // only, and a wip plugin is still discovered like any other.
 func TestStatusDoesNotAffectDiscovery(t *testing.T) {
 	r := &Registry{}
-	r.Register(Plugin{Manifest: Manifest{Kind: "a", Category: CategoryBackend}})
-	r.Register(Plugin{Manifest: Manifest{Kind: "b", Category: CategoryBackend, Status: StatusWIP}})
+	r.Register(&Plugin{Manifest: Manifest{Kind: "a", Category: CategoryBackend}})
+	r.Register(&Plugin{Manifest: Manifest{Kind: "b", Category: CategoryBackend, Status: StatusWIP}})
 	if got := len(r.Backends()); got != 2 {
 		t.Fatalf("Backends() = %d, want 2", got)
 	}

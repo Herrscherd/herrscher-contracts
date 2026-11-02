@@ -15,11 +15,11 @@ func TestRegistryFiltersByCategory(t *testing.T) {
 	if len(r.Plugins()) != 0 {
 		t.Fatalf("fresh registry should be empty")
 	}
-	r.Register(Plugin{
+	r.Register(&Plugin{
 		Manifest: Manifest{Kind: "discord", Category: CategoryGateway},
 		Gateway:  func(context.Context, PluginConfig) (GatewaySet, error) { return GatewaySet{}, nil },
 	})
-	r.Register(Plugin{
+	r.Register(&Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
 		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
 	})
@@ -34,7 +34,7 @@ func TestRegistryFiltersByCategory(t *testing.T) {
 
 func TestDefaultRegistryRegister(t *testing.T) {
 	before := len(Default.Plugins())
-	Register(Plugin{Manifest: Manifest{Kind: "x", Category: CategoryGateway}})
+	Register(&Plugin{Manifest: Manifest{Kind: "x", Category: CategoryGateway}})
 	if len(Default.Plugins()) != before+1 {
 		t.Fatalf("Register did not append to Default")
 	}
@@ -53,11 +53,11 @@ func TestPluginConfigGet(t *testing.T) {
 
 func TestRegistryIsolatesMemory(t *testing.T) {
 	var r Registry
-	r.Register(Plugin{
+	r.Register(&Plugin{
 		Manifest: Manifest{Kind: "obsidian", Category: CategoryMemory},
 		Memory:   func(context.Context, PluginConfig) (Memory, error) { return nil, errStubFactory },
 	})
-	r.Register(Plugin{
+	r.Register(&Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
 		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
 	})
@@ -76,13 +76,13 @@ func TestRegistryIsolatesMemory(t *testing.T) {
 // of a port factory is what makes it legal.
 func TestRegistryIsolatesSkills(t *testing.T) {
 	var r Registry
-	r.Register(Plugin{
+	r.Register(&Plugin{
 		Manifest: Manifest{Kind: "superset", Category: CategorySkills},
 		Skills: func(context.Context, PluginConfig) (fs.FS, error) {
 			return fstest.MapFS{"demo/SKILL.md": &fstest.MapFile{Data: []byte("# demo")}}, nil
 		},
 	})
-	r.Register(Plugin{
+	r.Register(&Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
 		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
 	})
@@ -103,7 +103,7 @@ func TestRegistryIsolatesSkills(t *testing.T) {
 // teaches an agent to use it, and stays a gateway.
 func TestAGatewayMayAlsoCarrySkills(t *testing.T) {
 	var r Registry
-	r.Register(Plugin{
+	r.Register(&Plugin{
 		Manifest: Manifest{Kind: "chat", Category: CategoryGateway},
 		Gateway:  func(context.Context, PluginConfig) (GatewaySet, error) { return GatewaySet{}, nil },
 		Skills: func(context.Context, PluginConfig) (fs.FS, error) {
