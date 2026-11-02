@@ -9,9 +9,7 @@ type resumableStub struct{ tok string }
 
 func (r resumableStub) ResumeToken() string { return r.tok }
 
-func TestResumeAwareSatisfied(_ *testing.T) {
-	var _ ResumeAware = resumableStub{tok: "abc"}
-}
+var _ ResumeAware = resumableStub{tok: "abc"}
 
 func TestEventResumeJSON(t *testing.T) {
 	b, err := json.Marshal(Event{T: "reply", Done: true, Resume: "sid-1"})

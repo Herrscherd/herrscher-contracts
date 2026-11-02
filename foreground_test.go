@@ -1,13 +1,8 @@
 package contracts
 
-import (
-	"context"
-	"testing"
-)
+import "context"
 
-func TestForegroundIsOptionalCapability(_ *testing.T) {
-	var _ Foreground = fgStub{}
-}
+var _ Foreground = fgStub{}
 
 type fgStub struct{}
 
