@@ -29,7 +29,10 @@ const (
 // the orchestrator (which derives a MemoryScope) and the provisioners (which
 // create the root nodes) can never drift apart. Scheme: flat, English, no /index.
 func ProjectKey(name string) string { return "projects/" + normalizeScopeName(name) }
-func AgentKey(name string) string   { return "agents/" + normalizeScopeName(name) }
+
+// AgentKey returns the scope root key of the agent called name, under the agents/
+// prefix, normalized the same way as ProjectKey.
+func AgentKey(name string) string { return "agents/" + normalizeScopeName(name) }
 
 // NormalizeScope exposes the folding ProjectKey and AgentKey apply. A host that
 // derives a scope name from somewhere else. A directory, a prompt. Uses it to

@@ -34,9 +34,9 @@ func hasControlChar(s string) bool {
 type Route string
 
 const (
-	// RouteNative: the CLI uses the user's own authentication.
+	// RouteNative is the route on which the CLI uses the user's own authentication.
 	RouteNative Route = "native"
-	// RouteGateway: the CLI is pointed at the Neublox gateway.
+	// RouteGateway is the route on which the CLI is pointed at the Neublox gateway.
 	RouteGateway Route = "gateway"
 )
 

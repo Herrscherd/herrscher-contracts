@@ -1,5 +1,9 @@
 package contracts
 
+// CoordinationEvent reports a handoff between sessions: one session delegates work to
+// another, or reports its result back to its parent. The session fields name the
+// sessions involved, Agent names the agent that acted, and Summary is the outcome in
+// human words.
 type CoordinationEvent struct {
 	Kind          string `json:"kind"`
 	SourceSession string `json:"source_session"`

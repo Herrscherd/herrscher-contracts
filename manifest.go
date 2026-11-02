@@ -1,11 +1,16 @@
 package contracts
 
+// Category names the role a plugin plays, and the registry queries plugins by it.
 type Category string
 
 const (
-	CategoryGateway      Category = "gateway"
-	CategoryBackend      Category = "backend"
-	CategoryMemory       Category = "memory"
+	// CategoryGateway is a plugin that connects a chat platform.
+	CategoryGateway Category = "gateway"
+	// CategoryBackend is a plugin that answers prompts with a model.
+	CategoryBackend Category = "backend"
+	// CategoryMemory is a plugin that stores and recalls memory nodes.
+	CategoryMemory Category = "memory"
+	// CategoryOrchestrator is a plugin that coordinates sessions and their subagents.
 	CategoryOrchestrator Category = "orchestrator"
 	// CategorySkills is a plugin that contributes only playbooks. It has no port
 	// to build, so it declares no port factory. What it adds to a build is what

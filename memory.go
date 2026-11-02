@@ -8,7 +8,9 @@ import "context"
 // raw archival tier. See the individual Kind* constants below for the full set.
 type NodeKind string
 
+// The node kinds, from the structural spine down to the archival tier.
 const (
+	// KindOrganization is the root of the structural spine: the organization that owns projects.
 	KindOrganization NodeKind = "organization"
 	KindProject      NodeKind = "project"
 	KindRepo         NodeKind = "repo"

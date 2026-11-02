@@ -53,8 +53,11 @@ type Builder struct{ c Cmd }
 // New starts a command declaration under the given namespace path.
 func New(path ...string) *Builder { return &Builder{c: Cmd{Path: path}} }
 
+// Help sets the help text of the command and returns the builder for chaining.
 func (b *Builder) Help(text string) *Builder { b.c.Help = text; return b }
 
+// Param declares a parameter the command accepts, with its help text and whether
+// the caller must supply it. It returns the builder for chaining.
 func (b *Builder) Param(name, help string, required bool) *Builder {
 	b.c.Params = append(b.c.Params, Param{
 		Name: name, Help: help, Required: required, ValueRequired: required,
