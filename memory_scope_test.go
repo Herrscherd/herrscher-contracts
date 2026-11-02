@@ -41,9 +41,9 @@ func (m *scopeMem) Unlink(_ context.Context, from, to string) error {
 }
 func (m *scopeMem) Close() error { return nil }
 
-func hasLink(m *scopeMem, from, to, rel string) bool {
+func hasLink(m *scopeMem, from, to string) bool {
 	for _, l := range m.links {
-		if l == [3]string{from, to, rel} {
+		if l == [3]string{from, to, RelContains} {
 			return true
 		}
 	}
@@ -59,7 +59,7 @@ func TestRecordSharedLinksUnderProject(t *testing.T) {
 	if len(m.recorded) != 1 || m.recorded[0].Key != "fact" {
 		t.Fatalf("node not recorded: %+v", m.recorded)
 	}
-	if !hasLink(m, "proj", "fact", RelContains) {
+	if !hasLink(m, "proj", "fact") {
 		t.Fatalf("shared fact not linked under project: %+v", m.links)
 	}
 }
@@ -70,10 +70,10 @@ func TestRecordPrivateLinksUnderAgent(t *testing.T) {
 	if err := RecordPrivate(context.Background(), m, s, Node{Key: "skill", Kind: KindDecision}); err != nil {
 		t.Fatalf("RecordPrivate: %v", err)
 	}
-	if !hasLink(m, "ag", "skill", RelContains) {
+	if !hasLink(m, "ag", "skill") {
 		t.Fatalf("private skill not linked under agent: %+v", m.links)
 	}
-	if hasLink(m, "proj", "skill", RelContains) {
+	if hasLink(m, "proj", "skill") {
 		t.Fatalf("private skill leaked under project: %+v", m.links)
 	}
 }
@@ -84,7 +84,7 @@ func TestRecordPrivateFallsBackToProjectWithoutAgent(t *testing.T) {
 	if err := RecordPrivate(context.Background(), m, s, Node{Key: "skill"}); err != nil {
 		t.Fatalf("RecordPrivate: %v", err)
 	}
-	if !hasLink(m, "proj", "skill", RelContains) {
+	if !hasLink(m, "proj", "skill") {
 		t.Fatalf("expected fallback under project: %+v", m.links)
 	}
 }
