@@ -1,6 +1,9 @@
 package contracts
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestRoutePolicyAllows(t *testing.T) {
 	cases := []struct {
@@ -21,41 +24,29 @@ func TestRoutePolicyAllows(t *testing.T) {
 	}
 }
 
-func TestValidateModelsRejectsEmptyID(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{Label: "No id", Arg: "x", Route: RouteNative}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted a model with an empty ID")
+func TestValidateModelsRejects(t *testing.T) {
+	cases := []struct {
+		name    string
+		models  []ModelSpec
+		wantErr error
+	}{
+		{"empty ID", []ModelSpec{{Label: "No id", Arg: "x", Route: RouteNative}}, ErrModelEmptyID},
+		{"empty label", []ModelSpec{{ID: "a", Arg: "a", Route: RouteNative}}, ErrModelEmptyLabel},
+		{"empty arg", []ModelSpec{{ID: "a", Label: "A", Route: RouteNative}}, ErrModelEmptyArg},
+		{"control character", []ModelSpec{{ID: "a", Label: "A\n", Arg: "a", Route: RouteNative}}, ErrModelControlChar},
+		{"duplicate ID", []ModelSpec{
+			{ID: "a", Label: "A", Arg: "a", Route: RouteNative},
+			{ID: "a", Label: "A bis", Arg: "a2", Route: RouteGateway},
+		}, ErrModelDuplicateID},
+		{"unknown route", []ModelSpec{{ID: "a", Label: "A", Arg: "a", Route: Route("carrier-pigeon")}}, ErrModelUnknownRoute},
 	}
-}
-
-func TestValidateModelsRejectsEmptyLabel(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{ID: "a", Arg: "a", Route: RouteNative}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted a model with an empty Label")
-	}
-}
-
-func TestValidateModelsRejectsEmptyArg(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{ID: "a", Label: "A", Route: RouteNative}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted a model with an empty Arg")
-	}
-}
-
-func TestValidateModelsRejectsDuplicateID(t *testing.T) {
-	models := []ModelSpec{
-		{ID: "a", Label: "A", Arg: "a", Route: RouteNative},
-		{ID: "a", Label: "A bis", Arg: "a2", Route: RouteGateway},
-	}
-	if err := ValidateModels("claude", models); err == nil {
-		t.Fatal("ValidateModels accepted a duplicate ID")
-	}
-}
-
-func TestValidateModelsRejectsUnknownRoute(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{ID: "a", Label: "A", Arg: "a", Route: Route("carrier-pigeon")}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted an unknown route")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateModels("claude", c.models)
+			if !errors.Is(err, c.wantErr) {
+				t.Fatalf("ValidateModels error = %v, want %v", err, c.wantErr)
+			}
+		})
 	}
 }
 
@@ -104,18 +95,28 @@ func TestFilterModelsReturnsEmptyNotNil(t *testing.T) {
 	}
 }
 
-func TestGatewayCredsRefusesPartial(t *testing.T) {
-	if _, err := NewGatewayCreds("https://gw.example", ""); err == nil {
-		t.Fatal("NewGatewayCreds accepted a base URL without a token. The forbidden shape")
+func TestGatewayCredsRefuses(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		token   string
+		wantErr error
+	}{
+		{"nothing", "", "", ErrCredsMissing},
+		{"base URL without token", "https://gw.example", "", ErrCredsURLNoToken},
+		{"blank token", "https://gw.example", "   ", ErrCredsURLNoToken},
+		{"token without base URL", "", "tok", ErrCredsTokenNoURL},
+		{"blank base URL", "  ", "tok", ErrCredsTokenNoURL},
+		{"control character in base URL", "https://gw\x07.example", "tok", ErrCredsURLControlChar},
+		{"control character in token", "https://gw.example", "to\nk", ErrCredsTokenControl},
 	}
-	if _, err := NewGatewayCreds("", "tok"); err == nil {
-		t.Fatal("NewGatewayCreds accepted a token without a base URL")
-	}
-	if _, err := NewGatewayCreds("  ", "tok"); err == nil {
-		t.Fatal("NewGatewayCreds accepted a blank base URL")
-	}
-	if _, err := NewGatewayCreds("https://gw.example", "   "); err == nil {
-		t.Fatal("NewGatewayCreds accepted a blank token. The forbidden shape in disguise")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := NewGatewayCreds(c.baseURL, c.token)
+			if !errors.Is(err, c.wantErr) {
+				t.Fatalf("NewGatewayCreds error = %v, want %v", err, c.wantErr)
+			}
+		})
 	}
 }
 
