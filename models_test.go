@@ -81,9 +81,6 @@ func TestFilterModelsAllKeepsEverything(t *testing.T) {
 	}
 }
 
-// Serialized, a nil slice becomes `null` and an empty slice becomes `[]`. The
-// `models list --json` CLI must always emit `[]`, never `null`. This is the
-// boundary where the non-nil guarantee matters, so it is the one to test.
 func TestFilterModelsReturnsEmptyNotNil(t *testing.T) {
 	models := []ModelSpec{{ID: "n", Label: "N", Arg: "n", Route: RouteNative}}
 	got := FilterModels(models, PolicyGatewayOnly)
@@ -130,9 +127,6 @@ func TestGatewayCredsAcceptsPair(t *testing.T) {
 	}
 }
 
-// The zero value is constructible outside the package
-// (`contracts.GatewayCreds{}`) but it is empty on BOTH sides, so never a
-// half-pair.
 func TestGatewayCredsZeroValueIsEmptyOnBothSides(t *testing.T) {
 	var c GatewayCreds
 	if c.BaseURL() != "" || c.Token() != "" {
@@ -149,10 +143,6 @@ func TestManifestCarriesModels(t *testing.T) {
 	}
 }
 
-// A newline in either half is not a cosmetic problem: the value travels to the
-// child through the newline-delimited "env" setting, where an embedded newline
-// forges a second variable (and truncates the token). Reject it at the only
-// constructor, next to the blank guard.
 func TestGatewayCredsRejectsControlCharacters(t *testing.T) {
 	cases := []struct {
 		name           string
@@ -173,9 +163,6 @@ func TestGatewayCredsRejectsControlCharacters(t *testing.T) {
 	}
 }
 
-// A malformed catalog must fail at registration, not at spawn: Arg and Efforts
-// reach the child's argv, ID is persisted, and any of them reaching the "env"
-// transport with a newline forges a second variable.
 func TestValidateModelsRejectsControlCharacters(t *testing.T) {
 	cases := []struct {
 		name string

@@ -71,9 +71,6 @@ func TestRegistryIsolatesMemory(t *testing.T) {
 	}
 }
 
-// A plugin may contribute skills and nothing else. The category is what makes it
-// findable and countable next to the gateways and the backends, and the absence
-// of a port factory is what makes it legal.
 func TestRegistryIsolatesSkills(t *testing.T) {
 	var r Registry
 	r.Register(Plugin{
@@ -99,8 +96,6 @@ func TestRegistryIsolatesSkills(t *testing.T) {
 	}
 }
 
-// Skills are orthogonal to the category: a gateway carries the playbook that
-// teaches an agent to use it, and stays a gateway.
 func TestAGatewayMayAlsoCarrySkills(t *testing.T) {
 	var r Registry
 	r.Register(Plugin{

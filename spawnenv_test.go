@@ -5,13 +5,7 @@ import (
 	"testing"
 )
 
-// TestGatewayEnvKeyNames pins the wire names themselves. The constants exist
-// so the host and the backends stop spelling four magic strings independently,
-// but a constant is only a contract if its VALUE is pinned: the vendor CLIs
-// are third-party binaries that recognise these exact names, so changing one
-// here would not break compilation anywhere while silently disabling the
-// gateway route at run time.
-func TestGatewayEnvKeyNames(t *testing.T) {
+func TestGatewayEnvKeyNamesAreTheVendorWireNames(t *testing.T) {
 	for _, tc := range []struct{ got, want string }{
 		{EnvAnthropicBaseURL, "ANTHROPIC_BASE_URL"},
 		{EnvAnthropicAPIKey, "ANTHROPIC_API_KEY"},
@@ -58,8 +52,6 @@ func TestMergeEnvNilIsIdentity(t *testing.T) {
 	}
 }
 
-// This is the shape the native route actually produces: ParseEnvSetting("")
-// returns a non-nil empty map, not nil. Identity must hold for it too.
 func TestMergeEnvEmptyMapIsIdentity(t *testing.T) {
 	base := []string{"PATH=/bin", "HOME=/home/x"}
 	got := MergeEnv(base, make(map[string]string))
@@ -129,12 +121,6 @@ func hasEntry(hay []string, needle string) bool {
 	return false
 }
 
-// The "env" transport is newline-delimited and EncodeEnvSetting cannot report
-// an error without a signature change, so a value carrying a newline does NOT
-// round-trip: it decodes as two variables. This test pins that documented
-// limitation, and pins that the guards upstream (NewGatewayCreds,
-// ValidateModels) are what make it unreachable. If either guard is ever
-// removed, the adversarial value below is what walks through.
 func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
 	forged := "line1\nB=evil"
 	got := ParseEnvSetting(EncodeEnvSetting(map[string]string{"A": forged}))

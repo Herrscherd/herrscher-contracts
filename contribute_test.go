@@ -26,9 +26,6 @@ var (
 	_ contracts.MessageEditor = contributor{}
 )
 
-// A plugin's skills are reachable without its port ever being built. A gateway
-// with no token still ships its playbook. The two factories are independent, and
-// this test fails the moment the host is asked to build one to get the other.
 func TestPluginSkillsDoNotRequireBuildingThePort(t *testing.T) {
 	built := false
 	p := contracts.Plugin{
@@ -56,9 +53,6 @@ func TestPluginSkillsDoNotRequireBuildingThePort(t *testing.T) {
 	}
 }
 
-// A skills plugin declines when the tool its playbook describes is not on the
-// machine, and the host installs nothing rather than teaching an agent about a
-// capability it does not have.
 func TestASkillsPluginMayDecline(t *testing.T) {
 	p := contracts.Plugin{
 		Manifest: contracts.Manifest{Kind: "superset", Category: contracts.CategorySkills},

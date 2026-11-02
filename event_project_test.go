@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// A settled project rides home on the terminal reply, the same way Resume does.
 func TestEventCarriesTheSettledProject(t *testing.T) {
 	b, err := json.Marshal(Event{T: "reply", Done: true, Project: "neublox"})
 	if err != nil {
@@ -24,9 +23,7 @@ func TestEventCarriesTheSettledProject(t *testing.T) {
 	}
 }
 
-// Every event that settles nothing must stay byte-identical to what it is today,
-// because every gateway and every recorded transcript reads this wire.
-func TestEventWithoutAProjectSaysNothing(t *testing.T) {
+func TestEventWithoutAProjectStaysByteIdentical(t *testing.T) {
 	b, err := json.Marshal(Event{T: "reply", Done: true})
 	if err != nil {
 		t.Fatal(err)
