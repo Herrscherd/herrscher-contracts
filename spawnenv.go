@@ -133,9 +133,10 @@ const (
 
 const approvalsModeBypass = "bypass"
 
-// ApprovalsEnv encodes a session's gate for a backend child process. A bypass
-// or empty mode returns nil: there is nothing to carry, and a variable set to a
-// value meaning "ignore me" is a variable that will eventually be misread.
+// ApprovalsEnv encodes a session's gate for a backend child process. It returns
+// nil when there is nothing to carry: the mode is bypass, or the mode, the session
+// or the bin is empty. A variable set to a value meaning "ignore me" is a variable
+// that will eventually be misread.
 func ApprovalsEnv(session, mode, bin string) map[string]string {
 	if session == "" || bin == "" || mode == "" || mode == approvalsModeBypass {
 		return nil
