@@ -8,154 +8,148 @@ import (
 	"unicode"
 )
 
-// MemoryScope expresses the P1 sharing policy *over the existing graph* — not a
+// MemoryScope expresses the P1 sharing policy *over the existing graph*. Not a
 // new port. A game's durable memory hangs under the shared Project node (every
 // agent of the game recalls it); an agent's learned skills hang under its own
 // Agent node (private to that agent). A scope names both roots for one agent
 // working on one project. An empty Agent means "no private scope": private
 // writes fall back to shared and scoped recall returns only the shared view.
 type MemoryScope struct {
-	Project string // Key of the KindProject node — the shared root
-	Agent   string // Key of the KindAgent node — this agent's private root ("" = none)
+	Project string
+	Agent   string
 }
 
 // Relations the policy uses when hanging facts/skills off a root.
 const (
-	RelContains  = "contains"   // structural: a root contains a fact or skill
-	RelAppliesTo = "applies-to" // a skill applies to a project/system
+	RelContains  = "contains"
+	RelAppliesTo = "applies-to"
 )
 
 // ProjectKey / AgentKey are the single source of truth for scope-root Keys, so
 // the orchestrator (which derives a MemoryScope) and the provisioners (which
 // create the root nodes) can never drift apart. Scheme: flat, English, no /index.
 func ProjectKey(name string) string { return "projects/" + normalizeScopeName(name) }
-func AgentKey(name string) string   { return "agents/" + normalizeScopeName(name) }
 
-// NormalizeScope exposes the folding ProjectKey and AgentKey apply. A host that
-// derives a scope name from somewhere else — a directory, a prompt — uses it to
-// produce exactly the segment the key would, so the two can never disagree about
-// whether Neublox and neublox are one project or two.
+// AgentKey returns the scope root key of the agent called name, under the agents/
+// prefix, normalized the same way as ProjectKey.
+func AgentKey(name string) string { return "agents/" + normalizeScopeName(name) }
+
+// NormalizeScope returns the name segment that ProjectKey and AgentKey put in
+// their keys: the words of name in lower case, joined by hyphens, or "scope" when
+// no word remains. A host that derives a scope name from elsewhere, such as a
+// directory or a prompt, uses it so that its name matches the keys exactly, and
+// both sides always agree on whether two spellings name the same project.
 func NormalizeScope(name string) string { return normalizeScopeName(name) }
 
-// normalizeScopeName folds a raw scope name into a single stable path segment:
-// lowercased, with every run of separators or unsafe characters collapsed to a
-// single hyphen and trimmed. Case- and whitespace-insensitivity is what stops the
-// same logical scope from splitting into two vault files (e.g. Neublox vs
-// neublox). A name that reduces to nothing falls back to "scope" so the key stays
-// a valid, non-empty segment.
 func normalizeScopeName(name string) string {
-	var b strings.Builder
+	var normalized strings.Builder
 	pendingSep := false
-	for _, r := range strings.TrimSpace(name) {
+	for _, char := range strings.TrimSpace(name) {
 		switch {
-		case isWordRune(r):
-			if pendingSep && b.Len() > 0 {
-				b.WriteByte('-')
+		case isWordRune(char):
+			if pendingSep && normalized.Len() > 0 {
+				_ = normalized.WriteByte('-')
 			}
 			pendingSep = false
-			b.WriteRune(unicode.ToLower(r))
+			_, _ = normalized.WriteRune(unicode.ToLower(char))
 		default:
 			pendingSep = true
 		}
 	}
-	if b.Len() == 0 {
+	if normalized.Len() == 0 {
 		return "scope"
 	}
-	return b.String()
+	return normalized.String()
 }
 
 // RecordShared upserts n and links it under the project root, making it visible
 // to every agent of the game. Use for project memory (decisions, conventions,
 // the Studio tree map, …).
-func RecordShared(ctx context.Context, m Memory, s MemoryScope, n Node) error {
-	if err := m.Record(ctx, n); err != nil {
+func RecordShared(ctx context.Context, memory Memory, scope MemoryScope, node Node) error {
+	if err := memory.Record(ctx, node); err != nil {
 		return err
 	}
-	return m.Links(ctx, s.Project, n.Key, RelContains)
+	return memory.Links(ctx, scope.Project, node.Key, RelContains)
 }
 
 // RecordPrivate upserts n and links it under the agent root, keeping it private
 // to this agent. Use for learned skills. With no Agent in scope it falls back to
 // shared so a fact is never dropped on the floor.
-func RecordPrivate(ctx context.Context, m Memory, s MemoryScope, n Node) error {
-	if err := m.Record(ctx, n); err != nil {
+func RecordPrivate(ctx context.Context, memory Memory, scope MemoryScope, node Node) error {
+	if err := memory.Record(ctx, node); err != nil {
 		return err
 	}
-	root := s.Agent
+	root := scope.Agent
 	if root == "" {
-		root = s.Project
+		root = scope.Project
 	}
-	return m.Links(ctx, root, n.Key, RelContains)
+	return memory.Links(ctx, root, node.Key, RelContains)
 }
 
 // RecallScoped returns what an agent should see at the start of a turn: the
 // shared project subgraph merged with the agent's private subgraph, de-duplicated
 // by Key. depth bounds link-following from each root. With no Agent in scope it
 // returns the shared subgraph alone.
-func RecallScoped(ctx context.Context, m Memory, s MemoryScope, depth int) (Subgraph, error) {
-	shared, err := m.Recall(ctx, s.Project, depth)
+func RecallScoped(ctx context.Context, memory Memory, scope MemoryScope, depth int) (Subgraph, error) {
+	shared, err := memory.Recall(ctx, scope.Project, depth)
 	if err != nil {
 		return Subgraph{}, err
 	}
-	if s.Agent == "" {
+	if scope.Agent == "" {
 		return shared, nil
 	}
-	private, err := m.Recall(ctx, s.Agent, depth)
+	private, err := memory.Recall(ctx, scope.Agent, depth)
 	if err != nil {
 		return Subgraph{}, err
 	}
 	return mergeSubgraphs(shared, private), nil
 }
 
-// relevantDepth bounds how far RecallRelevant walks from each scope root before
-// ranking. Deep enough to reach a project's facts and an agent's skills, shallow
-// enough to keep the candidate set (and cost) small.
 const relevantDepth = 3
 
-// RecallRelevant returns the top-k nodes from the scoped subgraph ranked by
-// relevance to text, instead of the full merged subgraph — bounding how much is
-// primed into a prompt. Nodes with no textual match are excluded; among matches,
-// term frequency, title hits, recency, kind, and graph proximity to a scope root
-// order the result (highest first). Fewer than k are returned when fewer match;
-// k <= 0 returns all matches.
-func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k int) ([]Node, error) {
-	sg, err := RecallScoped(ctx, m, s, relevantDepth)
+// RecallRelevant returns up to limit nodes of the scoped subgraph, ranked by
+// relevance to text, instead of the whole merged subgraph, so that only a bounded
+// number of nodes is primed into a prompt. Nodes with no textual match are
+// excluded. Among the matches, term frequency, title hits, recency measured at
+// now, kind and graph proximity to a scope root order the result, highest first.
+// Fewer than limit nodes are returned when fewer match; a limit of zero or less
+// returns every match.
+func RecallRelevant(ctx context.Context, memory Memory, scope MemoryScope, text string, limit int, now time.Time) ([]Node, error) {
+	subgraph, err := RecallScoped(ctx, memory, scope, relevantDepth)
 	if err != nil {
 		return nil, err
 	}
-	depth := scopeDepths(sg, s)
-	r := newRanker(text, time.Now().UTC())
+	depth := scopeDepths(&subgraph, scope)
+	ranker := newRanker(text, now)
 
 	type scored struct {
 		n     Node
 		score float64
 	}
-	// Dedup by Key while scoring {Root}+Nodes once, without materialising a
-	// combined slice; the seen map guards against any repeat across the two.
-	seen := make(map[string]bool, len(sg.Nodes)+1)
-	hits := make([]scored, 0, len(sg.Nodes)+1)
-	consider := func(n Node) {
-		if n.Key == "" || seen[n.Key] {
+	seen := make(map[string]bool, len(subgraph.Nodes)+1)
+	hits := make([]scored, 0, len(subgraph.Nodes)+1)
+	consider := func(node Node) {
+		if node.Key == "" || seen[node.Key] {
 			return
 		}
-		seen[n.Key] = true
-		base, ok := r.score(n)
+		seen[node.Key] = true
+		base, ok := ranker.score(node)
 		if !ok {
-			return // no textual match → excluded
+			return
 		}
-		d, reached := depth[n.Key]
+		distance, reached := depth[node.Key]
 		if !reached {
-			d = relevantDepth // unreached from either root: treat as farthest
+			distance = relevantDepth
 		}
-		hits = append(hits, scored{n: n, score: base + weightProx*proximityBoost(d)})
+		hits = append(hits, scored{n: node, score: base + weightProx*proximityBoost(distance)})
 	}
-	consider(sg.Root)
-	for _, n := range sg.Nodes {
+	consider(subgraph.Root)
+	for _, n := range subgraph.Nodes {
 		consider(n)
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].score > hits[j].score })
-	if k > 0 && len(hits) > k {
-		hits = hits[:k]
+	if limit > 0 && len(hits) > limit {
+		hits = hits[:limit]
 	}
 	out := make([]Node, len(hits))
 	for i, h := range hits {
@@ -164,19 +158,28 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 	return out, nil
 }
 
-// scopeDepths BFS-labels every node in sg with its shortest distance (in edges)
-// from a scope root (Project or Agent), following node Links (Link records no
-// source, so Edges alone can't drive the walk). Roots are depth 0; nodes
-// unreachable from either root are absent from the map.
-func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
-	byKey := make(map[string]Node, len(sg.Nodes)+1)
-	byKey[sg.Root.Key] = sg.Root
-	for _, n := range sg.Nodes {
+func scopeDepths(sg *Subgraph, scope MemoryScope) map[string]int {
+	byKey := indexNodes(sg)
+	depth := make(map[string]int, len(byKey))
+	frontier := seedScopeDepths(byKey, scope, depth)
+	for len(frontier) > 0 {
+		frontier = expandScopeDepths(byKey, depth, frontier)
+	}
+	return depth
+}
+
+func indexNodes(subgraph *Subgraph) map[string]Node {
+	byKey := make(map[string]Node, len(subgraph.Nodes)+1)
+	byKey[subgraph.Root.Key] = subgraph.Root
+	for _, n := range subgraph.Nodes {
 		byKey[n.Key] = n
 	}
-	depth := make(map[string]int, len(sg.Nodes)+1)
+	return byKey
+}
+
+func seedScopeDepths(byKey map[string]Node, scope MemoryScope, depth map[string]int) []string {
 	var frontier []string
-	for _, root := range []string{s.Project, s.Agent} {
+	for _, root := range []string{scope.Project, scope.Agent} {
 		if root == "" {
 			continue
 		}
@@ -188,58 +191,52 @@ func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
 			frontier = append(frontier, root)
 		}
 	}
-	for len(frontier) > 0 {
-		var next []string
-		for _, cur := range frontier {
-			for _, l := range byKey[cur].Links {
-				if _, ok := depth[l.To]; ok {
-					continue
-				}
-				if _, exists := byKey[l.To]; !exists {
-					continue
-				}
-				depth[l.To] = depth[cur] + 1
-				next = append(next, l.To)
-			}
-		}
-		frontier = next
-	}
-	return depth
+	return frontier
 }
 
-// mergeSubgraphs unions two subgraphs, keeping the shared root and dropping
-// duplicate nodes by Key (the shared view wins on collisions). Nodes stays
-// root-excluded like a Recall result: out.Root is never listed in out.Nodes.
-// The private root is a genuine non-root node in the merged view, so it is
-// added to Nodes; the shared root — being out.Root — is not.
+func expandScopeDepths(byKey map[string]Node, depth map[string]int, frontier []string) []string {
+	var next []string
+	for _, cur := range frontier {
+		for _, link := range byKey[cur].Links {
+			if _, ok := depth[link.To]; ok {
+				continue
+			}
+			if _, exists := byKey[link.To]; !exists {
+				continue
+			}
+			depth[link.To] = depth[cur] + 1
+			next = append(next, link.To)
+		}
+	}
+	return next
+}
+
 func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	out := Subgraph{Root: shared.Root}
-	seen := map[string]bool{}
+	seen := make(map[string]bool)
 	if shared.Root.Key != "" {
 		seen[shared.Root.Key] = true
 	}
 	add := func(nodes ...Node) {
-		for _, n := range nodes {
-			if n.Key == "" || seen[n.Key] {
+		for _, node := range nodes {
+			if node.Key == "" || seen[node.Key] {
 				continue
 			}
-			seen[n.Key] = true
-			out.Nodes = append(out.Nodes, n)
+			seen[node.Key] = true
+			out.Nodes = append(out.Nodes, node)
 		}
 	}
 	add(private.Root)
 	add(shared.Nodes...)
 	add(private.Nodes...)
-	// Edges are deduplicated by value too: an identical (To, Rel) link present in
-	// both subgraphs is redundant, and would otherwise double up in the merge.
-	seenEdge := map[Link]bool{}
+	seenEdge := make(map[Link]bool)
 	addEdges := func(edges []Link) {
-		for _, e := range edges {
-			if seenEdge[e] {
+		for _, edge := range edges {
+			if seenEdge[edge] {
 				continue
 			}
-			seenEdge[e] = true
-			out.Edges = append(out.Edges, e)
+			seenEdge[edge] = true
+			out.Edges = append(out.Edges, edge)
 		}
 	}
 	addEdges(shared.Edges)

@@ -14,9 +14,7 @@ func TestScopeKeyHelpers(t *testing.T) {
 	}
 }
 
-// TestScopeKeyNormalizes pins case- and separator-folding so the same logical
-// scope can never split into two vault files (the neublox/Neublox duplicate).
-func TestScopeKeyNormalizes(t *testing.T) {
+func TestScopeKeyFoldsCaseSoOneScopeIsOneVaultFile(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"neublox", "projects/neublox"},
 		{"Neublox", "projects/neublox"},
@@ -35,7 +33,6 @@ func TestScopeKeyNormalizes(t *testing.T) {
 	}
 }
 
-// compile-time check that the interface shape is what callers depend on.
 type stubProvisioner struct{}
 
 func (stubProvisioner) EnsureProject(_ context.Context, _, _ string) error { return nil }

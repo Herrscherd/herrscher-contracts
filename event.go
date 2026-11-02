@@ -1,5 +1,9 @@
 package contracts
 
+// CoordinationEvent reports a handoff between sessions: one session delegates work to
+// another, or reports its result back to its parent. The session fields name the
+// sessions involved, Agent names the agent that acted, and Summary is the outcome in
+// human words.
 type CoordinationEvent struct {
 	Kind          string `json:"kind"`
 	SourceSession string `json:"source_session"`
@@ -35,7 +39,7 @@ type Event struct {
 	Cost float64 `json:"cost,omitempty"`
 	// Tokens is the turn's cumulative output-token count, carried live on
 	// status/chunk events so a gateway can render a growing counter, and finally
-	// on the terminal reply (Done) — the same piggyback path as Cost. Zero when
+	// on the terminal reply (Done). The same piggyback path as Cost. Zero when
 	// the backend reports no usage.
 	Tokens int `json:"tokens,omitempty"`
 	// TokensIn is the turn's input-token count; CacheRead/CacheCreate the
@@ -50,12 +54,12 @@ type Event struct {
 	// --resume. Empty when the backend is not ResumeAware or has no id yet.
 	Resume string `json:"resume,omitempty"`
 	// Project carries the memory project this session settled on, piggybacked on
-	// the terminal reply{done} so the daemon can persist it — the same path Resume
+	// the terminal reply{done} so the daemon can persist it. The same path Resume
 	// takes. Empty when the turn settled nothing, which is every turn of every
 	// session whose project a human already chose.
 	Project string `json:"project,omitempty"`
 	// Attachments carries local filesystem paths to any images resolved for an
-	// input frame — the host downloads/passes-through a message's attachments
+	// input frame. The host downloads/passes-through a message's attachments
 	// before enqueueing the turn, and the bridge folds these into Prompt so the
 	// backend can reference them as image blocks. Only set on "input" frames.
 	Attachments []string `json:"attachments,omitempty"`
@@ -75,7 +79,7 @@ type Event struct {
 // turn event stream itself (the terminal TUI does) implements it. The hub fans
 // every turn event to each bound gateway implementing EventSink; a gateway
 // without it is driven by the host's default path, which posts only the final
-// reply (chunked) through the Gateway port — no platform-specific rendering.
+// reply (chunked) through the Gateway port. No platform-specific rendering.
 type EventSink interface {
 	Emit(Event)
 }

@@ -6,22 +6,22 @@ import (
 	"strings"
 )
 
-// Degrade wraps a Gateway and rabats actions the plugin does not announce. The
-// manager always calls the rich method; degradation lives here, never in the
-// domain.
-func Degrade(g Gateway) Gateway {
-	d := degrading{g}
-	if isEventSink(g) {
-		return degradingSink{d}
+// Degrade wraps a Gateway and falls back to a simpler action for each action the
+// plugin does not announce. The manager always calls the rich method; degradation
+// lives here, never in the domain.
+func Degrade(gateway Gateway) Gateway {
+	wrapped := degrading{gateway}
+	if isEventSink(gateway) {
+		return degradingSink{wrapped}
 	}
-	return d
+	return wrapped
 }
 
-func isEventSink(g Gateway) bool {
-	if _, ok := g.(RoutedEventSink); ok {
+func isEventSink(gateway Gateway) bool {
+	if _, ok := gateway.(RoutedEventSink); ok {
 		return true
 	}
-	_, ok := g.(EventSink)
+	_, ok := gateway.(EventSink)
 	return ok
 }
 
@@ -49,42 +49,37 @@ func (d degrading) React(ctx context.Context, conv Conversation, msg MessageID, 
 
 func (d degrading) Menu(ctx context.Context, conv Conversation, replyTo MessageID, prompt string, opts []Choice) error {
 	if !d.g.Manifest().Capabilities.SelectMenus {
-		var b strings.Builder
-		b.WriteString(prompt)
+		var body strings.Builder
+		_, _ = body.WriteString(prompt)
 		for i, o := range opts {
-			fmt.Fprintf(&b, "\n%d. %s", i+1, o.Label)
+			fmt.Fprintf(&body, "\n%d. %s", i+1, o.Label)
 		}
-		_, err := d.g.Post(ctx, conv, b.String())
+		_, err := d.g.Post(ctx, conv, body.String())
 		return err
 	}
 	return d.g.Menu(ctx, conv, replyTo, prompt, opts)
 }
 
-// BindSessionControl forwards the runtime session controller to the wrapped
-// gateway when it drives the session lifecycle itself (e.g. slash commands).
-// Degradation never hides this capability, so the host's SessionControlReceiver
-// assertion succeeds even on a wrapped gateway; gateways that don't want it
-// simply aren't SessionControlReceivers underneath and the call is a no-op.
-func (d degrading) BindSessionControl(c SessionControl) {
+func (d degrading) BindSessionControl(control SessionControl) {
 	if r, ok := d.g.(SessionControlReceiver); ok {
-		r.BindSessionControl(c)
+		r.BindSessionControl(control)
 	}
 }
 
 type degradingSink struct{ degrading }
 
-func (d degradingSink) Emit(e Event) {
+func (d degradingSink) Emit(event Event) {
 	if s, ok := d.g.(EventSink); ok {
-		s.Emit(e)
+		s.Emit(event)
 	}
 }
 
-func (d degradingSink) EmitTo(conv Conversation, e Event) {
+func (d degradingSink) EmitTo(conv Conversation, event Event) {
 	if s, ok := d.g.(RoutedEventSink); ok {
-		s.EmitTo(conv, e)
+		s.EmitTo(conv, event)
 		return
 	}
 	if s, ok := d.g.(EventSink); ok {
-		s.Emit(e)
+		s.Emit(event)
 	}
 }

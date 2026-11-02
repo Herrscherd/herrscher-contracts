@@ -28,7 +28,6 @@ func TestBudgetErrorMessageAndAs(t *testing.T) {
 }
 
 func TestEnforceBudgetOverReturnsBudgetError(t *testing.T) {
-	// "é" is 2 bytes / 1 rune; 100 of them = 100 runes, 200 bytes.
 	body := strings.Repeat("é", 100)
 	err := contracts.EnforceBudget("user:alice", body, 50)
 	var be *contracts.BudgetError

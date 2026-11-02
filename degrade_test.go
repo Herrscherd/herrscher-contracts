@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// recordingSink is a Gateway that also records routed/plain sink calls.
 type recordingSink struct {
 	plain  []Event
 	routed []Conversation
@@ -16,6 +15,7 @@ func (r *recordingSink) Manifest() Manifest { return Manifest{Kind: "rec"} }
 func (r *recordingSink) Post(context.Context, Conversation, string) (MessageID, error) {
 	return "", nil
 }
+
 func (r *recordingSink) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
 	return "", nil
 }
@@ -26,7 +26,6 @@ func (r *recordingSink) Menu(context.Context, Conversation, MessageID, string, [
 func (r *recordingSink) Emit(e Event)                   { r.plain = append(r.plain, e) }
 func (r *recordingSink) EmitTo(c Conversation, _ Event) { r.routed = append(r.routed, c) }
 
-// plainSink is a Gateway that only implements EventSink (not RoutedEventSink).
 type plainSink struct {
 	calls []Event
 }
@@ -35,6 +34,7 @@ func (p *plainSink) Manifest() Manifest { return Manifest{Kind: "plain"} }
 func (p *plainSink) Post(context.Context, Conversation, string) (MessageID, error) {
 	return "", nil
 }
+
 func (p *plainSink) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
 	return "", nil
 }
@@ -51,9 +51,15 @@ func TestDegradePassThroughWhenCapable(t *testing.T) {
 	d := Degrade(rec)
 	ctx, conv := context.Background(), Conversation{Gateway: "discord", ID: "c"}
 
-	_, _ = d.Reply(ctx, conv, "m", "hello")
-	_ = d.React(ctx, conv, "m", "👀")
-	_ = d.Menu(ctx, conv, "m", "pick", []Choice{{Label: "A", Value: "a"}})
+	if _, err := d.Reply(ctx, conv, "m", "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.React(ctx, conv, "m", "👀"); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Menu(ctx, conv, "m", "pick", []Choice{{Label: "A", Value: "a"}}); err != nil {
+		t.Fatal(err)
+	}
 
 	if len(rec.replies) != 1 || len(rec.reacts) != 1 || len(rec.menus) != 1 {
 		t.Fatalf("capable gateway should receive rich calls: %+v", rec)
@@ -66,7 +72,9 @@ func TestDegradePassThroughWhenCapable(t *testing.T) {
 func TestDegradeReplyToPost(t *testing.T) {
 	rec := &recGateway{manifest: Manifest{Capabilities: Capabilities{Reactions: true, SelectMenus: true}}}
 	d := Degrade(rec)
-	_, _ = d.Reply(context.Background(), Conversation{}, "m", "hello")
+	if _, err := d.Reply(context.Background(), Conversation{}, "m", "hello"); err != nil {
+		t.Fatal(err)
+	}
 	if len(rec.replies) != 0 || len(rec.posts) != 1 || rec.posts[0] != "hello" {
 		t.Fatalf("reply should degrade to post: %+v", rec)
 	}
@@ -86,9 +94,12 @@ func TestDegradeReactNoOp(t *testing.T) {
 func TestDegradeMenuToNumberedList(t *testing.T) {
 	rec := &recGateway{manifest: Manifest{Capabilities: Capabilities{Reactions: true, Replies: true}}}
 	d := Degrade(rec)
-	_ = d.Menu(context.Background(), Conversation{}, "m", "Choose:", []Choice{
+	err := d.Menu(context.Background(), Conversation{}, "m", "Choose:", []Choice{
 		{Label: "Alpha", Value: "a"}, {Label: "Beta", Value: "b"},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(rec.menus) != 0 || len(rec.posts) != 1 {
 		t.Fatalf("menu should degrade to a post: %+v", rec)
 	}
@@ -145,10 +156,13 @@ func (p *postOnlyGateway) Post(_ context.Context, _ Conversation, text string) (
 	p.posts = append(p.posts, text)
 	return "", nil
 }
+
 func (p *postOnlyGateway) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
 	return "", nil
 }
+
 func (p *postOnlyGateway) React(context.Context, Conversation, MessageID, string) error { return nil }
+
 func (p *postOnlyGateway) Menu(context.Context, Conversation, MessageID, string, []Choice) error {
 	return nil
 }

@@ -1,6 +1,9 @@
 package contracts
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestRoutePolicyAllows(t *testing.T) {
 	cases := []struct {
@@ -12,8 +15,6 @@ func TestRoutePolicyAllows(t *testing.T) {
 		{PolicyAll, RouteGateway, true},
 		{PolicyGatewayOnly, RouteGateway, true},
 		{PolicyGatewayOnly, RouteNative, false},
-		// The zero value must be permissive: a host that configures nothing
-		// behaves as it did before this change.
 		{RoutePolicy(""), RouteNative, true},
 	}
 	for _, c := range cases {
@@ -23,41 +24,29 @@ func TestRoutePolicyAllows(t *testing.T) {
 	}
 }
 
-func TestValidateModelsRejectsEmptyID(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{Label: "No id", Arg: "x", Route: RouteNative}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted a model with an empty ID")
+func TestValidateModelsRejects(t *testing.T) {
+	cases := []struct {
+		name    string
+		models  []ModelSpec
+		wantErr error
+	}{
+		{"empty ID", []ModelSpec{{Label: "No id", Arg: "x", Route: RouteNative}}, ErrModelEmptyID},
+		{"empty label", []ModelSpec{{ID: "a", Arg: "a", Route: RouteNative}}, ErrModelEmptyLabel},
+		{"empty arg", []ModelSpec{{ID: "a", Label: "A", Route: RouteNative}}, ErrModelEmptyArg},
+		{"control character", []ModelSpec{{ID: "a", Label: "A\n", Arg: "a", Route: RouteNative}}, ErrModelControlChar},
+		{"duplicate ID", []ModelSpec{
+			{ID: "a", Label: "A", Arg: "a", Route: RouteNative},
+			{ID: "a", Label: "A bis", Arg: "a2", Route: RouteGateway},
+		}, ErrModelDuplicateID},
+		{"unknown route", []ModelSpec{{ID: "a", Label: "A", Arg: "a", Route: Route("carrier-pigeon")}}, ErrModelUnknownRoute},
 	}
-}
-
-func TestValidateModelsRejectsEmptyLabel(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{ID: "a", Arg: "a", Route: RouteNative}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted a model with an empty Label")
-	}
-}
-
-func TestValidateModelsRejectsEmptyArg(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{ID: "a", Label: "A", Route: RouteNative}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted a model with an empty Arg")
-	}
-}
-
-func TestValidateModelsRejectsDuplicateID(t *testing.T) {
-	models := []ModelSpec{
-		{ID: "a", Label: "A", Arg: "a", Route: RouteNative},
-		{ID: "a", Label: "A bis", Arg: "a2", Route: RouteGateway},
-	}
-	if err := ValidateModels("claude", models); err == nil {
-		t.Fatal("ValidateModels accepted a duplicate ID")
-	}
-}
-
-func TestValidateModelsRejectsUnknownRoute(t *testing.T) {
-	err := ValidateModels("claude", []ModelSpec{{ID: "a", Label: "A", Arg: "a", Route: Route("carrier-pigeon")}})
-	if err == nil {
-		t.Fatal("ValidateModels accepted an unknown route")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateModels("claude", c.models)
+			if !errors.Is(err, c.wantErr) {
+				t.Fatalf("ValidateModels error = %v, want %v", err, c.wantErr)
+			}
+		})
 	}
 }
 
@@ -92,9 +81,6 @@ func TestFilterModelsAllKeepsEverything(t *testing.T) {
 	}
 }
 
-// Serialized, a nil slice becomes `null` and an empty slice becomes `[]`. The
-// `models list --json` CLI must always emit `[]`, never `null` — this is the
-// boundary where the non-nil guarantee matters, so it is the one to test.
 func TestFilterModelsReturnsEmptyNotNil(t *testing.T) {
 	models := []ModelSpec{{ID: "n", Label: "N", Arg: "n", Route: RouteNative}}
 	got := FilterModels(models, PolicyGatewayOnly)
@@ -106,20 +92,28 @@ func TestFilterModelsReturnsEmptyNotNil(t *testing.T) {
 	}
 }
 
-func TestGatewayCredsRefusesPartial(t *testing.T) {
-	if _, err := NewGatewayCreds("https://gw.example", ""); err == nil {
-		t.Fatal("NewGatewayCreds accepted a base URL without a token — the forbidden shape")
+func TestGatewayCredsRefuses(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		token   string
+		wantErr error
+	}{
+		{"nothing", "", "", ErrCredsMissing},
+		{"base URL without token", "https://gw.example", "", ErrCredsURLNoToken},
+		{"blank token", "https://gw.example", "   ", ErrCredsURLNoToken},
+		{"token without base URL", "", "tok", ErrCredsTokenNoURL},
+		{"blank base URL", "  ", "tok", ErrCredsTokenNoURL},
+		{"control character in base URL", "https://gw\x07.example", "tok", ErrCredsURLControlChar},
+		{"control character in token", "https://gw.example", "to\nk", ErrCredsTokenControl},
 	}
-	if _, err := NewGatewayCreds("", "tok"); err == nil {
-		t.Fatal("NewGatewayCreds accepted a token without a base URL")
-	}
-	if _, err := NewGatewayCreds("  ", "tok"); err == nil {
-		t.Fatal("NewGatewayCreds accepted a blank base URL")
-	}
-	// A whitespace-only token is the dangerous variant: it looks present to any
-	// naive `!= ""` check, yet it does not authenticate.
-	if _, err := NewGatewayCreds("https://gw.example", "   "); err == nil {
-		t.Fatal("NewGatewayCreds accepted a blank token — the forbidden shape in disguise")
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := NewGatewayCreds(c.baseURL, c.token)
+			if !errors.Is(err, c.wantErr) {
+				t.Fatalf("NewGatewayCreds error = %v, want %v", err, c.wantErr)
+			}
+		})
 	}
 }
 
@@ -133,9 +127,6 @@ func TestGatewayCredsAcceptsPair(t *testing.T) {
 	}
 }
 
-// The zero value is constructible outside the package
-// (`contracts.GatewayCreds{}`) but it is empty on BOTH sides, so never a
-// half-pair.
 func TestGatewayCredsZeroValueIsEmptyOnBothSides(t *testing.T) {
 	var c GatewayCreds
 	if c.BaseURL() != "" || c.Token() != "" {
@@ -152,10 +143,6 @@ func TestManifestCarriesModels(t *testing.T) {
 	}
 }
 
-// A newline in either half is not a cosmetic problem: the value travels to the
-// child through the newline-delimited "env" setting, where an embedded newline
-// forges a second variable (and truncates the token). Reject it at the only
-// constructor, next to the blank guard.
 func TestGatewayCredsRejectsControlCharacters(t *testing.T) {
 	cases := []struct {
 		name           string
@@ -170,15 +157,12 @@ func TestGatewayCredsRejectsControlCharacters(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := NewGatewayCreds(tc.baseURL, tc.token); err == nil {
-				t.Fatal("NewGatewayCreds accepted a control character — it would forge a variable in the child")
+				t.Fatal("NewGatewayCreds accepted a control character. It would forge a variable in the child")
 			}
 		})
 	}
 }
 
-// A malformed catalog must fail at registration, not at spawn: Arg and Efforts
-// reach the child's argv, ID is persisted, and any of them reaching the "env"
-// transport with a newline forges a second variable.
 func TestValidateModelsRejectsControlCharacters(t *testing.T) {
 	cases := []struct {
 		name string

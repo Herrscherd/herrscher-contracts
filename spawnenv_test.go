@@ -1,17 +1,12 @@
 package contracts
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
 
-// TestGatewayEnvKeyNames pins the wire names themselves. The constants exist
-// so the host and the backends stop spelling four magic strings independently,
-// but a constant is only a contract if its VALUE is pinned: the vendor CLIs
-// are third-party binaries that recognise these exact names, so changing one
-// here would not break compilation anywhere while silently disabling the
-// gateway route at run time.
-func TestGatewayEnvKeyNames(t *testing.T) {
+func TestGatewayEnvKeyNamesAreTheVendorWireNames(t *testing.T) {
 	for _, tc := range []struct{ got, want string }{
 		{EnvAnthropicBaseURL, "ANTHROPIC_BASE_URL"},
 		{EnvAnthropicAPIKey, "ANTHROPIC_API_KEY"},
@@ -35,10 +30,6 @@ func TestMergeEnvAppendsPairs(t *testing.T) {
 }
 
 func TestMergeEnvOverridesInherited(t *testing.T) {
-	// An injected variable must win over the one inherited from the daemon:
-	// otherwise a stale ANTHROPIC_BASE_URL lingering in the daemon's
-	// environment would silently hijack a session. And exec.Cmd has
-	// platform-dependent behavior when a key appears twice.
 	got := MergeEnv([]string{"ANTHROPIC_BASE_URL=https://stale"}, map[string]string{"ANTHROPIC_BASE_URL": "https://gw"})
 	var n int
 	for _, e := range got {
@@ -55,8 +46,6 @@ func TestMergeEnvOverridesInherited(t *testing.T) {
 }
 
 func TestMergeEnvNilIsIdentity(t *testing.T) {
-	// Non-regression for the native route: with no injection, the produced
-	// environment is exactly the one received.
 	base := []string{"PATH=/bin", "HOME=/home/x"}
 	got := MergeEnv(base, nil)
 	if len(got) != 2 || got[0] != "PATH=/bin" || got[1] != "HOME=/home/x" {
@@ -64,11 +53,9 @@ func TestMergeEnvNilIsIdentity(t *testing.T) {
 	}
 }
 
-// This is the shape the native route actually produces: ParseEnvSetting("")
-// returns a non-nil empty map, not nil. Identity must hold for it too.
 func TestMergeEnvEmptyMapIsIdentity(t *testing.T) {
 	base := []string{"PATH=/bin", "HOME=/home/x"}
-	got := MergeEnv(base, map[string]string{})
+	got := MergeEnv(base, make(map[string]string))
 	if len(got) != 2 || got[0] != "PATH=/bin" || got[1] != "HOME=/home/x" {
 		t.Fatalf("MergeEnv with an empty map changed the environment: %v", got)
 	}
@@ -85,20 +72,15 @@ func TestParseEnvSetting(t *testing.T) {
 }
 
 func TestParseEnvSettingKeepsEqualsInValue(t *testing.T) {
-	// Tokens are often base64-encoded and contain '='. Only the first one
-	// separates the key from the value.
 	if got := ParseEnvSetting("T=a=b=c"); got["T"] != "a=b=c" {
 		t.Fatalf("ParseEnvSetting mangled a value containing '=': %q", got["T"])
 	}
 }
 
 func TestEncodeEnvSettingIsDeterministic(t *testing.T) {
-	// Keys are sorted: without that the value changes on every call, so it is
-	// not testable and the transported setting differs between two identical
-	// spawns.
 	env := map[string]string{"B": "2", "A": "1", "C": "3"}
 	first := EncodeEnvSetting(env)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if EncodeEnvSetting(env) != first {
 			t.Fatalf("EncodeEnvSetting is not deterministic")
 		}
@@ -109,15 +91,12 @@ func TestEncodeEnvSettingIsDeterministic(t *testing.T) {
 }
 
 func TestEncodeEnvSettingEmptyIsEmpty(t *testing.T) {
-	if EncodeEnvSetting(nil) != "" || EncodeEnvSetting(map[string]string{}) != "" {
+	if EncodeEnvSetting(nil) != "" || EncodeEnvSetting(make(map[string]string)) != "" {
 		t.Fatal("EncodeEnvSetting should render nothing for an empty map")
 	}
 }
 
 func TestEncodeParseRoundTrip(t *testing.T) {
-	// THE test that justifies these two functions living in the same repo:
-	// the host encodes, the backend decodes, and nothing else ties the two
-	// together.
 	want := map[string]string{
 		"ANTHROPIC_BASE_URL": "https://gw.example/v1",
 		"ANTHROPIC_API_KEY":  "sk-abc=def==",
@@ -143,54 +122,35 @@ func hasEntry(hay []string, needle string) bool {
 	return false
 }
 
-// The "env" transport is newline-delimited and EncodeEnvSetting cannot report
-// an error without a signature change, so a value carrying a newline does NOT
-// round-trip: it decodes as two variables. This test pins that documented
-// limitation, and pins that the guards upstream (NewGatewayCreds,
-// ValidateModels) are what make it unreachable — if either guard is ever
-// removed, the adversarial value below is what walks through.
-func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
+func TestNewlineNeverReachesTheEnvTransport(t *testing.T) {
 	forged := "line1\nB=evil"
-	got := ParseEnvSetting(EncodeEnvSetting(map[string]string{"A": forged}))
-	if len(got) == 1 && got["A"] == forged {
-		t.Fatal("the transport now round-trips newlines; drop the upstream guards' justification or this test")
+	if _, err := NewGatewayCreds("https://gw.example", forged); !errors.Is(err, ErrCredsTokenControl) {
+		t.Fatalf("NewGatewayCreds: got %v, want ErrCredsTokenControl", err)
 	}
-	if got["B"] != "evil" {
-		t.Fatalf("expected the newline to forge a second variable, got %#v", got)
-	}
-	// The producers of these values refuse the input in the first place.
-	if _, err := NewGatewayCreds("https://gw.example", forged); err == nil {
-		t.Fatal("NewGatewayCreds no longer guards the transport")
-	}
-	if err := ValidateModels("k", []ModelSpec{{ID: "x", Label: "X", Arg: forged, Route: RouteNative}}); err == nil {
-		t.Fatal("ValidateModels no longer guards the transport")
+	if err := ValidateModels("k", []ModelSpec{{ID: "x", Label: "X", Arg: forged, Route: RouteNative}}); !errors.Is(err, ErrModelControlChar) {
+		t.Fatalf("ValidateModels: got %v, want ErrModelControlChar", err)
 	}
 }
 
 func TestApprovalsEnvRoundTrip(t *testing.T) {
 	env := ApprovalsEnv("api", "strict", "/usr/local/bin/herrscher")
 	look := func(k string) string { return env[k] }
-	session, mode, bin, gated := ApprovalsFromEnv(look)
-	if !gated {
-		t.Fatalf("gated = false, want true for %v", env)
+	gate := ApprovalsFromEnv(look)
+	if !gate.Gated {
+		t.Fatalf("Gated = false, want true for %v", env)
 	}
-	if session != "api" || mode != "strict" || bin != "/usr/local/bin/herrscher" {
-		t.Fatalf("got %q %q %q", session, mode, bin)
+	if gate.Session != "api" || gate.Mode != "strict" || gate.Bin != "/usr/local/bin/herrscher" {
+		t.Fatalf("got %q %q %q", gate.Session, gate.Mode, gate.Bin)
 	}
 }
 
 func TestApprovalsEnvBypassCarriesNothing(t *testing.T) {
-	// Bypass is the operator's explicit choice to run ungated. Emitting the
-	// variables anyway would leave a backend deciding for itself what "bypass"
-	// means, and a reader guessing whether the session is gated.
 	if env := ApprovalsEnv("api", "bypass", "/bin/herrscher"); len(env) != 0 {
 		t.Fatalf("bypass emitted %v, want nothing", env)
 	}
 }
 
 func TestApprovalsFromEnvPartialSetFailsOpen(t *testing.T) {
-	// A partial set is a bug somewhere upstream. It must fail in the same
-	// direction every other approval failure does: open.
 	cases := []map[string]string{
 		{EnvApprovalsMode: "ask", EnvApprovalsSession: "api"},
 		{EnvApprovalsMode: "ask", EnvApprovalsBin: "/bin/herrscher"},
@@ -199,21 +159,19 @@ func TestApprovalsFromEnvPartialSetFailsOpen(t *testing.T) {
 	}
 	for i, env := range cases {
 		look := func(k string) string { return env[k] }
-		if _, _, _, gated := ApprovalsFromEnv(look); gated {
-			t.Fatalf("case %d: gated = true for %v, want false", i, env)
+		if ApprovalsFromEnv(look).Gated {
+			t.Fatalf("case %d: Gated = true for %v, want false", i, env)
 		}
 	}
 }
 
 func TestApprovalsFromEnvNilLook(t *testing.T) {
-	if _, _, _, gated := ApprovalsFromEnv(nil); gated {
-		t.Fatal("nil look reported gated")
+	if ApprovalsFromEnv(nil).Gated {
+		t.Fatal("nil look reported Gated")
 	}
 }
 
 func TestGrainNoneIsZeroValue(t *testing.T) {
-	// Every manifest written before this field must stay correct as written,
-	// which is only true if the zero value means "enforces nothing".
 	var c Capabilities
 	if c.Gate != GrainNone {
 		t.Fatalf("zero Capabilities.Gate = %q, want GrainNone", c.Gate)

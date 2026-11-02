@@ -2,8 +2,6 @@ package contracts
 
 import "testing"
 
-// The zero value must read as "live": every manifest written before Status
-// existed omits the field, and those plugins were all shipping.
 func TestStatusZeroValueIsLive(t *testing.T) {
 	var m Manifest
 	if m.Status != StatusLive {
@@ -30,8 +28,6 @@ func TestStatusString(t *testing.T) {
 	}
 }
 
-// Status must not disturb registration or category lookup — it is descriptive
-// only, and a wip plugin is still discovered like any other.
 func TestStatusDoesNotAffectDiscovery(t *testing.T) {
 	r := &Registry{}
 	r.Register(Plugin{Manifest: Manifest{Kind: "a", Category: CategoryBackend}})

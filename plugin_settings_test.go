@@ -1,7 +1,8 @@
 package contracts
 
 import (
-	"strings"
+	"errors"
+	"slices"
 	"testing"
 )
 
@@ -29,20 +30,18 @@ func TestResolveBindsEnvAndDefaults(t *testing.T) {
 }
 
 func TestResolveMissingRequiredFails(t *testing.T) {
-	cfg, err := Resolve([]Setting{
+	_, err := Resolve([]Setting{
 		{Key: "token", Env: "DISCORD_BOT_TOKEN", Required: true},
 		{Key: "other", Env: "OTHER", Required: true},
 	}, func(string) string { return "" })
-	if err == nil {
-		t.Fatal("expected error for missing required settings")
+	missing, ok := errors.AsType[*MissingSettingsError](err)
+	if !ok {
+		t.Fatalf("error %v is not a *MissingSettingsError", err)
 	}
-	for _, want := range []string{"DISCORD_BOT_TOKEN", "OTHER"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("error %q should name %q", err.Error(), want)
-		}
+	want := []string{"token (set DISCORD_BOT_TOKEN)", "other (set OTHER)"}
+	if !slices.Equal(missing.Missing, want) {
+		t.Fatalf("Missing = %q, want %q", missing.Missing, want)
 	}
-	_ = cfg
-	// A Default satisfies Required, so it must not be reported missing.
 	if _, err := Resolve([]Setting{
 		{Key: "k", Env: "K", Required: true, Default: "d"},
 	}, func(string) string { return "" }); err != nil {

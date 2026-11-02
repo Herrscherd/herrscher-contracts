@@ -3,12 +3,12 @@ package contracts
 import (
 	"context"
 	"testing"
+	"time"
 )
 
-// scopeMem is a stub Memory that records writes and serves canned subgraphs by key.
 type scopeMem struct {
 	recorded []Node
-	links    [][3]string // {from, to, rel}
+	links    [][3]string
 	graphs   map[string]Subgraph
 }
 
@@ -18,6 +18,7 @@ func (m *scopeMem) Recall(_ context.Context, key string, _ int) (Subgraph, error
 	}
 	return Subgraph{Root: Node{Key: key}}, nil
 }
+
 func (m *scopeMem) Record(_ context.Context, n Node) error {
 	m.recorded = append(m.recorded, n)
 	return nil
@@ -27,6 +28,7 @@ func (m *scopeMem) Links(_ context.Context, from, to, rel string) error {
 	m.links = append(m.links, [3]string{from, to, rel})
 	return nil
 }
+
 func (m *scopeMem) Unlink(_ context.Context, from, to string) error {
 	kept := m.links[:0:0]
 	for _, l := range m.links {
@@ -40,9 +42,9 @@ func (m *scopeMem) Unlink(_ context.Context, from, to string) error {
 }
 func (m *scopeMem) Close() error { return nil }
 
-func hasLink(m *scopeMem, from, to, rel string) bool {
+func hasLink(m *scopeMem, from, to string) bool {
 	for _, l := range m.links {
-		if l == [3]string{from, to, rel} {
+		if l == [3]string{from, to, RelContains} {
 			return true
 		}
 	}
@@ -58,7 +60,7 @@ func TestRecordSharedLinksUnderProject(t *testing.T) {
 	if len(m.recorded) != 1 || m.recorded[0].Key != "fact" {
 		t.Fatalf("node not recorded: %+v", m.recorded)
 	}
-	if !hasLink(m, "proj", "fact", RelContains) {
+	if !hasLink(m, "proj", "fact") {
 		t.Fatalf("shared fact not linked under project: %+v", m.links)
 	}
 }
@@ -69,21 +71,21 @@ func TestRecordPrivateLinksUnderAgent(t *testing.T) {
 	if err := RecordPrivate(context.Background(), m, s, Node{Key: "skill", Kind: KindDecision}); err != nil {
 		t.Fatalf("RecordPrivate: %v", err)
 	}
-	if !hasLink(m, "ag", "skill", RelContains) {
+	if !hasLink(m, "ag", "skill") {
 		t.Fatalf("private skill not linked under agent: %+v", m.links)
 	}
-	if hasLink(m, "proj", "skill", RelContains) {
+	if hasLink(m, "proj", "skill") {
 		t.Fatalf("private skill leaked under project: %+v", m.links)
 	}
 }
 
 func TestRecordPrivateFallsBackToProjectWithoutAgent(t *testing.T) {
 	m := &scopeMem{}
-	s := MemoryScope{Project: "proj"} // no Agent
+	s := MemoryScope{Project: "proj"}
 	if err := RecordPrivate(context.Background(), m, s, Node{Key: "skill"}); err != nil {
 		t.Fatalf("RecordPrivate: %v", err)
 	}
-	if !hasLink(m, "proj", "skill", RelContains) {
+	if !hasLink(m, "proj", "skill") {
 		t.Fatalf("expected fallback under project: %+v", m.links)
 	}
 }
@@ -100,12 +102,10 @@ func TestRecallScopedMergesAndDedups(t *testing.T) {
 	if sg.Root.Key != "proj" {
 		t.Fatalf("root should be the shared project, got %q", sg.Root.Key)
 	}
-	keys := map[string]int{}
+	keys := make(map[string]int)
 	for _, n := range sg.Nodes {
 		keys[n.Key]++
 	}
-	// Nodes stays root-excluded: the shared root "proj" is sg.Root, not a node.
-	// The private root "ag" is a genuine non-root node, so it does appear.
 	if keys["proj"] != 0 {
 		t.Fatalf("shared root should not be listed in Nodes: %+v", sg.Nodes)
 	}
@@ -169,12 +169,12 @@ func TestRecallRelevant_TopKByScoreAcrossScopes(t *testing.T) {
 		},
 		"agent": {
 			Root:  Node{Key: "agent", Kind: KindAgent, Title: "me", Links: []Link{{To: "c", Rel: RelContains}}},
-			Nodes: []Node{{Key: "c", Kind: KindSession, Title: "redis cache"}}, // no match
+			Nodes: []Node{{Key: "c", Kind: KindSession, Title: "redis cache"}},
 		},
 	}}
 	s := MemoryScope{Project: "proj", Agent: "agent"}
 
-	got, err := RecallRelevant(context.Background(), m, s, "nats transport", 2)
+	got, err := RecallRelevant(context.Background(), m, s, "nats transport", 2, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,6 @@ func TestRecallRelevant_TopKByScoreAcrossScopes(t *testing.T) {
 }
 
 func TestRecallRelevant_ProximityBreaksTies(t *testing.T) {
-	// near and far have identical text/kind; near is a direct child of the root.
 	m := &scopeMem{graphs: map[string]Subgraph{
 		"proj": {
 			Root: Node{Key: "proj", Kind: KindProject, Title: "root", Links: []Link{{To: "near", Rel: RelContains}, {To: "mid", Rel: RelContains}}},
@@ -205,7 +204,7 @@ func TestRecallRelevant_ProximityBreaksTies(t *testing.T) {
 	}}
 	s := MemoryScope{Project: "proj"}
 
-	got, err := RecallRelevant(context.Background(), m, s, "nats", 2)
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 2, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +226,7 @@ func TestRecallRelevant_ExcludesNonMatchesAndRespectsK(t *testing.T) {
 	}}
 	s := MemoryScope{Project: "proj"}
 
-	got, err := RecallRelevant(context.Background(), m, s, "nats", 1)
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 1, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,5 +262,27 @@ func TestMergeSubgraphsNeverListsSharedRootInNodes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRecallRelevant_RecencyUsesGivenClock(t *testing.T) {
+	now := time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC)
+	m := &scopeMem{graphs: map[string]Subgraph{
+		"proj": {
+			Root: Node{Key: "proj", Kind: KindProject, Title: "root", Links: []Link{{To: "stale", Rel: RelContains}, {To: "fresh", Rel: RelContains}}},
+			Nodes: []Node{
+				{Key: "stale", Kind: KindDecision, Title: "nats", Meta: map[string]string{"capturedAt": now.Add(-365 * 24 * time.Hour).Format(time.RFC3339)}},
+				{Key: "fresh", Kind: KindDecision, Title: "nats", Meta: map[string]string{"capturedAt": now.Add(-24 * time.Hour).Format(time.RFC3339)}},
+			},
+		},
+	}}
+	s := MemoryScope{Project: "proj"}
+
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 1, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Key != "fresh" {
+		t.Fatalf("recent node should win at a fixed clock; got %v", keysOf(got))
 	}
 }

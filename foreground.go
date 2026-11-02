@@ -3,7 +3,7 @@ package contracts
 import "context"
 
 // Foreground is an optional gateway capability for a gateway that must own the
-// process's main thread — typically a TUI that takes over stdin/stdout (the
+// process's main thread. Typically a TUI that takes over stdin/stdout (the
 // in-tree terminal gateway does). The composition root runs at most one
 // foreground gateway, and only on an interactive TTY; every other bound gateway
 // runs headless inside the hub. Quitting the foreground gateway must cancel the

@@ -9,7 +9,7 @@ import "context"
 // argv and dispatches it, so the core never learns the gateway's command surface
 // and stays platform-agnostic.
 type SessionControl interface {
-	// Dispatch runs one operator command (session/service/set …) given its argv —
+	// Dispatch runs one operator command (session/service/set …) given its argv:
 	// the same vocabulary the operator CLI uses, e.g.
 	// {"session","create","--name","foo"}. It applies the command and, for
 	// lifecycle changes, brings the affected sessions live (or tears them down) in
@@ -43,7 +43,7 @@ type SessionControl interface {
 	// if the session had read it from its own conversation. The host resolves
 	// in.Attachments against that session's own download allowlist, so a gateway
 	// never fetches remote content itself. Reports false when no live session by
-	// that name is driving — the caller's binding is stale.
+	// that name is driving. The caller's binding is stale.
 	Submit(name string, in Inbound) bool
 	// Pick answers the named session's pending choice with a menu value. Reports
 	// false when no live session by that name is driving (mirror of Submit).
@@ -56,8 +56,8 @@ type SessionControl interface {
 }
 
 // RepoRef is one selectable work target returned by SessionControl.Repos. Local
-// reports whether Name is a workspace sub-directory already on disk — create it
-// with CreateSession.Project — rather than a remote to clone, which uses
+// reports whether Name is a workspace sub-directory already on disk. Create it
+// with CreateSession.Project. Rather than a remote to clone, which uses
 // CreateSession.Clone.
 type RepoRef struct {
 	Name        string
@@ -69,11 +69,11 @@ type RepoRef struct {
 // gateway (the terminal TUI) can repaint history without reading the state dir
 // (which lives behind the core's internal packages).
 type ScrollbackLine struct {
-	Role string // "user" | "assistant"
+	Role string
 	Text string
 }
 
-// CreateSession is the typed spec for SessionControl.Create — the structured
+// CreateSession is the typed spec for SessionControl.Create. The structured
 // equivalent of the "session create" flags. The zero value of each optional
 // field means "flag omitted", so a caller sets only what it needs. Name is
 // required. Gateways selects the bound gateways; an empty slice with
@@ -82,7 +82,7 @@ type CreateSession struct {
 	Name string
 	// ChannelID adopts an existing conversation instead of creating one: the new
 	// session binds to it and posts there, and no home needs to be configured.
-	// Empty keeps the default — create a channel under the configured home. A
+	// Empty keeps the default. Create a channel under the configured home. A
 	// gateway already talking to the operator in a conversation sets this so the
 	// session lands where the conversation already is.
 	ChannelID    string
@@ -132,7 +132,7 @@ type SessionInfo struct {
 	// session object. Closing and recreating the same Name yields a new value.
 	Incarnation string
 	ChannelID   string
-	Type        string // "text" | "forum"
+	Type        string
 	Gateways    []string
 	// Vendor is the agent backend vendor ("claude"/"codex"/"cursor"), shown as a
 	// /resume picker column. Empty when unknown.
@@ -147,7 +147,7 @@ type SessionInfo struct {
 	// Project is the workspace sub-dir the session started from, a picker column.
 	Project string
 	// Dir is the session's resolved run directory (its worktree, or the workspace/
-	// project root) — the base a gateway lists for @ file-mention completion. Empty
+	// project root). The base a gateway lists for @ file-mention completion. Empty
 	// means the session inherits the launcher's working directory.
 	Dir string
 	// Archived is true for a closed-but-kept session: a gateway skips it when

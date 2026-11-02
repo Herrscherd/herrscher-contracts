@@ -31,13 +31,17 @@ type GatewaySet struct {
 	Prober  Prober
 }
 
-// GatewayFactory and BackendFactory build a live plugin instance from runtime
-// config. Registering a factory (not an instance) is what lets a plugin announce
-// itself in init() before any token/command is known — the xcaddy pattern.
 type (
+	// GatewayFactory builds a live gateway from runtime config. Registering a factory
+	// (not an instance) is what lets a plugin announce itself in init() before any
+	// token or command is known, the xcaddy pattern.
 	GatewayFactory func(ctx context.Context, cfg PluginConfig) (GatewaySet, error)
+	// BackendFactory builds a live backend from runtime config, registered the same way
+	// as a GatewayFactory.
 	BackendFactory func(ctx context.Context, cfg PluginConfig) (Backend, error)
-	MemoryFactory  func(ctx context.Context, cfg PluginConfig) (Memory, error)
+	// MemoryFactory builds a live memory from runtime config, registered the same way
+	// as a GatewayFactory.
+	MemoryFactory func(ctx context.Context, cfg PluginConfig) (Memory, error)
 	// OrchestratorFactory builds a session-scoped Orchestrator. Unlike the other
 	// factories it also receives the Memory port it composes (nil when no memory
 	// is wired); the session name arrives via cfg (key "session").
@@ -51,17 +55,17 @@ type (
 )
 
 // Plugin is what a plugin declares about itself. Exactly one *port* factory is
-// non-nil, consistent with Manifest.Category — except for CategorySkills, which
+// non-nil, consistent with Manifest.Category. Except for CategorySkills, which
 // has no port and declares none. Skills is orthogonal to all of that: any plugin
 // may carry playbooks alongside the port it builds.
 type Plugin struct {
 	Manifest     Manifest
-	Gateway      GatewayFactory      // set iff Manifest.Category == CategoryGateway
-	Backend      BackendFactory      // set iff Manifest.Category == CategoryBackend
-	Memory       MemoryFactory       // set iff Manifest.Category == CategoryMemory
-	Orchestrator OrchestratorFactory // set iff Manifest.Category == CategoryOrchestrator
+	Gateway      GatewayFactory
+	Backend      BackendFactory
+	Memory       MemoryFactory
+	Orchestrator OrchestratorFactory
 	// Skills builds the playbooks teaching an agent to use what this plugin
-	// contributes, installed by the host only when the plugin is in the build —
+	// contributes, installed by the host only when the plugin is in the build,
 	// so a Discord playbook never sits in the context of a machine that has no
 	// Discord. The host calls it on its own, never through the port factory: a
 	// gateway missing its credentials never instantiates, and it must still ship
@@ -72,7 +76,7 @@ type Plugin struct {
 // CommandSource is an optional capability of a live plugin instance: the verbs
 // it contributes to the daemon's own command registry. The host namespaces them
 // under the plugin's Manifest Kind, so two gateways declaring the same path do
-// not collide. A Cmd's Run may close over anything the plugin holds — the
+// not collide. A Cmd's Run may close over anything the plugin holds. The
 // registry only ever sees a Cmd, which is what keeps the core agnostic.
 type CommandSource interface {
 	Commands() []Cmd
@@ -84,26 +88,36 @@ type CommandSource interface {
 // and the same query surface.
 type Registry struct{ plugins []Plugin }
 
+// Register adds p to the registry, after the plugins registered before it.
 func (r *Registry) Register(p Plugin) { r.plugins = append(r.plugins, p) }
+
+// Plugins returns every registered plugin, in registration order.
 func (r *Registry) Plugins() []Plugin { return r.plugins }
 
-func (r *Registry) byCategory(c Category) []Plugin {
+func (r *Registry) byCategory(category Category) []Plugin {
 	var out []Plugin
-	for _, p := range r.plugins {
-		if p.Manifest.Category == c {
-			out = append(out, p)
+	for index := range r.plugins {
+		if r.plugins[index].Manifest.Category == category {
+			out = append(out, r.plugins[index])
 		}
 	}
 	return out
 }
 
-func (r *Registry) Gateways() []Plugin      { return r.byCategory(CategoryGateway) }
-func (r *Registry) Backends() []Plugin      { return r.byCategory(CategoryBackend) }
-func (r *Registry) Memories() []Plugin      { return r.byCategory(CategoryMemory) }
+// Gateways returns the registered plugins of the gateway category.
+func (r *Registry) Gateways() []Plugin { return r.byCategory(CategoryGateway) }
+
+// Backends returns the registered plugins of the backend category.
+func (r *Registry) Backends() []Plugin { return r.byCategory(CategoryBackend) }
+
+// Memories returns the registered plugins of the memory category.
+func (r *Registry) Memories() []Plugin { return r.byCategory(CategoryMemory) }
+
+// Orchestrators returns the registered plugins of the orchestrator category.
 func (r *Registry) Orchestrators() []Plugin { return r.byCategory(CategoryOrchestrator) }
 
 // Skills returns the plugins whose whole contribution is playbooks. A gateway
-// that also carries a playbook is not one of them — it is reported by Gateways,
+// that also carries a playbook is not one of them. It is reported by Gateways,
 // and the host installs from every plugin carrying a non-nil Skills whatever its
 // category.
 func (r *Registry) Skills() []Plugin { return r.byCategory(CategorySkills) }

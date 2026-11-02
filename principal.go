@@ -2,9 +2,6 @@ package contracts
 
 import "context"
 
-// principalKey is unexported, so the only way to name a caller is WithPrincipal.
-// A context value keyed by a string would let any package in the process write
-// one, which is the opposite of what naming a caller is for.
 type principalKey struct{}
 
 // WithPrincipal marks a context as carrying who is asking. A gateway sets it
@@ -28,6 +25,8 @@ func WithPrincipal(ctx context.Context, principal string) context.Context {
 
 // PrincipalFrom returns the principal a context carries, empty when none does.
 func PrincipalFrom(ctx context.Context) string {
-	p, _ := ctx.Value(principalKey{}).(string)
-	return p
+	if principal, isString := ctx.Value(principalKey{}).(string); isString {
+		return principal
+	}
+	return ""
 }

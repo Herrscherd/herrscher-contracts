@@ -30,7 +30,7 @@ type ChannelReader interface {
 // MenuRouter is an optional channel capability: post an interactive menu whose
 // picks are delivered back to a named neutral route (e.g. a session) rather than
 // to the channel the menu lives in. The plugin owns how a pick is encoded and
-// delivered back to that route — contracts never sees the wire encoding.
+// delivered back to that route. Contracts never sees the wire encoding.
 type MenuRouter interface {
 	RouteMenu(ctx context.Context, channelID, replyTo, prompt, route string, opts []Choice) (MessageID, error)
 }
@@ -46,12 +46,12 @@ type ChannelAdmin interface {
 	// ChannelRef renders a channel id as the operator-facing reference for this
 	// platform (e.g. Discord's <#id> mention markup, or the bare id for a plain
 	// terminal). The gateway owns its own syntax so the manager never switches on
-	// platform — a new gateway adds rendering without touching core.
+	// platform. A new gateway adds rendering without touching core.
 	ChannelRef(id string) string
 }
 
 // MessageEditor is an optional channel capability: changing or removing a
-// message already sent. Optional because it is not universal — a line already
+// message already sent. Optional because it is not universal. A line already
 // printed to a terminal cannot be unprinted, and the in-tree terminal gateway
 // does not implement it. Putting these on Gateway would force every gateway to
 // carry a method whose only honest implementation is an error.

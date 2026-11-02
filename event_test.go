@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 )
 
@@ -41,8 +40,11 @@ func TestEventJSONPreservesCoordinationOutcome(t *testing.T) {
 	if err := json.Unmarshal(encoded, &got); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, want) {
+	if got.T != want.T || got.Text != want.Text || got.Done != want.Done {
 		t.Fatalf("coordination mismatch: got %+v want %+v", got, want)
+	}
+	if got.Coordination == nil || *got.Coordination != *want.Coordination {
+		t.Fatalf("coordination mismatch: got %+v want %+v", got.Coordination, want.Coordination)
 	}
 }
 
@@ -69,14 +71,13 @@ func TestEventJSONPreservesTurnIdentity(t *testing.T) {
 	if err := json.Unmarshal(encoded, &got); err != nil {
 		t.Fatalf("unmarshal enriched event: %v", err)
 	}
-	if !reflect.DeepEqual(got, want) {
+	if got.T != want.T || got.Text != want.Text || got.Done != want.Done ||
+		got.SessionIncarnation != want.SessionIncarnation || got.TurnID != want.TurnID || got.Agent != want.Agent {
 		t.Fatalf("turn identity was not preserved:\n got %+v\nwant %+v", got, want)
 	}
 }
 
 func TestEventSinkIsOptionalCapability(t *testing.T) {
-	// A type implementing EventSink must satisfy the interface; the compiler
-	// proves the method set. This test documents the contract shape.
 	var _ EventSink = sinkStub{}
 	e := Event{T: "chunk", Text: "hi"}
 	if e.T != "chunk" || e.Text != "hi" {

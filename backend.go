@@ -4,7 +4,7 @@ import "context"
 
 // Backend is the model edge: it turns one inbound prompt into a reply, optionally
 // emitting intermediate progress events. The host neither knows nor cares which
-// model answers (Claude, Codex, …) — every backend is one implementation of this
+// model answers (Claude, Codex, …). Every backend is one implementation of this
 // port. Close releases any persistent process the backend holds.
 type Backend interface {
 	Respond(ctx context.Context, p Prompt, onEvent func(BackendEvent)) (string, error)
@@ -21,7 +21,7 @@ type ResumeAware interface {
 // Prompt is the platform-neutral input a backend answers: the message text, who
 // sent it, its identity, and local filesystem paths to any attachments already
 // downloaded for the backend to reference. Context carries memory-recalled
-// background (empty when no Memory plugin is wired) — data the backend fences
+// background (empty when no Memory plugin is wired). Data the backend fences
 // into the turn for continuity, never the user's instructions.
 type Prompt struct {
 	Content     string
@@ -36,15 +36,15 @@ type Prompt struct {
 // progress consumer: a tool invocation, streamed assistant text, or the terminal
 // result carrying cost.
 type BackendEvent struct {
-	Kind        string  // "tool" | "text" | "thinking" | "usage" | "result" | "reset" | "todos" | "subagent"
-	Tool        string  // tool name (Kind == "tool")
-	Detail      string  // tool: salient input field; text/thinking: the assistant text
-	Cost        float64 // Kind == "result": total cost in USD
-	IsError     bool    // Kind == "result"
-	InTokens    int     // Kind == "usage" (live) and "result" (final): input tokens
-	OutTokens   int     // Kind == "usage" (live) and "result" (final): output tokens
-	CacheRead   int     // Kind == "usage"/"result": prompt-cache read tokens
-	CacheCreate int     // Kind == "usage"/"result": prompt-cache creation tokens
+	Kind        string
+	Tool        string
+	Detail      string
+	Cost        float64
+	IsError     bool
+	InTokens    int
+	OutTokens   int
+	CacheRead   int
+	CacheCreate int
 	Todos       []TodoItem
 	Subagent    *Subagent
 }

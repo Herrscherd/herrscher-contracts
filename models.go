@@ -1,20 +1,27 @@
 package contracts
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
 )
 
-// hasControlChar reports whether s carries a control character.
-//
-// The values guarded by this function all end up in the newline-delimited
-// "env" setting (see spawnenv.go) or in the child's argv. A newline there is
-// not cosmetic: EncodeEnvSetting has no way to escape it and no way to report
-// an error without a signature change, so "tok\nK=v" decodes in the child as a
-// truncated token PLUS a forged variable K. The whole control-character class
-// is refused rather than '\n' alone — none of them is legitimate in a URL, a
-// token, a model ID or a CLI argument, and \r would split lines just as well.
+// Errors returned by ValidateModels and NewGatewayCreds, matched with errors.Is.
+var (
+	ErrModelEmptyID        = errors.New("empty ID")
+	ErrModelDuplicateID    = errors.New("duplicate ID")
+	ErrModelEmptyLabel     = errors.New("empty label")
+	ErrModelEmptyArg       = errors.New("empty argument")
+	ErrModelControlChar    = errors.New("control character")
+	ErrModelUnknownRoute   = errors.New("unknown route")
+	ErrCredsMissing        = errors.New("gateway credentials: neither base URL nor token available")
+	ErrCredsTokenNoURL     = errors.New("gateway credentials: token without a base URL")
+	ErrCredsURLNoToken     = errors.New("gateway credentials: base URL without a token, refusing to run on the user's own subscription")
+	ErrCredsURLControlChar = errors.New("gateway credentials: base URL contains a control character")
+	ErrCredsTokenControl   = errors.New("gateway credentials: token contains a control character")
+)
+
 func hasControlChar(s string) bool {
 	return strings.ContainsFunc(s, unicode.IsControl)
 }
@@ -27,9 +34,9 @@ func hasControlChar(s string) bool {
 type Route string
 
 const (
-	// RouteNative: the CLI uses the user's own authentication.
+	// RouteNative is the route on which the CLI uses the user's own authentication.
 	RouteNative Route = "native"
-	// RouteGateway: the CLI is pointed at the Neublox gateway.
+	// RouteGateway is the route on which the CLI is pointed at the Neublox gateway.
 	RouteGateway Route = "gateway"
 )
 
@@ -47,15 +54,15 @@ const (
 )
 
 // Allows reports whether the policy accepts this route.
-func (p RoutePolicy) Allows(r Route) bool {
+func (p RoutePolicy) Allows(route Route) bool {
 	if p == PolicyGatewayOnly {
-		return r == RouteGateway
+		return route == RouteGateway
 	}
 	return true
 }
 
 // ModelSpec is a model a backend declares it knows how to run. It lives in the
-// Manifest — so it is readable without instantiating a backend, which the app
+// Manifest. So it is readable without instantiating a backend, which the app
 // needs in order to populate its selector before a session exists.
 type ModelSpec struct {
 	// ID is the stable identifier persisted in session state. It, not Label
@@ -79,49 +86,81 @@ type ModelSpec struct {
 // ValidateModels checks the integrity of a backend's catalog. kind names the
 // backend in error messages. Called by the host at startup: an inconsistent
 // catalog must kill the daemon with a clear message, not silently produce a
-// wrong selector.
+// wrong selector. It returns the first failing model as an error wrapping
+// [ErrModelEmptyID], [ErrModelDuplicateID], [ErrModelEmptyLabel],
+// [ErrModelEmptyArg], [ErrModelControlChar] or [ErrModelUnknownRoute], to match
+// with errors.Is.
 func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
-	for i, m := range models {
-		if strings.TrimSpace(m.ID) == "" {
-			return fmt.Errorf("backend %q: model #%d has an empty ID", kind, i)
+	for index := range models {
+		spec := &models[index]
+		if err := validateModelIdentity(kind, index, spec, seen); err != nil {
+			return err
 		}
-		if seen[m.ID] {
-			return fmt.Errorf("backend %q: duplicate model ID %q", kind, m.ID)
+		if err := validateModelRequiredFields(kind, spec); err != nil {
+			return err
 		}
-		seen[m.ID] = true
-		if strings.TrimSpace(m.Label) == "" {
-			return fmt.Errorf("backend %q: model %q has an empty Label", kind, m.ID)
+		if err := validateModelControlChars(kind, spec); err != nil {
+			return err
 		}
-		if strings.TrimSpace(m.Arg) == "" {
-			return fmt.Errorf("backend %q: model %q has an empty Arg", kind, m.ID)
+		if err := validateModelRoute(kind, spec); err != nil {
+			return err
 		}
-		for _, f := range []struct{ name, value string }{
-			{"ID", m.ID}, {"Label", m.Label}, {"Arg", m.Arg},
-		} {
-			if hasControlChar(f.value) {
-				return fmt.Errorf("backend %q: model %q has a control character in %s", kind, m.ID, f.name)
-			}
+	}
+	return nil
+}
+
+func validateModelIdentity(kind string, index int, spec *ModelSpec, seen map[string]bool) error {
+	if strings.TrimSpace(spec.ID) == "" {
+		return fmt.Errorf("backend %q: model #%d: %w", kind, index, ErrModelEmptyID)
+	}
+	if seen[spec.ID] {
+		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelDuplicateID)
+	}
+	seen[spec.ID] = true
+	return nil
+}
+
+func validateModelRequiredFields(kind string, spec *ModelSpec) error {
+	if strings.TrimSpace(spec.Label) == "" {
+		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelEmptyLabel)
+	}
+	if strings.TrimSpace(spec.Arg) == "" {
+		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelEmptyArg)
+	}
+	return nil
+}
+
+func validateModelControlChars(kind string, spec *ModelSpec) error {
+	for _, field := range []struct{ name, value string }{
+		{"ID", spec.ID}, {"Label", spec.Label}, {"Arg", spec.Arg},
+	} {
+		if hasControlChar(field.value) {
+			return fmt.Errorf("backend %q: model %q, field %s: %w", kind, spec.ID, field.name, ErrModelControlChar)
 		}
-		for _, e := range m.Efforts {
-			if hasControlChar(e) {
-				return fmt.Errorf("backend %q: model %q has a control character in effort %q", kind, m.ID, e)
-			}
+	}
+	for _, effort := range spec.Efforts {
+		if hasControlChar(effort) {
+			return fmt.Errorf("backend %q: model %q, effort %q: %w", kind, spec.ID, effort, ErrModelControlChar)
 		}
-		if m.Route != RouteNative && m.Route != RouteGateway {
-			return fmt.Errorf("backend %q: model %q has unknown route %q", kind, m.ID, m.Route)
-		}
+	}
+	return nil
+}
+
+func validateModelRoute(kind string, spec *ModelSpec) error {
+	if spec.Route != RouteNative && spec.Route != RouteGateway {
+		return fmt.Errorf("backend %q: model %q, route %q: %w", kind, spec.ID, spec.Route, ErrModelUnknownRoute)
 	}
 	return nil
 }
 
 // FilterModels keeps the models the policy allows. The result is always
 // non-nil so callers can serialize it to JSON without producing `null`.
-func FilterModels(models []ModelSpec, p RoutePolicy) []ModelSpec {
+func FilterModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
 	out := make([]ModelSpec, 0, len(models))
-	for _, m := range models {
-		if p.Allows(m.Route) {
-			out = append(out, m)
+	for _, spec := range models {
+		if policy.Allows(spec.Route) {
+			out = append(out, spec)
 		}
 	}
 	return out
@@ -129,11 +168,11 @@ func FilterModels(models []ModelSpec, p RoutePolicy) []ModelSpec {
 
 // GatewayCreds is the (base URL, token) pair a gateway route requires. Its
 // fields are unexported, so no package outside this one can construct a
-// half-filled value — NewGatewayCreds is the only path to one.
+// half-filled value. NewGatewayCreds is the only path to one.
 //
 // The reason is legal, not aesthetic. A base URL with no token sends traffic
 // to the gateway while billing it against the user's own claude.ai
-// subscription — the shape Anthropic explicitly forbids third-party
+// subscription. The shape Anthropic explicitly forbids third-party
 // developers from producing. Making that state unrepresentable is better than
 // testing for it after the fact.
 //
@@ -151,20 +190,24 @@ func (c GatewayCreds) BaseURL() string { return c.baseURL }
 // Token is the authentication token. Empty only for the zero value.
 func (c GatewayCreds) Token() string { return c.token }
 
-// NewGatewayCreds builds a complete pair, or fails.
+// NewGatewayCreds builds a complete pair, or fails. It returns [ErrCredsMissing]
+// when both values are blank, [ErrCredsTokenNoURL] when only the token is set,
+// [ErrCredsURLNoToken] when only the base URL is set, and
+// [ErrCredsURLControlChar] or [ErrCredsTokenControl] when a value contains a
+// control character.
 func NewGatewayCreds(baseURL, token string) (GatewayCreds, error) {
 	baseURL, token = strings.TrimSpace(baseURL), strings.TrimSpace(token)
 	switch {
 	case baseURL == "" && token == "":
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: neither base URL nor token available")
+		return GatewayCreds{}, ErrCredsMissing
 	case baseURL == "":
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: token without a base URL")
+		return GatewayCreds{}, ErrCredsTokenNoURL
 	case token == "":
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: base URL without a token — refusing to run on the user's own subscription")
+		return GatewayCreds{}, ErrCredsURLNoToken
 	case hasControlChar(baseURL):
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: base URL contains a control character")
+		return GatewayCreds{}, ErrCredsURLControlChar
 	case hasControlChar(token):
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: token contains a control character")
+		return GatewayCreds{}, ErrCredsTokenControl
 	}
 	return GatewayCreds{baseURL: baseURL, token: token}, nil
 }

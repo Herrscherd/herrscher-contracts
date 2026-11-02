@@ -16,9 +16,6 @@ func TestManifestCarriesCapabilities(t *testing.T) {
 	}
 }
 
-// A gateway that declares no attachment hosts must read as "allow nothing", not
-// as "unset, so allow anything": the field is the host's SSRF allowlist, and the
-// zero value is the one every existing manifest already has.
 func TestManifestAttachmentHostsDefaultToNone(t *testing.T) {
 	var m Manifest
 	if len(m.AttachmentHosts) != 0 {

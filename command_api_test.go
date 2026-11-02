@@ -10,7 +10,7 @@ func TestBuilderProducesCmd(t *testing.T) {
 		Help("start a session").
 		Param("name", "session name", true).
 		Param("shared", "use main checkout", false).
-		Do(func(ctx context.Context, in Input) (string, error) {
+		Do(func(_ context.Context, in Input) (string, error) {
 			return "ok " + in.Get("name"), nil
 		})
 

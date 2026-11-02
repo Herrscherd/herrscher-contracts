@@ -10,9 +10,6 @@ import (
 	contracts "github.com/Herrscherd/herrscher-contracts"
 )
 
-// contributor is a plugin-side type proving both contribution points are
-// satisfiable from outside the package, which is the only place they are ever
-// implemented.
 type contributor struct{}
 
 func (contributor) Commands() []contracts.Cmd {
@@ -29,9 +26,6 @@ var (
 	_ contracts.MessageEditor = contributor{}
 )
 
-// A plugin's skills are reachable without its port ever being built — a gateway
-// with no token still ships its playbook. The two factories are independent, and
-// this test fails the moment the host is asked to build one to get the other.
 func TestPluginSkillsDoNotRequireBuildingThePort(t *testing.T) {
 	built := false
 	p := contracts.Plugin{
@@ -54,15 +48,11 @@ func TestPluginSkillsDoNotRequireBuildingThePort(t *testing.T) {
 	if built {
 		t.Error("reading a plugin's skills must not build its port")
 	}
-	// A plugin that contributes nothing leaves it nil, and that must stay legal.
 	if bare := (contracts.Plugin{}); bare.Skills != nil {
 		t.Fatal("contributing no skills must be the zero value")
 	}
 }
 
-// A skills plugin declines when the tool its playbook describes is not on the
-// machine, and the host installs nothing rather than teaching an agent about a
-// capability it does not have.
 func TestASkillsPluginMayDecline(t *testing.T) {
 	p := contracts.Plugin{
 		Manifest: contracts.Manifest{Kind: "superset", Category: contracts.CategorySkills},

@@ -18,9 +18,6 @@ func TestPrincipalFromIsEmptyWhenNobodyNamedOne(t *testing.T) {
 	}
 }
 
-// A gateway that names nobody must not be distinguishable from one that never
-// called WithPrincipal: both mean "this caller is unnamed", and the daemon
-// answers that one way.
 func TestPrincipalEmptyStringIsNotAName(t *testing.T) {
 	ctx := WithPrincipal(context.Background(), "")
 	if got := PrincipalFrom(ctx); got != "" {
