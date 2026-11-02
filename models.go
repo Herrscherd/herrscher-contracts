@@ -54,9 +54,9 @@ const (
 )
 
 // Allows reports whether the policy accepts this route.
-func (p RoutePolicy) Allows(r Route) bool {
+func (p RoutePolicy) Allows(route Route) bool {
 	if p == PolicyGatewayOnly {
-		return r == RouteGateway
+		return route == RouteGateway
 	}
 	return true
 }
@@ -89,75 +89,75 @@ type ModelSpec struct {
 // wrong selector.
 func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
-	for i := range models {
-		m := &models[i]
-		if err := validateModelIdentity(kind, i, m, seen); err != nil {
+	for index := range models {
+		spec := &models[index]
+		if err := validateModelIdentity(kind, index, spec, seen); err != nil {
 			return err
 		}
-		if err := validateModelRequiredFields(kind, m); err != nil {
+		if err := validateModelRequiredFields(kind, spec); err != nil {
 			return err
 		}
-		if err := validateModelControlChars(kind, m); err != nil {
+		if err := validateModelControlChars(kind, spec); err != nil {
 			return err
 		}
-		if err := validateModelRoute(kind, m); err != nil {
+		if err := validateModelRoute(kind, spec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateModelIdentity(kind string, index int, m *ModelSpec, seen map[string]bool) error {
-	if strings.TrimSpace(m.ID) == "" {
+func validateModelIdentity(kind string, index int, spec *ModelSpec, seen map[string]bool) error {
+	if strings.TrimSpace(spec.ID) == "" {
 		return fmt.Errorf("backend %q: model #%d: %w", kind, index, ErrModelEmptyID)
 	}
-	if seen[m.ID] {
-		return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelDuplicateID)
+	if seen[spec.ID] {
+		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelDuplicateID)
 	}
-	seen[m.ID] = true
+	seen[spec.ID] = true
 	return nil
 }
 
-func validateModelRequiredFields(kind string, m *ModelSpec) error {
-	if strings.TrimSpace(m.Label) == "" {
-		return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyLabel)
+func validateModelRequiredFields(kind string, spec *ModelSpec) error {
+	if strings.TrimSpace(spec.Label) == "" {
+		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelEmptyLabel)
 	}
-	if strings.TrimSpace(m.Arg) == "" {
-		return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyArg)
+	if strings.TrimSpace(spec.Arg) == "" {
+		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelEmptyArg)
 	}
 	return nil
 }
 
-func validateModelControlChars(kind string, m *ModelSpec) error {
-	for _, f := range []struct{ name, value string }{
-		{"ID", m.ID}, {"Label", m.Label}, {"Arg", m.Arg},
+func validateModelControlChars(kind string, spec *ModelSpec) error {
+	for _, field := range []struct{ name, value string }{
+		{"ID", spec.ID}, {"Label", spec.Label}, {"Arg", spec.Arg},
 	} {
-		if hasControlChar(f.value) {
-			return fmt.Errorf("backend %q: model %q, field %s: %w", kind, m.ID, f.name, ErrModelControlChar)
+		if hasControlChar(field.value) {
+			return fmt.Errorf("backend %q: model %q, field %s: %w", kind, spec.ID, field.name, ErrModelControlChar)
 		}
 	}
-	for _, e := range m.Efforts {
-		if hasControlChar(e) {
-			return fmt.Errorf("backend %q: model %q, effort %q: %w", kind, m.ID, e, ErrModelControlChar)
+	for _, effort := range spec.Efforts {
+		if hasControlChar(effort) {
+			return fmt.Errorf("backend %q: model %q, effort %q: %w", kind, spec.ID, effort, ErrModelControlChar)
 		}
 	}
 	return nil
 }
 
-func validateModelRoute(kind string, m *ModelSpec) error {
-	if m.Route != RouteNative && m.Route != RouteGateway {
-		return fmt.Errorf("backend %q: model %q, route %q: %w", kind, m.ID, m.Route, ErrModelUnknownRoute)
+func validateModelRoute(kind string, spec *ModelSpec) error {
+	if spec.Route != RouteNative && spec.Route != RouteGateway {
+		return fmt.Errorf("backend %q: model %q, route %q: %w", kind, spec.ID, spec.Route, ErrModelUnknownRoute)
 	}
 	return nil
 }
 
 // FilterModels keeps the models the policy allows. The result is always
 // non-nil so callers can serialize it to JSON without producing `null`.
-func FilterModels(models []ModelSpec, p RoutePolicy) []ModelSpec {
+func FilterModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
 	out := make([]ModelSpec, 0, len(models))
-	for _, m := range models {
-		if p.Allows(m.Route) {
-			out = append(out, m)
+	for _, spec := range models {
+		if policy.Allows(spec.Route) {
+			out = append(out, spec)
 		}
 	}
 	return out

@@ -25,23 +25,23 @@ type Setting struct {
 func Resolve(settings []Setting, getenv func(string) string) (PluginConfig, error) {
 	cfg := PluginConfig{Settings: make(map[string]string, len(settings))}
 	var missing []string
-	for _, s := range settings {
-		v := ""
-		if s.Env != "" {
-			v = getenv(s.Env)
+	for _, setting := range settings {
+		value := ""
+		if setting.Env != "" {
+			value = getenv(setting.Env)
 		}
-		if v == "" {
-			v = s.Default
+		if value == "" {
+			value = setting.Default
 		}
-		if v == "" && s.Required {
-			if s.Env != "" {
-				missing = append(missing, s.Key+" (set "+s.Env+")")
+		if value == "" && setting.Required {
+			if setting.Env != "" {
+				missing = append(missing, setting.Key+" (set "+setting.Env+")")
 			} else {
-				missing = append(missing, s.Key)
+				missing = append(missing, setting.Key)
 			}
 			continue
 		}
-		cfg.Settings[s.Key] = v
+		cfg.Settings[setting.Key] = value
 	}
 	if len(missing) > 0 {
 		return cfg, &MissingSettingsError{Missing: missing}

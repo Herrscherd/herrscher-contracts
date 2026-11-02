@@ -52,13 +52,13 @@ func MergeEnv(base []string, extra map[string]string) []string {
 		return base
 	}
 	out := make([]string, 0, len(base)+len(extra))
-	for _, e := range base {
-		if k, _, found := strings.Cut(e, "="); found {
+	for _, entry := range base {
+		if k, _, found := strings.Cut(entry, "="); found {
 			if _, override := extra[k]; override {
 				continue
 			}
 		}
-		out = append(out, e)
+		out = append(out, entry)
 	}
 	keys := make([]string, 0, len(extra))
 	for k := range extra {
@@ -74,18 +74,18 @@ func MergeEnv(base []string, extra map[string]string) []string {
 // ParseEnvSetting decodes the value of the "env" setting: K=V pairs separated
 // by newlines. Only the FIRST '=' separates the key from the value. Tokens
 // are often base64-encoded and contain one.
-func ParseEnvSetting(s string) map[string]string {
+func ParseEnvSetting(setting string) map[string]string {
 	out := make(map[string]string)
-	for _, line := range strings.Split(s, "\n") {
+	for _, line := range strings.Split(setting, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		k, v, found := strings.Cut(line, "=")
-		if !found || k == "" {
+		key, value, found := strings.Cut(line, "=")
+		if !found || key == "" {
 			continue
 		}
-		out[k] = v
+		out[key] = value
 	}
 	return out
 }
@@ -102,11 +102,11 @@ func EncodeEnvSetting(env map[string]string) string {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	var b strings.Builder
+	var builder strings.Builder
 	for _, k := range keys {
-		fmt.Fprintf(&b, "%s=%s\n", k, env[k])
+		fmt.Fprintf(&builder, "%s=%s\n", k, env[k])
 	}
-	return b.String()
+	return builder.String()
 }
 
 // The environment variable NAMES that carry a session's approval policy from

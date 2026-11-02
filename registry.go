@@ -94,11 +94,11 @@ func (r *Registry) Register(p Plugin) { r.plugins = append(r.plugins, p) }
 // Plugins returns every registered plugin, in registration order.
 func (r *Registry) Plugins() []Plugin { return r.plugins }
 
-func (r *Registry) byCategory(c Category) []Plugin {
+func (r *Registry) byCategory(category Category) []Plugin {
 	var out []Plugin
-	for i := range r.plugins {
-		if r.plugins[i].Manifest.Category == c {
-			out = append(out, r.plugins[i])
+	for index := range r.plugins {
+		if r.plugins[index].Manifest.Category == category {
+			out = append(out, r.plugins[index])
 		}
 	}
 	return out

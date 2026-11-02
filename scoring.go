@@ -55,48 +55,48 @@ func Score(text string, now time.Time, n Node) (float64, bool) {
 	return newRanker(text, now).score(n)
 }
 
-func (r ranker) score(n Node) (float64, bool) {
+func (r ranker) score(node Node) (float64, bool) {
 	if len(r.terms) == 0 {
 		return 0, false
 	}
-	var tf, titleHits float64
+	var termFrequency, titleHits float64
 	seen := make(map[string]bool)
-	for _, tok := range tokenize(n.Title) {
+	for _, tok := range tokenize(node.Title) {
 		if r.terms[tok] {
-			tf++
+			termFrequency++
 			if !seen[tok] {
 				seen[tok] = true
 				titleHits++
 			}
 		}
 	}
-	for _, tok := range tokenize(n.Body) {
+	for _, tok := range tokenize(node.Body) {
 		if r.terms[tok] {
-			tf++
+			termFrequency++
 		}
 	}
-	if tf == 0 {
+	if termFrequency == 0 {
 		return 0, false
 	}
-	total := weightTF*tf + weightTitleHit*titleHits
-	total += weightRecency * r.recencyScore(n)
-	total += weightKind * kindBoost(n.Kind)
+	total := weightTF*termFrequency + weightTitleHit*titleHits
+	total += weightRecency * r.recencyScore(node)
+	total += weightKind * kindBoost(node.Kind)
 	return total, true
 }
 
-func (r ranker) recencyScore(n Node) float64 {
+func (r ranker) recencyScore(node Node) float64 {
 	if r.now.IsZero() {
 		return recencyNeutral
 	}
-	raw := n.Meta["capturedAt"]
+	raw := node.Meta["capturedAt"]
 	if raw == "" {
 		return recencyNeutral
 	}
-	at, err := time.Parse(time.RFC3339, raw)
+	capturedAt, err := time.Parse(time.RFC3339, raw)
 	if err != nil {
 		return recencyNeutral
 	}
-	ageDays := r.now.Sub(at).Hours() / hoursPerDay
+	ageDays := r.now.Sub(capturedAt).Hours() / hoursPerDay
 	if ageDays < 0 {
 		ageDays = 0
 	}
