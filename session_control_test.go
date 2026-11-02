@@ -38,7 +38,11 @@ func TestSubmitCarriesAttachments(t *testing.T) {
 	if !ok {
 		t.Fatal("Submit reported no live session")
 	}
-	got := ctrl.(*stubControl).submitted
+	stub, isStub := ctrl.(*stubControl)
+	if !isStub {
+		t.Fatalf("control is %T, want *stubControl", ctrl)
+	}
+	got := stub.submitted
 	if len(got) != 1 || len(got[0].Attachments) != 1 || got[0].Attachments[0].Filename != "shot.png" {
 		t.Fatalf("attachments did not survive the seam: %+v", got)
 	}

@@ -21,7 +21,10 @@ func TestEventResumeJSON(t *testing.T) {
 	if got := string(b); got != `{"t":"reply","done":true,"resume":"sid-1"}` {
 		t.Fatalf("marshal: got %s", got)
 	}
-	b, _ = json.Marshal(Event{T: "reply"})
+	b, err = json.Marshal(Event{T: "reply"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got := string(b); got != `{"t":"reply"}` {
 		t.Fatalf("omitempty: got %s", got)
 	}

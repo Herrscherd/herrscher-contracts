@@ -25,6 +25,8 @@ func WithPrincipal(ctx context.Context, principal string) context.Context {
 
 // PrincipalFrom returns the principal a context carries, empty when none does.
 func PrincipalFrom(ctx context.Context) string {
-	p, _ := ctx.Value(principalKey{}).(string)
-	return p
+	if principal, isString := ctx.Value(principalKey{}).(string); isString {
+		return principal
+	}
+	return ""
 }
