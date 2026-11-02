@@ -2,10 +2,13 @@ package contracts
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"testing"
 	"testing/fstest"
 )
+
+var errStubFactory = errors.New("stub factory is never invoked by this test")
 
 func TestRegistryFiltersByCategory(t *testing.T) {
 	var r Registry
@@ -18,7 +21,7 @@ func TestRegistryFiltersByCategory(t *testing.T) {
 	})
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
-		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, nil },
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
 	})
 
 	if got := r.Gateways(); len(got) != 1 || got[0].Manifest.Kind != "discord" {
@@ -52,11 +55,11 @@ func TestRegistryIsolatesMemory(t *testing.T) {
 	var r Registry
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "obsidian", Category: CategoryMemory},
-		Memory:   func(context.Context, PluginConfig) (Memory, error) { return nil, nil },
+		Memory:   func(context.Context, PluginConfig) (Memory, error) { return nil, errStubFactory },
 	})
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
-		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, nil },
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
 	})
 
 	got := r.Memories()
@@ -81,7 +84,7 @@ func TestRegistryIsolatesSkills(t *testing.T) {
 	})
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
-		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, nil },
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
 	})
 
 	got := r.Skills()
