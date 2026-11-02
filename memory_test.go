@@ -14,18 +14,18 @@ func (m *recMemory) Recall(_ context.Context, key string, _ int) (Subgraph, erro
 	return Subgraph{Root: Node{Key: key}}, nil
 }
 
-func (m *recMemory) Record(_ context.Context, n *Node) error {
-	m.recorded = append(m.recorded, *n)
+func (m *recMemory) Record(_ context.Context, n Node) error {
+	m.recorded = append(m.recorded, n)
 	return nil
 }
-func (m *recMemory) Search(_ context.Context, _ *Query) ([]Node, error) { return nil, nil }
-func (m *recMemory) Links(_ context.Context, _, _, _ string) error      { return nil }
-func (m *recMemory) Unlink(_ context.Context, _, _ string) error        { return nil }
-func (m *recMemory) Close() error                                       { m.closed = true; return nil }
+func (m *recMemory) Search(_ context.Context, _ Query) ([]Node, error) { return nil, nil }
+func (m *recMemory) Links(_ context.Context, _, _, _ string) error     { return nil }
+func (m *recMemory) Unlink(_ context.Context, _, _ string) error       { return nil }
+func (m *recMemory) Close() error                                      { m.closed = true; return nil }
 
 func TestMemoryInterfaceIsImplementable(t *testing.T) {
 	var mem Memory = &recMemory{}
-	if err := mem.Record(context.Background(), &Node{Key: "k", Kind: KindProject}); err != nil {
+	if err := mem.Record(context.Background(), Node{Key: "k", Kind: KindProject}); err != nil {
 		t.Fatalf("Record: %v", err)
 	}
 	sg, err := mem.Recall(context.Background(), "k", 1)

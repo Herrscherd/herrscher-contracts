@@ -68,13 +68,13 @@ func (d degrading) BindSessionControl(c SessionControl) {
 
 type degradingSink struct{ degrading }
 
-func (d degradingSink) Emit(e *Event) {
+func (d degradingSink) Emit(e Event) {
 	if s, ok := d.g.(EventSink); ok {
 		s.Emit(e)
 	}
 }
 
-func (d degradingSink) EmitTo(conv Conversation, e *Event) {
+func (d degradingSink) EmitTo(conv Conversation, e Event) {
 	if s, ok := d.g.(RoutedEventSink); ok {
 		s.EmitTo(conv, e)
 		return

@@ -17,8 +17,8 @@ func (s *stubControl) Sessions() []SessionInfo                               { r
 func (s *stubControl) Scrollback(string) []ScrollbackLine                    { return nil }
 func (s *stubControl) Resume(string) error                                   { return nil }
 func (s *stubControl) Interrupt(string) bool                                 { return false }
-func (s *stubControl) Submit(_ string, in *Inbound) bool {
-	s.submitted = append(s.submitted, *in)
+func (s *stubControl) Submit(_ string, in Inbound) bool {
+	s.submitted = append(s.submitted, in)
 	return true
 }
 
@@ -29,7 +29,7 @@ var _ SessionControl = (*stubControl)(nil)
 
 func TestSubmitCarriesAttachments(t *testing.T) {
 	var ctrl SessionControl = &stubControl{}
-	ok := ctrl.Submit("s1", &Inbound{
+	ok := ctrl.Submit("s1", Inbound{
 		Conversation: Conversation{Gateway: "discord", ID: "c1"},
 		Author:       "leo",
 		Text:         "fix this",

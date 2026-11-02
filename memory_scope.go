@@ -61,7 +61,7 @@ func normalizeScopeName(name string) string {
 // RecordShared upserts n and links it under the project root, making it visible
 // to every agent of the game. Use for project memory (decisions, conventions,
 // the Studio tree map, …).
-func RecordShared(ctx context.Context, m Memory, s MemoryScope, n *Node) error {
+func RecordShared(ctx context.Context, m Memory, s MemoryScope, n Node) error {
 	if err := m.Record(ctx, n); err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func RecordShared(ctx context.Context, m Memory, s MemoryScope, n *Node) error {
 // RecordPrivate upserts n and links it under the agent root, keeping it private
 // to this agent. Use for learned skills. With no Agent in scope it falls back to
 // shared so a fact is never dropped on the floor.
-func RecordPrivate(ctx context.Context, m Memory, s MemoryScope, n *Node) error {
+func RecordPrivate(ctx context.Context, m Memory, s MemoryScope, n Node) error {
 	if err := m.Record(ctx, n); err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func RecallScoped(ctx context.Context, m Memory, s MemoryScope, depth int) (Subg
 	if err != nil {
 		return Subgraph{}, err
 	}
-	return mergeSubgraphs(&shared, &private), nil
+	return mergeSubgraphs(shared, private), nil
 }
 
 const relevantDepth = 3
@@ -128,7 +128,7 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 			return
 		}
 		seen[n.Key] = true
-		base, ok := r.score(&n)
+		base, ok := r.score(n)
 		if !ok {
 			return
 		}
@@ -206,7 +206,7 @@ func expandScopeDepths(byKey map[string]Node, depth map[string]int, frontier []s
 	return next
 }
 
-func mergeSubgraphs(shared, private *Subgraph) Subgraph {
+func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	out := Subgraph{Root: shared.Root}
 	seen := map[string]bool{}
 	if shared.Root.Key != "" {

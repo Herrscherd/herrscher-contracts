@@ -188,9 +188,6 @@ linters:
       - path: ^spawnenv\.go$
         linters: [gosec]
         text: "^G101:"
-      - path: ^coordinator_test\.go$
-        linters: [gocritic]
-        text: unnamedResult
 
 formatters:
   enable:

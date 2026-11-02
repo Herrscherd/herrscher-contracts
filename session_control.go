@@ -44,7 +44,7 @@ type SessionControl interface {
 	// in.Attachments against that session's own download allowlist, so a gateway
 	// never fetches remote content itself. Reports false when no live session by
 	// that name is driving. The caller's binding is stale.
-	Submit(name string, in *Inbound) bool
+	Submit(name string, in Inbound) bool
 	// Pick answers the named session's pending choice with a menu value. Reports
 	// false when no live session by that name is driving (mirror of Submit).
 	Pick(name, value string) bool

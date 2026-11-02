@@ -51,11 +51,11 @@ func newRanker(text string, now time.Time) ranker {
 // rankers (e.g. the Obsidian Search implementation). now drives recency decay;
 // pass a zero Time to disable it. The bool reports whether any query term matched
 // Title or Body, letting callers exclude non-matches.
-func Score(text string, now time.Time, n *Node) (float64, bool) {
+func Score(text string, now time.Time, n Node) (float64, bool) {
 	return newRanker(text, now).score(n)
 }
 
-func (r ranker) score(n *Node) (total float64, textHit bool) {
+func (r ranker) score(n Node) (total float64, textHit bool) {
 	if len(r.terms) == 0 {
 		return 0, false
 	}
@@ -84,7 +84,7 @@ func (r ranker) score(n *Node) (total float64, textHit bool) {
 	return total, true
 }
 
-func (r ranker) recencyScore(n *Node) float64 {
+func (r ranker) recencyScore(n Node) float64 {
 	if r.now.IsZero() {
 		return recencyNeutral
 	}

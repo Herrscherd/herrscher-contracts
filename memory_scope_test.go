@@ -18,11 +18,11 @@ func (m *scopeMem) Recall(_ context.Context, key string, _ int) (Subgraph, error
 	return Subgraph{Root: Node{Key: key}}, nil
 }
 
-func (m *scopeMem) Record(_ context.Context, n *Node) error {
-	m.recorded = append(m.recorded, *n)
+func (m *scopeMem) Record(_ context.Context, n Node) error {
+	m.recorded = append(m.recorded, n)
 	return nil
 }
-func (m *scopeMem) Search(_ context.Context, _ *Query) ([]Node, error) { return nil, nil }
+func (m *scopeMem) Search(_ context.Context, _ Query) ([]Node, error) { return nil, nil }
 func (m *scopeMem) Links(_ context.Context, from, to, rel string) error {
 	m.links = append(m.links, [3]string{from, to, rel})
 	return nil
@@ -53,7 +53,7 @@ func hasLink(m *scopeMem, from, to string) bool {
 func TestRecordSharedLinksUnderProject(t *testing.T) {
 	m := &scopeMem{}
 	s := MemoryScope{Project: "proj", Agent: "ag"}
-	if err := RecordShared(context.Background(), m, s, &Node{Key: "fact", Kind: KindDecision}); err != nil {
+	if err := RecordShared(context.Background(), m, s, Node{Key: "fact", Kind: KindDecision}); err != nil {
 		t.Fatalf("RecordShared: %v", err)
 	}
 	if len(m.recorded) != 1 || m.recorded[0].Key != "fact" {
@@ -67,7 +67,7 @@ func TestRecordSharedLinksUnderProject(t *testing.T) {
 func TestRecordPrivateLinksUnderAgent(t *testing.T) {
 	m := &scopeMem{}
 	s := MemoryScope{Project: "proj", Agent: "ag"}
-	if err := RecordPrivate(context.Background(), m, s, &Node{Key: "skill", Kind: KindDecision}); err != nil {
+	if err := RecordPrivate(context.Background(), m, s, Node{Key: "skill", Kind: KindDecision}); err != nil {
 		t.Fatalf("RecordPrivate: %v", err)
 	}
 	if !hasLink(m, "ag", "skill") {
@@ -81,7 +81,7 @@ func TestRecordPrivateLinksUnderAgent(t *testing.T) {
 func TestRecordPrivateFallsBackToProjectWithoutAgent(t *testing.T) {
 	m := &scopeMem{}
 	s := MemoryScope{Project: "proj"}
-	if err := RecordPrivate(context.Background(), m, s, &Node{Key: "skill"}); err != nil {
+	if err := RecordPrivate(context.Background(), m, s, Node{Key: "skill"}); err != nil {
 		t.Fatalf("RecordPrivate: %v", err)
 	}
 	if !hasLink(m, "proj", "skill") {
