@@ -39,7 +39,7 @@ const (
 )
 
 // Capabilities are announced by a plugin. The degrading decorator reads them to
-// rabat unsupported actions. This is the single source of truth (no separate
+// fall back from unsupported actions. This is the single source of truth (no separate
 // Capabilities() method on the port).
 type Capabilities struct {
 	Reactions   bool

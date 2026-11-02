@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-// Degrade wraps a Gateway and rabats actions the plugin does not announce. The
-// manager always calls the rich method; degradation lives here, never in the
-// domain.
+// Degrade wraps a Gateway and falls back to a simpler action for each action the
+// plugin does not announce. The manager always calls the rich method; degradation
+// lives here, never in the domain.
 func Degrade(gateway Gateway) Gateway {
 	wrapped := degrading{gateway}
 	if isEventSink(gateway) {

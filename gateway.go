@@ -3,7 +3,7 @@ package contracts
 import "context"
 
 // Gateway is the port a chat-platform plugin implements. Method-based: the
-// manager calls the rich method and the degrading decorator rabats when a
+// manager calls the rich method and the degrading decorator falls back when a
 // capability is missing.
 type Gateway interface {
 	Manifest() Manifest
