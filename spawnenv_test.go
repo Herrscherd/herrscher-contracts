@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -130,11 +131,11 @@ func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
 	if got["B"] != "evil" {
 		t.Fatalf("expected the newline to forge a second variable, got %#v", got)
 	}
-	if _, err := NewGatewayCreds("https://gw.example", forged); err == nil {
-		t.Fatal("NewGatewayCreds no longer guards the transport")
+	if _, err := NewGatewayCreds("https://gw.example", forged); !errors.Is(err, ErrCredsTokenControl) {
+		t.Fatalf("NewGatewayCreds: got %v, want ErrCredsTokenControl", err)
 	}
-	if err := ValidateModels("k", []ModelSpec{{ID: "x", Label: "X", Arg: forged, Route: RouteNative}}); err == nil {
-		t.Fatal("ValidateModels no longer guards the transport")
+	if err := ValidateModels("k", []ModelSpec{{ID: "x", Label: "X", Arg: forged, Route: RouteNative}}); !errors.Is(err, ErrModelControlChar) {
+		t.Fatalf("ValidateModels: got %v, want ErrModelControlChar", err)
 	}
 }
 
