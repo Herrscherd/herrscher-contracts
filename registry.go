@@ -56,10 +56,10 @@ type (
 // may carry playbooks alongside the port it builds.
 type Plugin struct {
 	Manifest     Manifest
-	Gateway      GatewayFactory      // set iff Manifest.Category == CategoryGateway
-	Backend      BackendFactory      // set iff Manifest.Category == CategoryBackend
-	Memory       MemoryFactory       // set iff Manifest.Category == CategoryMemory
-	Orchestrator OrchestratorFactory // set iff Manifest.Category == CategoryOrchestrator
+	Gateway      GatewayFactory
+	Backend      BackendFactory
+	Memory       MemoryFactory
+	Orchestrator OrchestratorFactory
 	// Skills builds the playbooks teaching an agent to use what this plugin
 	// contributes, installed by the host only when the plugin is in the build —
 	// so a Discord playbook never sits in the context of a machine that has no

@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// stubControl proves a type can satisfy the grown SessionControl interface —
-// the compile-time contract every gateway codes against.
 type stubControl struct {
 	submitted []Inbound
 	picked    []string
@@ -23,6 +21,7 @@ func (s *stubControl) Submit(_ string, in Inbound) bool {
 	s.submitted = append(s.submitted, in)
 	return true
 }
+
 func (s *stubControl) Pick(_, value string) bool                { s.picked = append(s.picked, value); return true }
 func (s *stubControl) Repos(context.Context) ([]RepoRef, error) { return nil, nil }
 

@@ -35,7 +35,6 @@ func TestScopeKeyNormalizes(t *testing.T) {
 	}
 }
 
-// compile-time check that the interface shape is what callers depend on.
 type stubProvisioner struct{}
 
 func (stubProvisioner) EnsureProject(_ context.Context, _, _ string) error { return nil }

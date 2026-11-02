@@ -45,8 +45,8 @@ const (
 
 // Link is a directed, typed edge to another node, identified by its Key.
 type Link struct {
-	To  string // target node Key
-	Rel string // semantic relation: "depends-on", "decided-in", "applies-to", "contains", …
+	To  string
+	Rel string
 }
 
 // Node is one unit of memory: a stable Key, a Kind, human Title/Body (markdown),
@@ -68,7 +68,7 @@ type Query struct {
 	Text  string
 	Kinds []NodeKind
 	Tags  []string
-	Limit int // 0 = no limit
+	Limit int
 	// Ranked, when true, asks the Memory to return results score-sorted by
 	// relevance to Text (highest first) instead of storage/walk order. The zero
 	// value (false) preserves the historical unranked behaviour, so existing
@@ -140,8 +140,8 @@ type Provisioner interface {
 // humain préféré ; File est le fallback direct (éditeur/OS par défaut). Au moins
 // un champ est non vide pour une mémoire fichier.
 type Location struct {
-	Obsidian string // "obsidian://open?vault=<vault>&file=<key>", "" si indisponible
-	File     string // "file:///abs/chemin.md"
+	Obsidian string
+	File     string
 }
 
 // Locator est une capability OPTIONNELLE : une mémoire adossée à des fichiers

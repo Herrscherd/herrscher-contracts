@@ -2,9 +2,6 @@ package contracts
 
 import "context"
 
-// principalKey is unexported, so the only way to name a caller is WithPrincipal.
-// A context value keyed by a string would let any package in the process write
-// one, which is the opposite of what naming a caller is for.
 type principalKey struct{}
 
 // WithPrincipal marks a context as carrying who is asking. A gateway sets it

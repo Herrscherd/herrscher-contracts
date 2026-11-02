@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// recMemory is a recording stub proving the Memory interface is implementable.
 type recMemory struct {
 	recorded []Node
 	closed   bool
@@ -14,6 +13,7 @@ type recMemory struct {
 func (m *recMemory) Recall(_ context.Context, key string, _ int) (Subgraph, error) {
 	return Subgraph{Root: Node{Key: key}}, nil
 }
+
 func (m *recMemory) Record(_ context.Context, n Node) error {
 	m.recorded = append(m.recorded, n)
 	return nil
@@ -48,7 +48,6 @@ func TestNodeKindConstants(t *testing.T) {
 	}
 }
 
-// curStub proves the CurationHook seam is implementable (no production impl ships here).
 type curStub struct{ called bool }
 
 func (c *curStub) Consolidate(_ context.Context) error { c.called = true; return nil }
@@ -70,7 +69,7 @@ func TestKindTranscriptAndIncludeRaw(t *testing.T) {
 	if KindTranscript != "transcript" {
 		t.Fatalf("KindTranscript = %q, want %q", KindTranscript, "transcript")
 	}
-	var q Query // zero value
+	var q Query
 	if q.IncludeRaw {
 		t.Fatal("Query.IncludeRaw must default to false so the raw tier is hidden from existing callers")
 	}

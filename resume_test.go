@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// resumableStub proves a type can satisfy ResumeAware.
 type resumableStub struct{ tok string }
 
 func (r resumableStub) ResumeToken() string { return r.tok }
@@ -22,7 +21,6 @@ func TestEventResumeJSON(t *testing.T) {
 	if got := string(b); got != `{"t":"reply","done":true,"resume":"sid-1"}` {
 		t.Fatalf("marshal: got %s", got)
 	}
-	// Empty Resume must be omitted.
 	b, _ = json.Marshal(Event{T: "reply"})
 	if got := string(b); got != `{"t":"reply"}` {
 		t.Fatalf("omitempty: got %s", got)

@@ -69,7 +69,7 @@ type RepoRef struct {
 // gateway (the terminal TUI) can repaint history without reading the state dir
 // (which lives behind the core's internal packages).
 type ScrollbackLine struct {
-	Role string // "user" | "assistant"
+	Role string
 	Text string
 }
 
@@ -132,7 +132,7 @@ type SessionInfo struct {
 	// session object. Closing and recreating the same Name yields a new value.
 	Incarnation string
 	ChannelID   string
-	Type        string // "text" | "forum"
+	Type        string
 	Gateways    []string
 	// Vendor is the agent backend vendor ("claude"/"codex"/"cursor"), shown as a
 	// /resume picker column. Empty when unknown.

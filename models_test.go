@@ -12,8 +12,6 @@ func TestRoutePolicyAllows(t *testing.T) {
 		{PolicyAll, RouteGateway, true},
 		{PolicyGatewayOnly, RouteGateway, true},
 		{PolicyGatewayOnly, RouteNative, false},
-		// The zero value must be permissive: a host that configures nothing
-		// behaves as it did before this change.
 		{RoutePolicy(""), RouteNative, true},
 	}
 	for _, c := range cases {
@@ -116,8 +114,6 @@ func TestGatewayCredsRefusesPartial(t *testing.T) {
 	if _, err := NewGatewayCreds("  ", "tok"); err == nil {
 		t.Fatal("NewGatewayCreds accepted a blank base URL")
 	}
-	// A whitespace-only token is the dangerous variant: it looks present to any
-	// naive `!= ""` check, yet it does not authenticate.
 	if _, err := NewGatewayCreds("https://gw.example", "   "); err == nil {
 		t.Fatal("NewGatewayCreds accepted a blank token — the forbidden shape in disguise")
 	}

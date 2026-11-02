@@ -5,10 +5,9 @@ import (
 	"testing"
 )
 
-// scopeMem is a stub Memory that records writes and serves canned subgraphs by key.
 type scopeMem struct {
 	recorded []Node
-	links    [][3]string // {from, to, rel}
+	links    [][3]string
 	graphs   map[string]Subgraph
 }
 
@@ -18,6 +17,7 @@ func (m *scopeMem) Recall(_ context.Context, key string, _ int) (Subgraph, error
 	}
 	return Subgraph{Root: Node{Key: key}}, nil
 }
+
 func (m *scopeMem) Record(_ context.Context, n Node) error {
 	m.recorded = append(m.recorded, n)
 	return nil
@@ -27,6 +27,7 @@ func (m *scopeMem) Links(_ context.Context, from, to, rel string) error {
 	m.links = append(m.links, [3]string{from, to, rel})
 	return nil
 }
+
 func (m *scopeMem) Unlink(_ context.Context, from, to string) error {
 	kept := m.links[:0:0]
 	for _, l := range m.links {
@@ -79,7 +80,7 @@ func TestRecordPrivateLinksUnderAgent(t *testing.T) {
 
 func TestRecordPrivateFallsBackToProjectWithoutAgent(t *testing.T) {
 	m := &scopeMem{}
-	s := MemoryScope{Project: "proj"} // no Agent
+	s := MemoryScope{Project: "proj"}
 	if err := RecordPrivate(context.Background(), m, s, Node{Key: "skill"}); err != nil {
 		t.Fatalf("RecordPrivate: %v", err)
 	}
@@ -104,8 +105,6 @@ func TestRecallScopedMergesAndDedups(t *testing.T) {
 	for _, n := range sg.Nodes {
 		keys[n.Key]++
 	}
-	// Nodes stays root-excluded: the shared root "proj" is sg.Root, not a node.
-	// The private root "ag" is a genuine non-root node, so it does appear.
 	if keys["proj"] != 0 {
 		t.Fatalf("shared root should not be listed in Nodes: %+v", sg.Nodes)
 	}
@@ -169,7 +168,7 @@ func TestRecallRelevant_TopKByScoreAcrossScopes(t *testing.T) {
 		},
 		"agent": {
 			Root:  Node{Key: "agent", Kind: KindAgent, Title: "me", Links: []Link{{To: "c", Rel: RelContains}}},
-			Nodes: []Node{{Key: "c", Kind: KindSession, Title: "redis cache"}}, // no match
+			Nodes: []Node{{Key: "c", Kind: KindSession, Title: "redis cache"}},
 		},
 	}}
 	s := MemoryScope{Project: "proj", Agent: "agent"}
@@ -192,7 +191,6 @@ func TestRecallRelevant_TopKByScoreAcrossScopes(t *testing.T) {
 }
 
 func TestRecallRelevant_ProximityBreaksTies(t *testing.T) {
-	// near and far have identical text/kind; near is a direct child of the root.
 	m := &scopeMem{graphs: map[string]Subgraph{
 		"proj": {
 			Root: Node{Key: "proj", Kind: KindProject, Title: "root", Links: []Link{{To: "near", Rel: RelContains}, {To: "mid", Rel: RelContains}}},

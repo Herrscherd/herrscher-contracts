@@ -6,17 +6,6 @@ import (
 	"strings"
 )
 
-// These three functions carry the environment variables a host injects into a
-// backend's child process at spawn time.
-//
-// They live in contracts, not in each backend, because the host ENCODES and
-// the backends DECODE: splitting the two halves across repos would let them
-// drift apart without any test suite able to see it.
-//
-// The transport goes through PluginConfig.Settings, which is a
-// map[string]string. There is no typed channel down to the plugin, and adding
-// one would force a signature change on every factory.
-
 // The environment variable NAMES that carry a gateway route from the host
 // down to a vendor CLI. They live here, next to MergeEnv and the round-trip
 // test, for exactly the same reason those functions do: the host WRITES these
@@ -142,8 +131,6 @@ const (
 	EnvApprovalsBin = "HERRSCHER_APPROVALS_BIN"
 )
 
-// approvalsModeBypass is the one mode that means "do not gate". It is spelled
-// here rather than imported because contracts depends on nothing.
 const approvalsModeBypass = "bypass"
 
 // ApprovalsEnv encodes a session's gate for a backend child process. A bypass

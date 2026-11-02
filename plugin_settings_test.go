@@ -42,7 +42,6 @@ func TestResolveMissingRequiredFails(t *testing.T) {
 		}
 	}
 	_ = cfg
-	// A Default satisfies Required, so it must not be reported missing.
 	if _, err := Resolve([]Setting{
 		{Key: "k", Env: "K", Required: true, Default: "d"},
 	}, func(string) string { return "" }); err != nil {

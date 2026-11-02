@@ -7,24 +7,17 @@ import (
 	"unicode"
 )
 
-// Ranking weights. Constants for now; a later PR may make them configurable.
 const (
-	weightTF       = 1.0 // per query-term occurrence in Title+Body
-	weightTitleHit = 3.0 // per distinct query term found in Title
-	weightRecency  = 2.0 // scaled by recencyScore in [0,1]
-	weightKind     = 1.0 // scaled by kindBoost in [0,1]
-	weightProx     = 1.5 // scaled by proximityBoost in (0,1]; applied by RecallRelevant
+	weightTF       = 1.0
+	weightTitleHit = 3.0
+	weightRecency  = 2.0
+	weightKind     = 1.0
+	weightProx     = 1.5
 
-	// recencyHalfLifeDays sets how fast recency decays: a node captured this
-	// long ago scores 0.5 recency; older decays toward 0, newer toward 1.
 	recencyHalfLifeDays = 30.0
-	// recencyNeutral is the recency subscore for a node with no capturedAt —
-	// neutral, so an undated node is never penalized below a moderately old one.
-	recencyNeutral = 0.5
+	recencyNeutral      = 0.5
 )
 
-// tokenize lowercases s and splits on any non-alphanumeric run, dropping empties.
-// Shared by query parsing and node scanning so both sides tokenize identically.
 func tokenize(s string) []string {
 	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
 		return !isWordRune(r)
@@ -35,9 +28,6 @@ func isWordRune(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
-// ranker scores nodes against a fixed query. now is the reference time for
-// recency decay; a zero now disables recency (subscore stays neutral for all),
-// which keeps text-only tests deterministic.
 type ranker struct {
 	terms map[string]bool
 	now   time.Time
@@ -59,17 +49,10 @@ func Score(text string, now time.Time, n Node) (float64, bool) {
 	return newRanker(text, now).score(n)
 }
 
-// score returns a node's relevance score and whether it matched any query term.
-// It combines term frequency, a title-hit boost, recency decay, and a per-kind
-// boost. Proximity is NOT included here — RecallRelevant adds it, since only the
-// graph walk knows a node's distance from a root. textHit is false when no query
-// term appears in Title or Body, letting callers exclude non-matches.
 func (r ranker) score(n Node) (total float64, textHit bool) {
 	if len(r.terms) == 0 {
 		return 0, false
 	}
-	// Tokenize Title and Body once each: title tokens drive both the TF count and
-	// the distinct-title-hit count, so the title is never tokenized twice.
 	var tf, titleHits float64
 	seen := map[string]bool{}
 	for _, tok := range tokenize(n.Title) {
@@ -95,8 +78,6 @@ func (r ranker) score(n Node) (total float64, textHit bool) {
 	return total, true
 }
 
-// recencyScore maps a node's Meta["capturedAt"] to [0,1] via exponential decay.
-// A missing/unparseable date, or a zero reference now, yields the neutral score.
 func (r ranker) recencyScore(n Node) float64 {
 	if r.now.IsZero() {
 		return recencyNeutral
@@ -116,7 +97,6 @@ func (r ranker) recencyScore(n Node) float64 {
 	return math.Exp(-math.Ln2 * ageDays / recencyHalfLifeDays)
 }
 
-// kindBoost weights durable knowledge above transient session logs, in [0,1].
 func kindBoost(k NodeKind) float64 {
 	switch k {
 	case KindDecision, KindUser, KindArchitecture, KindProduction:
@@ -130,7 +110,6 @@ func kindBoost(k NodeKind) float64 {
 	}
 }
 
-// proximityBoost decays with graph distance from a scope root: depth 0 → 1.
 func proximityBoost(depth int) float64 {
 	if depth < 0 {
 		return 0

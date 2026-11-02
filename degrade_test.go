@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-// recordingSink is a Gateway that also records routed/plain sink calls.
 type recordingSink struct {
 	plain  []Event
 	routed []Conversation
@@ -16,6 +15,7 @@ func (r *recordingSink) Manifest() Manifest { return Manifest{Kind: "rec"} }
 func (r *recordingSink) Post(context.Context, Conversation, string) (MessageID, error) {
 	return "", nil
 }
+
 func (r *recordingSink) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
 	return "", nil
 }
@@ -26,7 +26,6 @@ func (r *recordingSink) Menu(context.Context, Conversation, MessageID, string, [
 func (r *recordingSink) Emit(e Event)                   { r.plain = append(r.plain, e) }
 func (r *recordingSink) EmitTo(c Conversation, _ Event) { r.routed = append(r.routed, c) }
 
-// plainSink is a Gateway that only implements EventSink (not RoutedEventSink).
 type plainSink struct {
 	calls []Event
 }
@@ -35,6 +34,7 @@ func (p *plainSink) Manifest() Manifest { return Manifest{Kind: "plain"} }
 func (p *plainSink) Post(context.Context, Conversation, string) (MessageID, error) {
 	return "", nil
 }
+
 func (p *plainSink) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
 	return "", nil
 }
@@ -145,10 +145,13 @@ func (p *postOnlyGateway) Post(_ context.Context, _ Conversation, text string) (
 	p.posts = append(p.posts, text)
 	return "", nil
 }
+
 func (p *postOnlyGateway) Reply(context.Context, Conversation, MessageID, string) (MessageID, error) {
 	return "", nil
 }
+
 func (p *postOnlyGateway) React(context.Context, Conversation, MessageID, string) error { return nil }
+
 func (p *postOnlyGateway) Menu(context.Context, Conversation, MessageID, string, []Choice) error {
 	return nil
 }

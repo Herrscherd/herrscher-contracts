@@ -15,14 +15,14 @@ import (
 // working on one project. An empty Agent means "no private scope": private
 // writes fall back to shared and scoped recall returns only the shared view.
 type MemoryScope struct {
-	Project string // Key of the KindProject node — the shared root
-	Agent   string // Key of the KindAgent node — this agent's private root ("" = none)
+	Project string
+	Agent   string
 }
 
 // Relations the policy uses when hanging facts/skills off a root.
 const (
-	RelContains  = "contains"   // structural: a root contains a fact or skill
-	RelAppliesTo = "applies-to" // a skill applies to a project/system
+	RelContains  = "contains"
+	RelAppliesTo = "applies-to"
 )
 
 // ProjectKey / AgentKey are the single source of truth for scope-root Keys, so
@@ -37,12 +37,6 @@ func AgentKey(name string) string   { return "agents/" + normalizeScopeName(name
 // whether Neublox and neublox are one project or two.
 func NormalizeScope(name string) string { return normalizeScopeName(name) }
 
-// normalizeScopeName folds a raw scope name into a single stable path segment:
-// lowercased, with every run of separators or unsafe characters collapsed to a
-// single hyphen and trimmed. Case- and whitespace-insensitivity is what stops the
-// same logical scope from splitting into two vault files (e.g. Neublox vs
-// neublox). A name that reduces to nothing falls back to "scope" so the key stays
-// a valid, non-empty segment.
 func normalizeScopeName(name string) string {
 	var b strings.Builder
 	pendingSep := false
@@ -107,9 +101,6 @@ func RecallScoped(ctx context.Context, m Memory, s MemoryScope, depth int) (Subg
 	return mergeSubgraphs(shared, private), nil
 }
 
-// relevantDepth bounds how far RecallRelevant walks from each scope root before
-// ranking. Deep enough to reach a project's facts and an agent's skills, shallow
-// enough to keep the candidate set (and cost) small.
 const relevantDepth = 3
 
 // RecallRelevant returns the top-k nodes from the scoped subgraph ranked by
@@ -130,8 +121,6 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 		n     Node
 		score float64
 	}
-	// Dedup by Key while scoring {Root}+Nodes once, without materialising a
-	// combined slice; the seen map guards against any repeat across the two.
 	seen := make(map[string]bool, len(sg.Nodes)+1)
 	hits := make([]scored, 0, len(sg.Nodes)+1)
 	consider := func(n Node) {
@@ -141,11 +130,11 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 		seen[n.Key] = true
 		base, ok := r.score(n)
 		if !ok {
-			return // no textual match → excluded
+			return
 		}
 		d, reached := depth[n.Key]
 		if !reached {
-			d = relevantDepth // unreached from either root: treat as farthest
+			d = relevantDepth
 		}
 		hits = append(hits, scored{n: n, score: base + weightProx*proximityBoost(d)})
 	}
@@ -164,10 +153,6 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 	return out, nil
 }
 
-// scopeDepths BFS-labels every node in sg with its shortest distance (in edges)
-// from a scope root (Project or Agent), following node Links (Link records no
-// source, so Edges alone can't drive the walk). Roots are depth 0; nodes
-// unreachable from either root are absent from the map.
 func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
 	byKey := make(map[string]Node, len(sg.Nodes)+1)
 	byKey[sg.Root.Key] = sg.Root
@@ -207,11 +192,6 @@ func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
 	return depth
 }
 
-// mergeSubgraphs unions two subgraphs, keeping the shared root and dropping
-// duplicate nodes by Key (the shared view wins on collisions). Nodes stays
-// root-excluded like a Recall result: out.Root is never listed in out.Nodes.
-// The private root is a genuine non-root node in the merged view, so it is
-// added to Nodes; the shared root — being out.Root — is not.
 func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	out := Subgraph{Root: shared.Root}
 	seen := map[string]bool{}
@@ -230,8 +210,6 @@ func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	add(private.Root)
 	add(shared.Nodes...)
 	add(private.Nodes...)
-	// Edges are deduplicated by value too: an identical (To, Rel) link present in
-	// both subgraphs is redundant, and would otherwise double up in the merge.
 	seenEdge := map[Link]bool{}
 	addEdges := func(edges []Link) {
 		for _, e := range edges {

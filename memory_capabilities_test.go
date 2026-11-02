@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// capStub prouve que Locator et Deleter sont implémentables.
 type capStub struct{}
 
 func (capStub) Locate(context.Context, string) (Location, error) { return Location{}, nil }

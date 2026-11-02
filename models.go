@@ -6,15 +6,6 @@ import (
 	"unicode"
 )
 
-// hasControlChar reports whether s carries a control character.
-//
-// The values guarded by this function all end up in the newline-delimited
-// "env" setting (see spawnenv.go) or in the child's argv. A newline there is
-// not cosmetic: EncodeEnvSetting has no way to escape it and no way to report
-// an error without a signature change, so "tok\nK=v" decodes in the child as a
-// truncated token PLUS a forged variable K. The whole control-character class
-// is refused rather than '\n' alone — none of them is legitimate in a URL, a
-// token, a model ID or a CLI argument, and \r would split lines just as well.
 func hasControlChar(s string) bool {
 	return strings.ContainsFunc(s, unicode.IsControl)
 }

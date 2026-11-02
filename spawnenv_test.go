@@ -35,10 +35,6 @@ func TestMergeEnvAppendsPairs(t *testing.T) {
 }
 
 func TestMergeEnvOverridesInherited(t *testing.T) {
-	// An injected variable must win over the one inherited from the daemon:
-	// otherwise a stale ANTHROPIC_BASE_URL lingering in the daemon's
-	// environment would silently hijack a session. And exec.Cmd has
-	// platform-dependent behavior when a key appears twice.
 	got := MergeEnv([]string{"ANTHROPIC_BASE_URL=https://stale"}, map[string]string{"ANTHROPIC_BASE_URL": "https://gw"})
 	var n int
 	for _, e := range got {
@@ -55,8 +51,6 @@ func TestMergeEnvOverridesInherited(t *testing.T) {
 }
 
 func TestMergeEnvNilIsIdentity(t *testing.T) {
-	// Non-regression for the native route: with no injection, the produced
-	// environment is exactly the one received.
 	base := []string{"PATH=/bin", "HOME=/home/x"}
 	got := MergeEnv(base, nil)
 	if len(got) != 2 || got[0] != "PATH=/bin" || got[1] != "HOME=/home/x" {
@@ -85,17 +79,12 @@ func TestParseEnvSetting(t *testing.T) {
 }
 
 func TestParseEnvSettingKeepsEqualsInValue(t *testing.T) {
-	// Tokens are often base64-encoded and contain '='. Only the first one
-	// separates the key from the value.
 	if got := ParseEnvSetting("T=a=b=c"); got["T"] != "a=b=c" {
 		t.Fatalf("ParseEnvSetting mangled a value containing '=': %q", got["T"])
 	}
 }
 
 func TestEncodeEnvSettingIsDeterministic(t *testing.T) {
-	// Keys are sorted: without that the value changes on every call, so it is
-	// not testable and the transported setting differs between two identical
-	// spawns.
 	env := map[string]string{"B": "2", "A": "1", "C": "3"}
 	first := EncodeEnvSetting(env)
 	for i := 0; i < 20; i++ {
@@ -115,9 +104,6 @@ func TestEncodeEnvSettingEmptyIsEmpty(t *testing.T) {
 }
 
 func TestEncodeParseRoundTrip(t *testing.T) {
-	// THE test that justifies these two functions living in the same repo:
-	// the host encodes, the backend decodes, and nothing else ties the two
-	// together.
 	want := map[string]string{
 		"ANTHROPIC_BASE_URL": "https://gw.example/v1",
 		"ANTHROPIC_API_KEY":  "sk-abc=def==",
@@ -158,7 +144,6 @@ func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
 	if got["B"] != "evil" {
 		t.Fatalf("expected the newline to forge a second variable, got %#v", got)
 	}
-	// The producers of these values refuse the input in the first place.
 	if _, err := NewGatewayCreds("https://gw.example", forged); err == nil {
 		t.Fatal("NewGatewayCreds no longer guards the transport")
 	}
@@ -180,17 +165,12 @@ func TestApprovalsEnvRoundTrip(t *testing.T) {
 }
 
 func TestApprovalsEnvBypassCarriesNothing(t *testing.T) {
-	// Bypass is the operator's explicit choice to run ungated. Emitting the
-	// variables anyway would leave a backend deciding for itself what "bypass"
-	// means, and a reader guessing whether the session is gated.
 	if env := ApprovalsEnv("api", "bypass", "/bin/herrscher"); len(env) != 0 {
 		t.Fatalf("bypass emitted %v, want nothing", env)
 	}
 }
 
 func TestApprovalsFromEnvPartialSetFailsOpen(t *testing.T) {
-	// A partial set is a bug somewhere upstream. It must fail in the same
-	// direction every other approval failure does: open.
 	cases := []map[string]string{
 		{EnvApprovalsMode: "ask", EnvApprovalsSession: "api"},
 		{EnvApprovalsMode: "ask", EnvApprovalsBin: "/bin/herrscher"},
@@ -212,8 +192,6 @@ func TestApprovalsFromEnvNilLook(t *testing.T) {
 }
 
 func TestGrainNoneIsZeroValue(t *testing.T) {
-	// Every manifest written before this field must stay correct as written,
-	// which is only true if the zero value means "enforces nothing".
 	var c Capabilities
 	if c.Gate != GrainNone {
 		t.Fatalf("zero Capabilities.Gate = %q, want GrainNone", c.Gate)

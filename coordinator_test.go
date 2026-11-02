@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// fakeCoordinator locks the port signature at compile time and exercises it.
 type fakeCoordinator struct {
 	got      HandoffRequest
 	gotDel   DelegateRequest
@@ -20,18 +19,22 @@ func (f *fakeCoordinator) Handoff(_ context.Context, req HandoffRequest) (string
 	f.got = req
 	return req.ToAgent + "-session", nil
 }
+
 func (f *fakeCoordinator) Delegate(_ context.Context, req DelegateRequest) (string, error) {
 	f.gotDel = req
 	return req.ToAgent + "-worker", nil
 }
+
 func (f *fakeCoordinator) Report(_ context.Context, req ReportRequest) (string, error) {
 	f.gotRep = req
 	return "lead", nil
 }
+
 func (f *fakeCoordinator) Merge(_ context.Context, req MergeRequest) (string, error) {
 	f.gotMrg = req
 	return req.FromSession, nil
 }
+
 func (f *fakeCoordinator) Seal(_ context.Context, req SealRequest) (string, error) {
 	f.gotSeal = req
 	return req.FromSession, nil
@@ -79,7 +82,6 @@ func TestCoordinatorPortRoundTrip(t *testing.T) {
 }
 
 func TestCreateSessionHasBase(t *testing.T) {
-	// Base is the ref a new session's worktree branches off (empty = current behaviour).
 	spec := CreateSession{Name: "b", Base: "session/alpha"}
 	if spec.Base != "session/alpha" {
 		t.Fatalf("Base not set: %q", spec.Base)
@@ -87,15 +89,12 @@ func TestCreateSessionHasBase(t *testing.T) {
 }
 
 func TestCreateSessionHasParent(t *testing.T) {
-	// Parent names the lead that delegated this session (empty = no parent).
 	spec := CreateSession{Name: "w", Parent: "lead"}
 	if spec.Parent != "lead" {
 		t.Fatalf("Parent not set: %q", spec.Parent)
 	}
 }
 
-// mergeStub is the smallest type carrying the full Coordinator surface, to
-// assert the port shape (including Merge) at compile time.
 type mergeStub struct{}
 
 func (mergeStub) Handoff(context.Context, HandoffRequest) (string, error)     { return "", nil }
@@ -114,8 +113,6 @@ func TestCoordinatorPortIncludesMerge(t *testing.T) {
 	}
 }
 
-// sealStub carries the full Coordinator surface (incl. Seal) to assert the port
-// shape at compile time.
 type sealStub struct{}
 
 func (sealStub) Handoff(context.Context, HandoffRequest) (string, error)     { return "", nil }
@@ -134,8 +131,6 @@ func TestCoordinatorPortIncludesSeal(t *testing.T) {
 	}
 }
 
-// fanoutStub carries the full Coordinator surface (incl. FanOut) to assert the
-// port shape at compile time.
 type fanoutStub struct{}
 
 func (fanoutStub) Handoff(context.Context, HandoffRequest) (string, error)     { return "", nil }
@@ -154,8 +149,6 @@ func TestCoordinatorPortIncludesFanOut(t *testing.T) {
 	}
 }
 
-// routeStub carries the full Coordinator surface (incl. Route) to assert the
-// port shape at compile time.
 type routeStub struct{}
 
 func (routeStub) Handoff(context.Context, HandoffRequest) (string, error)   { return "", nil }

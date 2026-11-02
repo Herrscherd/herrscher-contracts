@@ -10,9 +10,6 @@ import (
 	contracts "github.com/Herrscherd/herrscher-contracts"
 )
 
-// contributor is a plugin-side type proving both contribution points are
-// satisfiable from outside the package, which is the only place they are ever
-// implemented.
 type contributor struct{}
 
 func (contributor) Commands() []contracts.Cmd {
@@ -54,7 +51,6 @@ func TestPluginSkillsDoNotRequireBuildingThePort(t *testing.T) {
 	if built {
 		t.Error("reading a plugin's skills must not build its port")
 	}
-	// A plugin that contributes nothing leaves it nil, and that must stay legal.
 	if bare := (contracts.Plugin{}); bare.Skills != nil {
 		t.Fatal("contributing no skills must be the zero value")
 	}
