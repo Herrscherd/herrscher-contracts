@@ -33,6 +33,8 @@ func TestRegistryFiltersByCategory(t *testing.T) {
 }
 
 func TestDefaultRegistryRegister(t *testing.T) {
+	saved := Default
+	t.Cleanup(func() { Default = saved })
 	before := len(Default.Plugins())
 	Register(Plugin{Manifest: Manifest{Kind: "x", Category: CategoryGateway}})
 	if len(Default.Plugins()) != before+1 {
