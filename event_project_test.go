@@ -28,7 +28,7 @@ func TestEventWithoutAProjectStaysByteIdentical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(b), "project") {
-		t.Fatalf("an unsettled reply mentioned a project: %s", b)
+	if got, want := string(b), `{"t":"reply","done":true}`; got != want {
+		t.Fatalf("an unsettled reply marshalled to %s, want %s", got, want)
 	}
 }
