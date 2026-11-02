@@ -34,10 +34,11 @@ func ProjectKey(name string) string { return "projects/" + normalizeScopeName(na
 // prefix, normalized the same way as ProjectKey.
 func AgentKey(name string) string { return "agents/" + normalizeScopeName(name) }
 
-// NormalizeScope exposes the folding ProjectKey and AgentKey apply. A host that
-// derives a scope name from somewhere else. A directory, a prompt. Uses it to
-// produce exactly the segment the key would, so the two can never disagree about
-// whether Neublox and neublox are one project or two.
+// NormalizeScope returns the name segment that ProjectKey and AgentKey put in
+// their keys: the words of name in lower case, joined by hyphens, or "scope" when
+// no word remains. A host that derives a scope name from elsewhere, such as a
+// directory or a prompt, uses it so that its name matches the keys exactly, and
+// both sides always agree on whether two spellings name the same project.
 func NormalizeScope(name string) string { return normalizeScopeName(name) }
 
 func normalizeScopeName(name string) string {
@@ -106,12 +107,13 @@ func RecallScoped(ctx context.Context, memory Memory, scope MemoryScope, depth i
 
 const relevantDepth = 3
 
-// RecallRelevant returns the top-k nodes from the scoped subgraph ranked by
-// relevance to text, instead of the full merged subgraph. Bounding how much is
-// primed into a prompt. Nodes with no textual match are excluded; among matches,
-// term frequency, title hits, recency, kind, and graph proximity to a scope root
-// order the result (highest first). Fewer than k are returned when fewer match;
-// k <= 0 returns all matches.
+// RecallRelevant returns up to limit nodes of the scoped subgraph, ranked by
+// relevance to text, instead of the whole merged subgraph, so that only a bounded
+// number of nodes is primed into a prompt. Nodes with no textual match are
+// excluded. Among the matches, term frequency, title hits, recency measured at
+// now, kind and graph proximity to a scope root order the result, highest first.
+// Fewer than limit nodes are returned when fewer match; a limit of zero or less
+// returns every match.
 func RecallRelevant(ctx context.Context, memory Memory, scope MemoryScope, text string, limit int, now time.Time) ([]Node, error) {
 	subgraph, err := RecallScoped(ctx, memory, scope, relevantDepth)
 	if err != nil {
