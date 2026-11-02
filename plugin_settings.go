@@ -1,13 +1,12 @@
 package contracts
 
 import (
-	"fmt"
 	"strings"
 )
 
 // Setting is one config value a plugin declares it reads. It is the env/config
 // analogue of Param: the plugin states its config surface once (in its Manifest),
-// and the host resolves and validates it generically — required values that are
+// and the host resolves and validates it generically. Required values that are
 // absent fail the daemon at startup rather than surfacing as an opaque error
 // deep inside the plugin.
 type Setting struct {
@@ -36,7 +35,7 @@ func Resolve(settings []Setting, getenv func(string) string) (PluginConfig, erro
 		}
 		if v == "" && s.Required {
 			if s.Env != "" {
-				missing = append(missing, fmt.Sprintf("%s (set %s)", s.Key, s.Env))
+				missing = append(missing, s.Key+" (set "+s.Env+")")
 			} else {
 				missing = append(missing, s.Key)
 			}
@@ -45,7 +44,18 @@ func Resolve(settings []Setting, getenv func(string) string) (PluginConfig, erro
 		cfg.Settings[s.Key] = v
 	}
 	if len(missing) > 0 {
-		return cfg, fmt.Errorf("missing required config: %s", strings.Join(missing, ", "))
+		return cfg, &MissingSettingsError{Missing: missing}
 	}
 	return cfg, nil
+}
+
+// MissingSettingsError reports the required settings that [Resolve] found empty.
+type MissingSettingsError struct {
+	// Missing names each empty required setting, with its environment variable when it has one.
+	Missing []string
+}
+
+// Error lists the missing settings in one line.
+func (e *MissingSettingsError) Error() string {
+	return "missing required config: " + strings.Join(e.Missing, ", ")
 }

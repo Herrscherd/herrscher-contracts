@@ -1,9 +1,25 @@
 package contracts
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
+)
+
+// Errors returned by ValidateModels and NewGatewayCreds, matched with errors.Is.
+var (
+	ErrModelEmptyID        = errors.New("model has an empty ID")
+	ErrModelDuplicateID    = errors.New("model ID is used twice")
+	ErrModelEmptyLabel     = errors.New("model has an empty label")
+	ErrModelEmptyArg       = errors.New("model has an empty argument")
+	ErrModelControlChar    = errors.New("model has a control character")
+	ErrModelUnknownRoute   = errors.New("model has an unknown route")
+	ErrCredsMissing        = errors.New("gateway credentials: neither base URL nor token available")
+	ErrCredsTokenNoURL     = errors.New("gateway credentials: token without a base URL")
+	ErrCredsURLNoToken     = errors.New("gateway credentials: base URL without a token, refusing to run on the user's own subscription")
+	ErrCredsURLControlChar = errors.New("gateway credentials: base URL contains a control character")
+	ErrCredsTokenControl   = errors.New("gateway credentials: token contains a control character")
 )
 
 func hasControlChar(s string) bool {
@@ -46,7 +62,7 @@ func (p RoutePolicy) Allows(r Route) bool {
 }
 
 // ModelSpec is a model a backend declares it knows how to run. It lives in the
-// Manifest — so it is readable without instantiating a backend, which the app
+// Manifest. So it is readable without instantiating a backend, which the app
 // needs in order to populate its selector before a session exists.
 type ModelSpec struct {
 	// ID is the stable identifier persisted in session state. It, not Label
@@ -75,32 +91,32 @@ func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
 	for i, m := range models {
 		if strings.TrimSpace(m.ID) == "" {
-			return fmt.Errorf("backend %q: model #%d has an empty ID", kind, i)
+			return fmt.Errorf("backend %q: model #%d: %w", kind, i, ErrModelEmptyID)
 		}
 		if seen[m.ID] {
-			return fmt.Errorf("backend %q: duplicate model ID %q", kind, m.ID)
+			return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelDuplicateID)
 		}
 		seen[m.ID] = true
 		if strings.TrimSpace(m.Label) == "" {
-			return fmt.Errorf("backend %q: model %q has an empty Label", kind, m.ID)
+			return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyLabel)
 		}
 		if strings.TrimSpace(m.Arg) == "" {
-			return fmt.Errorf("backend %q: model %q has an empty Arg", kind, m.ID)
+			return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyArg)
 		}
 		for _, f := range []struct{ name, value string }{
 			{"ID", m.ID}, {"Label", m.Label}, {"Arg", m.Arg},
 		} {
 			if hasControlChar(f.value) {
-				return fmt.Errorf("backend %q: model %q has a control character in %s", kind, m.ID, f.name)
+				return fmt.Errorf("backend %q: model %q, field %s: %w", kind, m.ID, f.name, ErrModelControlChar)
 			}
 		}
 		for _, e := range m.Efforts {
 			if hasControlChar(e) {
-				return fmt.Errorf("backend %q: model %q has a control character in effort %q", kind, m.ID, e)
+				return fmt.Errorf("backend %q: model %q, effort %q: %w", kind, m.ID, e, ErrModelControlChar)
 			}
 		}
 		if m.Route != RouteNative && m.Route != RouteGateway {
-			return fmt.Errorf("backend %q: model %q has unknown route %q", kind, m.ID, m.Route)
+			return fmt.Errorf("backend %q: model %q, route %q: %w", kind, m.ID, m.Route, ErrModelUnknownRoute)
 		}
 	}
 	return nil
@@ -120,11 +136,11 @@ func FilterModels(models []ModelSpec, p RoutePolicy) []ModelSpec {
 
 // GatewayCreds is the (base URL, token) pair a gateway route requires. Its
 // fields are unexported, so no package outside this one can construct a
-// half-filled value — NewGatewayCreds is the only path to one.
+// half-filled value. NewGatewayCreds is the only path to one.
 //
 // The reason is legal, not aesthetic. A base URL with no token sends traffic
 // to the gateway while billing it against the user's own claude.ai
-// subscription — the shape Anthropic explicitly forbids third-party
+// subscription. The shape Anthropic explicitly forbids third-party
 // developers from producing. Making that state unrepresentable is better than
 // testing for it after the fact.
 //
@@ -147,15 +163,15 @@ func NewGatewayCreds(baseURL, token string) (GatewayCreds, error) {
 	baseURL, token = strings.TrimSpace(baseURL), strings.TrimSpace(token)
 	switch {
 	case baseURL == "" && token == "":
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: neither base URL nor token available")
+		return GatewayCreds{}, ErrCredsMissing
 	case baseURL == "":
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: token without a base URL")
+		return GatewayCreds{}, ErrCredsTokenNoURL
 	case token == "":
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: base URL without a token — refusing to run on the user's own subscription")
+		return GatewayCreds{}, ErrCredsURLNoToken
 	case hasControlChar(baseURL):
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: base URL contains a control character")
+		return GatewayCreds{}, ErrCredsURLControlChar
 	case hasControlChar(token):
-		return GatewayCreds{}, fmt.Errorf("gateway credentials: token contains a control character")
+		return GatewayCreds{}, ErrCredsTokenControl
 	}
 	return GatewayCreds{baseURL: baseURL, token: token}, nil
 }
