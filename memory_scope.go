@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-// MemoryScope expresses the P1 sharing policy *over the existing graph* — not a
+// MemoryScope expresses the P1 sharing policy *over the existing graph*. Not a
 // new port. A game's durable memory hangs under the shared Project node (every
 // agent of the game recalls it); an agent's learned skills hang under its own
 // Agent node (private to that agent). A scope names both roots for one agent
@@ -32,7 +32,7 @@ func ProjectKey(name string) string { return "projects/" + normalizeScopeName(na
 func AgentKey(name string) string   { return "agents/" + normalizeScopeName(name) }
 
 // NormalizeScope exposes the folding ProjectKey and AgentKey apply. A host that
-// derives a scope name from somewhere else — a directory, a prompt — uses it to
+// derives a scope name from somewhere else. A directory, a prompt. Uses it to
 // produce exactly the segment the key would, so the two can never disagree about
 // whether Neublox and neublox are one project or two.
 func NormalizeScope(name string) string { return normalizeScopeName(name) }
@@ -104,7 +104,7 @@ func RecallScoped(ctx context.Context, m Memory, s MemoryScope, depth int) (Subg
 const relevantDepth = 3
 
 // RecallRelevant returns the top-k nodes from the scoped subgraph ranked by
-// relevance to text, instead of the full merged subgraph — bounding how much is
+// relevance to text, instead of the full merged subgraph. Bounding how much is
 // primed into a prompt. Nodes with no textual match are excluded; among matches,
 // term frequency, title hits, recency, kind, and graph proximity to a scope root
 // order the result (highest first). Fewer than k are returned when fewer match;

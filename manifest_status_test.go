@@ -30,7 +30,7 @@ func TestStatusString(t *testing.T) {
 	}
 }
 
-// Status must not disturb registration or category lookup — it is descriptive
+// Status must not disturb registration or category lookup. It is descriptive
 // only, and a wip plugin is still discovered like any other.
 func TestStatusDoesNotAffectDiscovery(t *testing.T) {
 	r := &Registry{}

@@ -133,7 +133,7 @@ func hasEntry(hay []string, needle string) bool {
 // an error without a signature change, so a value carrying a newline does NOT
 // round-trip: it decodes as two variables. This test pins that documented
 // limitation, and pins that the guards upstream (NewGatewayCreds,
-// ValidateModels) are what make it unreachable — if either guard is ever
+// ValidateModels) are what make it unreachable. If either guard is ever
 // removed, the adversarial value below is what walks through.
 func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
 	forged := "line1\nB=evil"

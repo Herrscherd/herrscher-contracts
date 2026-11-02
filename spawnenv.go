@@ -11,7 +11,7 @@ import (
 // test, for exactly the same reason those functions do: the host WRITES these
 // keys and a backend (or the vendor CLI itself) READS them, and nothing else
 // ties the two sides together. Spelled as literals on both sides, a rename is
-// green in every repo and only fails at run time — and for claude it fails
+// green in every repo and only fails at run time. And for claude it fails
 // SILENTLY: an unrecognised base-URL variable makes the child run natively, on
 // the machine's own subscription, while the session is still marked gateway.
 //
@@ -23,7 +23,7 @@ const (
 	EnvAnthropicBaseURL = "ANTHROPIC_BASE_URL"
 	// EnvAnthropicAPIKey plutôt qu'ANTHROPIC_AUTH_TOKEN : c'est le premier slot
 	// de l'ordre de résolution des identifiants, donc celui qui prime le plus
-	// sûrement sur une session OAuth d'abonnement — et « clé API longue durée »
+	// sûrement sur une session OAuth d'abonnement. Et « clé API longue durée »
 	// est la bonne sémantique pour ce que Neublox émet.
 	//
 	// C'est un REMPLACEMENT. Poser les deux variables fait envoyer x-api-key et
@@ -45,7 +45,7 @@ const (
 // platform-dependent behavior, and a stale value inherited from the daemon
 // would silently hijack the session.
 //
-// An empty extra returns base unchanged — that is the native route's
+// An empty extra returns base unchanged. That is the native route's
 // non-regression case.
 func MergeEnv(base []string, extra map[string]string) []string {
 	if len(extra) == 0 {
@@ -72,7 +72,7 @@ func MergeEnv(base []string, extra map[string]string) []string {
 }
 
 // ParseEnvSetting decodes the value of the "env" setting: K=V pairs separated
-// by newlines. Only the FIRST '=' separates the key from the value — tokens
+// by newlines. Only the FIRST '=' separates the key from the value. Tokens
 // are often base64-encoded and contain one.
 func ParseEnvSetting(s string) map[string]string {
 	out := map[string]string{}

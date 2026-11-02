@@ -3,7 +3,7 @@ package contracts
 import "context"
 
 // Cmd is the one neutral command concept the platform exposes. A command is
-// declared once — a namespaced Path, its Params, and the Run handler — and a
+// declared once. A namespaced Path, its Params, and the Run handler. And a
 // format (the CLI today, a gateway binding later) resolves an invocation to it.
 // The handler is opaque: whatever Run closes over (a Discord client, a backend),
 // the registry that holds the Cmd stays agnostic of it.

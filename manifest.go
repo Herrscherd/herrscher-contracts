@@ -8,7 +8,7 @@ const (
 	CategoryMemory       Category = "memory"
 	CategoryOrchestrator Category = "orchestrator"
 	// CategorySkills is a plugin that contributes only playbooks. It has no port
-	// to build, so it declares no port factory — what it adds to a build is what
+	// to build, so it declares no port factory. What it adds to a build is what
 	// the agent is told it can do, which is worth being a plugin like the others:
 	// installed, listed, versioned and removable by the same commands.
 	CategorySkills Category = "skills"
@@ -52,7 +52,7 @@ type Capabilities struct {
 
 // Status is a plugin's own claim about its maturity. It exists so maturity is
 // declared at the source rather than inferred by a reader from test coverage or
-// the presence of a CI file — two signals that had drifted apart in practice.
+// the presence of a CI file. Two signals that had drifted apart in practice.
 type Status string
 
 const (
@@ -62,7 +62,7 @@ const (
 	// StatusWIP compiles and registers, but a port it advertises may be
 	// unimplemented or unstable.
 	StatusWIP Status = "wip"
-	// StatusExperimental is complete but unproven — its shape may still change.
+	// StatusExperimental is complete but unproven. Its shape may still change.
 	StatusExperimental Status = "experimental"
 	// StatusDeprecated still works but is scheduled for removal.
 	StatusDeprecated Status = "deprecated"
@@ -87,15 +87,15 @@ type Manifest struct {
 	Status Status
 	// Config declares every setting the plugin reads, with the env var it binds
 	// from and whether it is required. The host resolves a PluginConfig from this
-	// (see Resolve) — it never needs to know a plugin's keys itself.
+	// (see Resolve). It never needs to know a plugin's keys itself.
 	Config []Setting
 	// Models declares the models this backend knows how to run. Empty for
 	// non-backend plugins. The host aggregates this field across all compiled
-	// backends to form the catalog offered to the user — without ever
+	// backends to form the catalog offered to the user. Without ever
 	// instantiating a backend, which the app needs before a session exists.
 	Models []ModelSpec
 	// AttachmentHosts are the hostnames this gateway's Attachment URLs may point
-	// at — its own CDN, and nothing else. The host downloads those URLs, so it
+	// at. Its own CDN, and nothing else. The host downloads those URLs, so it
 	// pins them to an allowlist rather than fetching whatever a remote author put
 	// in a message; declaring the list here is how it gets one without knowing
 	// what a "Discord CDN" is. Empty means the gateway hands over no https

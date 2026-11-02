@@ -26,7 +26,7 @@ const (
 	// projects and facts topically, above the ownership spine. A project links to
 	// its domain with "in-domain"; a fact carries Meta["domain"] for filtering.
 	KindDomain NodeKind = "domain"
-	// KindTranscript is one raw per-turn transcript chunk — the append-only,
+	// KindTranscript is one raw per-turn transcript chunk. The append-only,
 	// full-text-searchable archival tier (G7). It is HIDDEN from ordinary
 	// Search/Recall (and from the curator sweep/merge/promote) unless a caller
 	// sets Query.IncludeRaw, mirroring how StateArchived nodes hide behind
@@ -50,7 +50,7 @@ type Link struct {
 }
 
 // Node is one unit of memory: a stable Key, a Kind, human Title/Body (markdown),
-// outbound Links, and flat Meta (dates, status, tags). It is storage-neutral —
+// outbound Links, and flat Meta (dates, status, tags). It is storage-neutral:
 // the Obsidian plugin maps Meta to frontmatter and Links to [[wikilinks]], but
 // the contract says nothing about files.
 type Node struct {
@@ -101,14 +101,14 @@ type Memory interface {
 	// Recall fetches the node at key and follows its links up to depth (0 = root
 	// only), returning the reachable subgraph.
 	Recall(ctx context.Context, key string, depth int) (Subgraph, error)
-	// Record upserts a node by Key — re-recording an existing Key updates it in
+	// Record upserts a node by Key. Re-recording an existing Key updates it in
 	// place rather than creating a duplicate.
 	Record(ctx context.Context, n Node) error
 	// Search finds nodes matching the query (keyword/kind/tag).
 	Search(ctx context.Context, q Query) ([]Node, error)
 	// Links creates a typed edge from one node to another. Its inverse is Unlink.
 	Links(ctx context.Context, from, to, rel string) error
-	// Unlink removes the typed edge from→to — the inverse of Links. Every
+	// Unlink removes the typed edge from→to. The inverse of Links. Every
 	// relation targeting `to` is removed (identity is the (from, to) pair, no
 	// rel, mirroring Links' to-only dedup). Idempotent: an absent edge is not
 	// an error.
@@ -118,7 +118,7 @@ type Memory interface {
 }
 
 // CurationHook is the seam for proactive curation; the Orchestrator implements it
-// and drives Memory.Record — it is deliberately not implemented by the Memory port,
+// and drives Memory.Record. It is deliberately not implemented by the Memory port,
 // which stays passive verbs only.
 type CurationHook interface {
 	Consolidate(ctx context.Context) error
@@ -126,7 +126,7 @@ type CurationHook interface {
 
 // Provisioner is an optional Memory capability: ensuring the scope-root nodes a
 // MemoryScope points at exist before any Record/Recall runs against them. It is
-// deliberately NOT part of the Memory port — node-creating implementations (the
+// deliberately NOT part of the Memory port. Node-creating implementations (the
 // obsidian vault) satisfy it, and callers type-assert, so a remote memory proxy
 // that cannot create roots is simply skipped.
 type Provisioner interface {
@@ -147,7 +147,7 @@ type Location struct {
 // Locator est une capability OPTIONNELLE : une mémoire adossée à des fichiers
 // (le vault obsidian) sait localiser la note d'un Key et la rendre ouvrable par
 // un humain. Une mémoire non-fichier ne l'implémente pas ; le caller type-assert
-// et dégrade proprement — même patron que Provisioner.
+// et dégrade proprement. Même patron que Provisioner.
 type Locator interface {
 	// Locate renvoie les URIs ouvrables de la note du Key, ou une erreur si le
 	// Key est invalide ou absent.

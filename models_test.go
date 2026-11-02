@@ -91,7 +91,7 @@ func TestFilterModelsAllKeepsEverything(t *testing.T) {
 }
 
 // Serialized, a nil slice becomes `null` and an empty slice becomes `[]`. The
-// `models list --json` CLI must always emit `[]`, never `null` — this is the
+// `models list --json` CLI must always emit `[]`, never `null`. This is the
 // boundary where the non-nil guarantee matters, so it is the one to test.
 func TestFilterModelsReturnsEmptyNotNil(t *testing.T) {
 	models := []ModelSpec{{ID: "n", Label: "N", Arg: "n", Route: RouteNative}}
@@ -106,7 +106,7 @@ func TestFilterModelsReturnsEmptyNotNil(t *testing.T) {
 
 func TestGatewayCredsRefusesPartial(t *testing.T) {
 	if _, err := NewGatewayCreds("https://gw.example", ""); err == nil {
-		t.Fatal("NewGatewayCreds accepted a base URL without a token — the forbidden shape")
+		t.Fatal("NewGatewayCreds accepted a base URL without a token. The forbidden shape")
 	}
 	if _, err := NewGatewayCreds("", "tok"); err == nil {
 		t.Fatal("NewGatewayCreds accepted a token without a base URL")
@@ -115,7 +115,7 @@ func TestGatewayCredsRefusesPartial(t *testing.T) {
 		t.Fatal("NewGatewayCreds accepted a blank base URL")
 	}
 	if _, err := NewGatewayCreds("https://gw.example", "   "); err == nil {
-		t.Fatal("NewGatewayCreds accepted a blank token — the forbidden shape in disguise")
+		t.Fatal("NewGatewayCreds accepted a blank token. The forbidden shape in disguise")
 	}
 }
 
@@ -166,7 +166,7 @@ func TestGatewayCredsRejectsControlCharacters(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := NewGatewayCreds(tc.baseURL, tc.token); err == nil {
-				t.Fatal("NewGatewayCreds accepted a control character — it would forge a variable in the child")
+				t.Fatal("NewGatewayCreds accepted a control character. It would forge a variable in the child")
 			}
 		})
 	}

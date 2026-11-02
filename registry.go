@@ -33,7 +33,7 @@ type GatewaySet struct {
 
 // GatewayFactory and BackendFactory build a live plugin instance from runtime
 // config. Registering a factory (not an instance) is what lets a plugin announce
-// itself in init() before any token/command is known — the xcaddy pattern.
+// itself in init() before any token/command is known. The xcaddy pattern.
 type (
 	GatewayFactory func(ctx context.Context, cfg PluginConfig) (GatewaySet, error)
 	BackendFactory func(ctx context.Context, cfg PluginConfig) (Backend, error)
@@ -51,7 +51,7 @@ type (
 )
 
 // Plugin is what a plugin declares about itself. Exactly one *port* factory is
-// non-nil, consistent with Manifest.Category — except for CategorySkills, which
+// non-nil, consistent with Manifest.Category. Except for CategorySkills, which
 // has no port and declares none. Skills is orthogonal to all of that: any plugin
 // may carry playbooks alongside the port it builds.
 type Plugin struct {
@@ -61,7 +61,7 @@ type Plugin struct {
 	Memory       MemoryFactory
 	Orchestrator OrchestratorFactory
 	// Skills builds the playbooks teaching an agent to use what this plugin
-	// contributes, installed by the host only when the plugin is in the build —
+	// contributes, installed by the host only when the plugin is in the build,
 	// so a Discord playbook never sits in the context of a machine that has no
 	// Discord. The host calls it on its own, never through the port factory: a
 	// gateway missing its credentials never instantiates, and it must still ship
@@ -72,7 +72,7 @@ type Plugin struct {
 // CommandSource is an optional capability of a live plugin instance: the verbs
 // it contributes to the daemon's own command registry. The host namespaces them
 // under the plugin's Manifest Kind, so two gateways declaring the same path do
-// not collide. A Cmd's Run may close over anything the plugin holds — the
+// not collide. A Cmd's Run may close over anything the plugin holds. The
 // registry only ever sees a Cmd, which is what keeps the core agnostic.
 type CommandSource interface {
 	Commands() []Cmd
@@ -103,7 +103,7 @@ func (r *Registry) Memories() []Plugin      { return r.byCategory(CategoryMemory
 func (r *Registry) Orchestrators() []Plugin { return r.byCategory(CategoryOrchestrator) }
 
 // Skills returns the plugins whose whole contribution is playbooks. A gateway
-// that also carries a playbook is not one of them — it is reported by Gateways,
+// that also carries a playbook is not one of them. It is reported by Gateways,
 // and the host installs from every plugin carrying a non-nil Skills whatever its
 // category.
 func (r *Registry) Skills() []Plugin { return r.byCategory(CategorySkills) }

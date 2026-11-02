@@ -23,7 +23,7 @@ type DelegateRequest struct {
 
 // ReportRequest is a worker W's completion signal to its lead: W reports a
 // summary and the coordinator delivers {session/<W> branch ref + summary} to
-// W's parent. W stays alive (pure delivery — no teardown, no merge).
+// W's parent. W stays alive (pure delivery, no teardown, no merge).
 type ReportRequest struct {
 	FromSession string
 	Summary     string
@@ -56,7 +56,7 @@ type FanOutRequest struct {
 
 // RouteRequest is a lead handing off a task WITHOUT naming the agent: the host
 // picks the best-matching agent deterministically (capability match) and
-// delegates. No LLM judgment enters the host — the match is a pure score of the
+// delegates. No LLM judgment enters the host. The match is a pure score of the
 // agents' declared tags against the task text.
 type RouteRequest struct {
 	FromSession string
@@ -70,7 +70,7 @@ type RouteRequest struct {
 type Coordinator interface {
 	// Handoff creates B continuing FromSession's committed work and returns B's
 	// session name. It errors on unknown agent, a missing/dirty source worktree,
-	// or a failed create — leaving nothing partial.
+	// or a failed create. Leaving nothing partial.
 	Handoff(ctx context.Context, req HandoffRequest) (session string, err error)
 	// Delegate creates a worker W off FromSession's committed tip, records
 	// FromSession as W's parent, and returns W's name. The lead stays alive.
@@ -93,12 +93,12 @@ type Coordinator interface {
 	// committed tip, all from ToAgent) and seals the cohort to its real size,
 	// returning the spawned worker names. It is the batch counterpart of Delegate.
 	// Same per-worker guards as Delegate (unknown agent, missing/dirty lead, failed
-	// create); a spawn failure mid-batch is not rolled back — the workers already
+	// create); a spawn failure mid-batch is not rolled back. The workers already
 	// created are returned alongside the error, and the cohort is sealed to what was
 	// actually spawned.
 	FanOut(ctx context.Context, req FanOutRequest) (spawned []string, err error)
 	// Route picks the best-matching agent for Task by a deterministic capability
-	// score (the agents' declared tags against the task text — no LLM), then
+	// score (the agents' declared tags against the task text, no LLM), then
 	// delegates: the chosen worker is a child of FromSession off its committed tip,
 	// FromSession stays alive. Returns the chosen agent and the worker's session.
 	// It errors on an empty task, a missing lead, a spawn failure, or when no agent

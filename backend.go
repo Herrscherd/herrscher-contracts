@@ -4,7 +4,7 @@ import "context"
 
 // Backend is the model edge: it turns one inbound prompt into a reply, optionally
 // emitting intermediate progress events. The host neither knows nor cares which
-// model answers (Claude, Codex, …) — every backend is one implementation of this
+// model answers (Claude, Codex, …). Every backend is one implementation of this
 // port. Close releases any persistent process the backend holds.
 type Backend interface {
 	Respond(ctx context.Context, p Prompt, onEvent func(BackendEvent)) (string, error)
@@ -21,7 +21,7 @@ type ResumeAware interface {
 // Prompt is the platform-neutral input a backend answers: the message text, who
 // sent it, its identity, and local filesystem paths to any attachments already
 // downloaded for the backend to reference. Context carries memory-recalled
-// background (empty when no Memory plugin is wired) — data the backend fences
+// background (empty when no Memory plugin is wired). Data the backend fences
 // into the turn for continuity, never the user's instructions.
 type Prompt struct {
 	Content     string

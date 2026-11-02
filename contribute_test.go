@@ -26,7 +26,7 @@ var (
 	_ contracts.MessageEditor = contributor{}
 )
 
-// A plugin's skills are reachable without its port ever being built — a gateway
+// A plugin's skills are reachable without its port ever being built. A gateway
 // with no token still ships its playbook. The two factories are independent, and
 // this test fails the moment the host is asked to build one to get the other.
 func TestPluginSkillsDoNotRequireBuildingThePort(t *testing.T) {
