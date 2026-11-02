@@ -105,6 +105,8 @@ func kindBoost(k NodeKind) float64 {
 		return 0.6
 	case KindSession:
 		return 0.2
+	case KindTranscript, KindSkill:
+		return 0.4
 	default:
 		return 0.4
 	}
