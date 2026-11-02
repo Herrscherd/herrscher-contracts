@@ -114,7 +114,7 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 	if err != nil {
 		return nil, err
 	}
-	depth := scopeDepths(sg, s)
+	depth := scopeDepths(&sg, s)
 	r := newRanker(text, time.Now().UTC())
 
 	type scored struct {
@@ -153,13 +153,26 @@ func RecallRelevant(ctx context.Context, m Memory, s MemoryScope, text string, k
 	return out, nil
 }
 
-func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
+func scopeDepths(sg *Subgraph, s MemoryScope) map[string]int {
+	byKey := indexNodes(sg)
+	depth := make(map[string]int, len(byKey))
+	frontier := seedScopeDepths(byKey, s, depth)
+	for len(frontier) > 0 {
+		frontier = expandScopeDepths(byKey, depth, frontier)
+	}
+	return depth
+}
+
+func indexNodes(sg *Subgraph) map[string]Node {
 	byKey := make(map[string]Node, len(sg.Nodes)+1)
 	byKey[sg.Root.Key] = sg.Root
 	for _, n := range sg.Nodes {
 		byKey[n.Key] = n
 	}
-	depth := make(map[string]int, len(sg.Nodes)+1)
+	return byKey
+}
+
+func seedScopeDepths(byKey map[string]Node, s MemoryScope, depth map[string]int) []string {
 	var frontier []string
 	for _, root := range []string{s.Project, s.Agent} {
 		if root == "" {
@@ -173,23 +186,24 @@ func scopeDepths(sg Subgraph, s MemoryScope) map[string]int {
 			frontier = append(frontier, root)
 		}
 	}
-	for len(frontier) > 0 {
-		var next []string
-		for _, cur := range frontier {
-			for _, l := range byKey[cur].Links {
-				if _, ok := depth[l.To]; ok {
-					continue
-				}
-				if _, exists := byKey[l.To]; !exists {
-					continue
-				}
-				depth[l.To] = depth[cur] + 1
-				next = append(next, l.To)
+	return frontier
+}
+
+func expandScopeDepths(byKey map[string]Node, depth map[string]int, frontier []string) []string {
+	var next []string
+	for _, cur := range frontier {
+		for _, l := range byKey[cur].Links {
+			if _, ok := depth[l.To]; ok {
+				continue
 			}
+			if _, exists := byKey[l.To]; !exists {
+				continue
+			}
+			depth[l.To] = depth[cur] + 1
+			next = append(next, l.To)
 		}
-		frontier = next
 	}
-	return depth
+	return next
 }
 
 func mergeSubgraphs(shared, private Subgraph) Subgraph {

@@ -89,35 +89,64 @@ type ModelSpec struct {
 // wrong selector.
 func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
-	for i, m := range models {
-		if strings.TrimSpace(m.ID) == "" {
-			return fmt.Errorf("backend %q: model #%d: %w", kind, i, ErrModelEmptyID)
+	for i := range models {
+		m := &models[i]
+		if err := validateModelIdentity(kind, i, m, seen); err != nil {
+			return err
 		}
-		if seen[m.ID] {
-			return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelDuplicateID)
+		if err := validateModelRequiredFields(kind, m); err != nil {
+			return err
 		}
-		seen[m.ID] = true
-		if strings.TrimSpace(m.Label) == "" {
-			return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyLabel)
+		if err := validateModelControlChars(kind, m); err != nil {
+			return err
 		}
-		if strings.TrimSpace(m.Arg) == "" {
-			return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyArg)
+		if err := validateModelRoute(kind, m); err != nil {
+			return err
 		}
-		for _, f := range []struct{ name, value string }{
-			{"ID", m.ID}, {"Label", m.Label}, {"Arg", m.Arg},
-		} {
-			if hasControlChar(f.value) {
-				return fmt.Errorf("backend %q: model %q, field %s: %w", kind, m.ID, f.name, ErrModelControlChar)
-			}
+	}
+	return nil
+}
+
+func validateModelIdentity(kind string, index int, m *ModelSpec, seen map[string]bool) error {
+	if strings.TrimSpace(m.ID) == "" {
+		return fmt.Errorf("backend %q: model #%d: %w", kind, index, ErrModelEmptyID)
+	}
+	if seen[m.ID] {
+		return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelDuplicateID)
+	}
+	seen[m.ID] = true
+	return nil
+}
+
+func validateModelRequiredFields(kind string, m *ModelSpec) error {
+	if strings.TrimSpace(m.Label) == "" {
+		return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyLabel)
+	}
+	if strings.TrimSpace(m.Arg) == "" {
+		return fmt.Errorf("backend %q: model %q: %w", kind, m.ID, ErrModelEmptyArg)
+	}
+	return nil
+}
+
+func validateModelControlChars(kind string, m *ModelSpec) error {
+	for _, f := range []struct{ name, value string }{
+		{"ID", m.ID}, {"Label", m.Label}, {"Arg", m.Arg},
+	} {
+		if hasControlChar(f.value) {
+			return fmt.Errorf("backend %q: model %q, field %s: %w", kind, m.ID, f.name, ErrModelControlChar)
 		}
-		for _, e := range m.Efforts {
-			if hasControlChar(e) {
-				return fmt.Errorf("backend %q: model %q, effort %q: %w", kind, m.ID, e, ErrModelControlChar)
-			}
+	}
+	for _, e := range m.Efforts {
+		if hasControlChar(e) {
+			return fmt.Errorf("backend %q: model %q, effort %q: %w", kind, m.ID, e, ErrModelControlChar)
 		}
-		if m.Route != RouteNative && m.Route != RouteGateway {
-			return fmt.Errorf("backend %q: model %q, route %q: %w", kind, m.ID, m.Route, ErrModelUnknownRoute)
-		}
+	}
+	return nil
+}
+
+func validateModelRoute(kind string, m *ModelSpec) error {
+	if m.Route != RouteNative && m.Route != RouteGateway {
+		return fmt.Errorf("backend %q: model %q, route %q: %w", kind, m.ID, m.Route, ErrModelUnknownRoute)
 	}
 	return nil
 }
