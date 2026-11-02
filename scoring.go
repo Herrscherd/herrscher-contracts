@@ -55,7 +55,7 @@ func Score(text string, now time.Time, n Node) (float64, bool) {
 	return newRanker(text, now).score(n)
 }
 
-func (r ranker) score(n Node) (total float64, textHit bool) {
+func (r ranker) score(n Node) (float64, bool) {
 	if len(r.terms) == 0 {
 		return 0, false
 	}
@@ -78,7 +78,7 @@ func (r ranker) score(n Node) (total float64, textHit bool) {
 	if tf == 0 {
 		return 0, false
 	}
-	total = weightTF*tf + weightTitleHit*titleHits
+	total := weightTF*tf + weightTitleHit*titleHits
 	total += weightRecency * r.recencyScore(n)
 	total += weightKind * kindBoost(n.Kind)
 	return total, true

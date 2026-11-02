@@ -89,9 +89,9 @@ func (r *Registry) Plugins() []Plugin { return r.plugins }
 
 func (r *Registry) byCategory(c Category) []Plugin {
 	var out []Plugin
-	for _, p := range r.plugins {
-		if p.Manifest.Category == c {
-			out = append(out, p)
+	for i := range r.plugins {
+		if r.plugins[i].Manifest.Category == c {
+			out = append(out, r.plugins[i])
 		}
 	}
 	return out

@@ -106,6 +106,7 @@ linters:
       enable-all: true
       disabled-checks:
         - whyNoLint
+        - hugeParam
     gosec:
       excludes: []
     govet:
@@ -188,6 +189,9 @@ linters:
       - path: ^spawnenv\.go$
         linters: [gosec]
         text: "^G101:"
+      - path: ^coordinator_test\.go$
+        linters: [gocritic]
+        text: unnamedResult
 
 formatters:
   enable:
