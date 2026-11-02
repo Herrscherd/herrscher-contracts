@@ -3,6 +3,7 @@ package contracts
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 type scopeMem struct {
@@ -173,7 +174,7 @@ func TestRecallRelevant_TopKByScoreAcrossScopes(t *testing.T) {
 	}}
 	s := MemoryScope{Project: "proj", Agent: "agent"}
 
-	got, err := RecallRelevant(context.Background(), m, s, "nats transport", 2)
+	got, err := RecallRelevant(context.Background(), m, s, "nats transport", 2, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +204,7 @@ func TestRecallRelevant_ProximityBreaksTies(t *testing.T) {
 	}}
 	s := MemoryScope{Project: "proj"}
 
-	got, err := RecallRelevant(context.Background(), m, s, "nats", 2)
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 2, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +226,7 @@ func TestRecallRelevant_ExcludesNonMatchesAndRespectsK(t *testing.T) {
 	}}
 	s := MemoryScope{Project: "proj"}
 
-	got, err := RecallRelevant(context.Background(), m, s, "nats", 1)
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 1, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,5 +262,27 @@ func TestMergeSubgraphsNeverListsSharedRootInNodes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRecallRelevant_RecencyUsesGivenClock(t *testing.T) {
+	now := time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC)
+	m := &scopeMem{graphs: map[string]Subgraph{
+		"proj": {
+			Root: Node{Key: "proj", Kind: KindProject, Title: "root", Links: []Link{{To: "stale", Rel: RelContains}, {To: "fresh", Rel: RelContains}}},
+			Nodes: []Node{
+				{Key: "stale", Kind: KindDecision, Title: "nats", Meta: map[string]string{"capturedAt": now.Add(-365 * 24 * time.Hour).Format(time.RFC3339)}},
+				{Key: "fresh", Kind: KindDecision, Title: "nats", Meta: map[string]string{"capturedAt": now.Add(-24 * time.Hour).Format(time.RFC3339)}},
+			},
+		},
+	}}
+	s := MemoryScope{Project: "proj"}
+
+	got, err := RecallRelevant(context.Background(), m, s, "nats", 1, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Key != "fresh" {
+		t.Fatalf("recent node should win at a fixed clock; got %v", keysOf(got))
 	}
 }

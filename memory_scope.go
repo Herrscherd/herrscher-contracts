@@ -112,13 +112,13 @@ const relevantDepth = 3
 // term frequency, title hits, recency, kind, and graph proximity to a scope root
 // order the result (highest first). Fewer than k are returned when fewer match;
 // k <= 0 returns all matches.
-func RecallRelevant(ctx context.Context, memory Memory, scope MemoryScope, text string, limit int) ([]Node, error) {
+func RecallRelevant(ctx context.Context, memory Memory, scope MemoryScope, text string, limit int, now time.Time) ([]Node, error) {
 	subgraph, err := RecallScoped(ctx, memory, scope, relevantDepth)
 	if err != nil {
 		return nil, err
 	}
 	depth := scopeDepths(&subgraph, scope)
-	ranker := newRanker(text, time.Now().UTC())
+	ranker := newRanker(text, now)
 
 	type scored struct {
 		n     Node
