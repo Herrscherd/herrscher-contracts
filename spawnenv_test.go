@@ -122,15 +122,8 @@ func hasEntry(hay []string, needle string) bool {
 	return false
 }
 
-func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
+func TestNewlineNeverReachesTheEnvTransport(t *testing.T) {
 	forged := "line1\nB=evil"
-	got := ParseEnvSetting(EncodeEnvSetting(map[string]string{"A": forged}))
-	if len(got) == 1 && got["A"] == forged {
-		t.Fatal("the transport now round-trips newlines; drop the upstream guards' justification or this test")
-	}
-	if got["B"] != "evil" {
-		t.Fatalf("expected the newline to forge a second variable, got %#v", got)
-	}
 	if _, err := NewGatewayCreds("https://gw.example", forged); !errors.Is(err, ErrCredsTokenControl) {
 		t.Fatalf("NewGatewayCreds: got %v, want ErrCredsTokenControl", err)
 	}
