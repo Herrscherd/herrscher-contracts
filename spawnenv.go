@@ -147,16 +147,28 @@ func ApprovalsEnv(session, mode, bin string) map[string]string {
 	}
 }
 
-// ApprovalsFromEnv decodes what ApprovalsEnv wrote. gated is false unless all
+// ApprovalsFromEnv decodes what ApprovalsEnv wrote. Gated is false unless all
 // three are present and the mode is not bypass, so a partial set fails open, in
 // the same direction every other approval failure does.
-func ApprovalsFromEnv(look func(string) string) (session, mode, bin string, gated bool) {
+func ApprovalsFromEnv(look func(string) string) ApprovalsGate {
 	if look == nil {
-		return "", "", "", false
+		return ApprovalsGate{}
 	}
-	mode = strings.TrimSpace(look(EnvApprovalsMode))
-	session = strings.TrimSpace(look(EnvApprovalsSession))
-	bin = strings.TrimSpace(look(EnvApprovalsBin))
-	gated = mode != "" && mode != approvalsModeBypass && session != "" && bin != ""
-	return session, mode, bin, gated
+	mode := strings.TrimSpace(look(EnvApprovalsMode))
+	session := strings.TrimSpace(look(EnvApprovalsSession))
+	bin := strings.TrimSpace(look(EnvApprovalsBin))
+	return ApprovalsGate{
+		Session: session,
+		Mode:    mode,
+		Bin:     bin,
+		Gated:   mode != "" && mode != approvalsModeBypass && session != "" && bin != "",
+	}
+}
+
+// ApprovalsGate is the approvals route a spawn decoded from its environment.
+type ApprovalsGate struct {
+	Session string
+	Mode    string
+	Bin     string
+	Gated   bool
 }

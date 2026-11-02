@@ -155,12 +155,12 @@ func TestEncodeEnvSettingCannotRepresentANewlineValue(t *testing.T) {
 func TestApprovalsEnvRoundTrip(t *testing.T) {
 	env := ApprovalsEnv("api", "strict", "/usr/local/bin/herrscher")
 	look := func(k string) string { return env[k] }
-	session, mode, bin, gated := ApprovalsFromEnv(look)
-	if !gated {
-		t.Fatalf("gated = false, want true for %v", env)
+	gate := ApprovalsFromEnv(look)
+	if !gate.Gated {
+		t.Fatalf("Gated = false, want true for %v", env)
 	}
-	if session != "api" || mode != "strict" || bin != "/usr/local/bin/herrscher" {
-		t.Fatalf("got %q %q %q", session, mode, bin)
+	if gate.Session != "api" || gate.Mode != "strict" || gate.Bin != "/usr/local/bin/herrscher" {
+		t.Fatalf("got %q %q %q", gate.Session, gate.Mode, gate.Bin)
 	}
 }
 
@@ -179,15 +179,15 @@ func TestApprovalsFromEnvPartialSetFailsOpen(t *testing.T) {
 	}
 	for i, env := range cases {
 		look := func(k string) string { return env[k] }
-		if _, _, _, gated := ApprovalsFromEnv(look); gated {
-			t.Fatalf("case %d: gated = true for %v, want false", i, env)
+		if ApprovalsFromEnv(look).Gated {
+			t.Fatalf("case %d: Gated = true for %v, want false", i, env)
 		}
 	}
 }
 
 func TestApprovalsFromEnvNilLook(t *testing.T) {
-	if _, _, _, gated := ApprovalsFromEnv(nil); gated {
-		t.Fatal("nil look reported gated")
+	if ApprovalsFromEnv(nil).Gated {
+		t.Fatal("nil look reported Gated")
 	}
 }
 
