@@ -192,6 +192,9 @@ linters:
       - path: ^coordinator_test\.go$
         linters: [gocritic]
         text: unnamedResult
+      - path: ^coordinator_test\.go$
+        linters: [revive]
+        text: confusing-results
 
 formatters:
   enable:

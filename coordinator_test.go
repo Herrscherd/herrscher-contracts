@@ -49,7 +49,7 @@ func (f *fakeCoordinator) FanOut(_ context.Context, req FanOutRequest) ([]string
 	return spawned, nil
 }
 
-func (f *fakeCoordinator) Route(_ context.Context, req RouteRequest) (agent, session string, err error) {
+func (f *fakeCoordinator) Route(_ context.Context, req RouteRequest) (string, string, error) {
 	f.gotRoute = req
 	return "picked", req.FromSession + "-routed", nil
 }
@@ -103,7 +103,7 @@ func (mergeStub) Report(context.Context, ReportRequest) (string, error)     { re
 func (mergeStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
 func (mergeStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 func (mergeStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
-func (mergeStub) Route(context.Context, RouteRequest) (agent, session string, err error) {
+func (mergeStub) Route(context.Context, RouteRequest) (string, string, error) {
 	return "", "", nil
 }
 
@@ -123,7 +123,7 @@ func (sealStub) Report(context.Context, ReportRequest) (string, error)     { ret
 func (sealStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
 func (sealStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 func (sealStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
-func (sealStub) Route(context.Context, RouteRequest) (agent, session string, err error) {
+func (sealStub) Route(context.Context, RouteRequest) (string, string, error) {
 	return "", "", nil
 }
 
@@ -143,7 +143,7 @@ func (fanoutStub) Report(context.Context, ReportRequest) (string, error)     { r
 func (fanoutStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
 func (fanoutStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 func (fanoutStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
-func (fanoutStub) Route(context.Context, RouteRequest) (agent, session string, err error) {
+func (fanoutStub) Route(context.Context, RouteRequest) (string, string, error) {
 	return "", "", nil
 }
 
@@ -163,7 +163,7 @@ func (routeStub) Report(context.Context, ReportRequest) (string, error)     { re
 func (routeStub) Merge(context.Context, MergeRequest) (string, error)       { return "", nil }
 func (routeStub) Seal(context.Context, SealRequest) (string, error)         { return "", nil }
 func (routeStub) FanOut(context.Context, FanOutRequest) ([]string, error)   { return nil, nil }
-func (routeStub) Route(context.Context, RouteRequest) (agent, session string, err error) {
+func (routeStub) Route(context.Context, RouteRequest) (string, string, error) {
 	return "", "", nil
 }
 
