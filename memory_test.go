@@ -37,14 +37,21 @@ func TestMemoryInterfaceIsImplementable(t *testing.T) {
 	}
 }
 
-func TestNodeKindConstants(t *testing.T) {
+func TestEveryNodeKindIsValidAndDistinct(t *testing.T) {
 	kinds := []NodeKind{
 		KindOrganization, KindProject, KindRepo, KindServer,
-		KindArchitecture, KindProduction, KindSession, KindDecision, KindUser,
-		KindAgent,
+		KindArchitecture, KindProduction, KindSession, KindDecision,
+		KindUser, KindAgent, KindDomain, KindTranscript, KindSkill,
 	}
-	if len(kinds) != 10 {
-		t.Fatalf("expected 10 node kinds, got %d", len(kinds))
+	seen := make(map[NodeKind]bool, len(kinds))
+	for _, k := range kinds {
+		if k == "" {
+			t.Fatal("a node kind is the empty string")
+		}
+		if seen[k] {
+			t.Fatalf("node kind %q is declared twice", k)
+		}
+		seen[k] = true
 	}
 }
 
