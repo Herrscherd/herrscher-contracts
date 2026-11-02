@@ -9,12 +9,12 @@ import (
 
 // Errors returned by ValidateModels and NewGatewayCreds, matched with errors.Is.
 var (
-	ErrModelEmptyID        = errors.New("model has an empty ID")
-	ErrModelDuplicateID    = errors.New("model ID is used twice")
-	ErrModelEmptyLabel     = errors.New("model has an empty label")
-	ErrModelEmptyArg       = errors.New("model has an empty argument")
-	ErrModelControlChar    = errors.New("model has a control character")
-	ErrModelUnknownRoute   = errors.New("model has an unknown route")
+	ErrModelEmptyID        = errors.New("empty ID")
+	ErrModelDuplicateID    = errors.New("duplicate ID")
+	ErrModelEmptyLabel     = errors.New("empty label")
+	ErrModelEmptyArg       = errors.New("empty argument")
+	ErrModelControlChar    = errors.New("control character")
+	ErrModelUnknownRoute   = errors.New("unknown route")
 	ErrCredsMissing        = errors.New("gateway credentials: neither base URL nor token available")
 	ErrCredsTokenNoURL     = errors.New("gateway credentials: token without a base URL")
 	ErrCredsURLNoToken     = errors.New("gateway credentials: base URL without a token, refusing to run on the user's own subscription")
