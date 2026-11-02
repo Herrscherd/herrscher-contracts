@@ -87,7 +87,7 @@ func TestParseEnvSettingKeepsEqualsInValue(t *testing.T) {
 func TestEncodeEnvSettingIsDeterministic(t *testing.T) {
 	env := map[string]string{"B": "2", "A": "1", "C": "3"}
 	first := EncodeEnvSetting(env)
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if EncodeEnvSetting(env) != first {
 			t.Fatalf("EncodeEnvSetting is not deterministic")
 		}
