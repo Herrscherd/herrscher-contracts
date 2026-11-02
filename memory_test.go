@@ -37,7 +37,7 @@ func TestMemoryInterfaceIsImplementable(t *testing.T) {
 	}
 }
 
-func TestEveryNodeKindIsValidAndDistinct(t *testing.T) {
+func TestListedNodeKindsAreValidAndDistinct(t *testing.T) {
 	kinds := []NodeKind{
 		KindOrganization, KindProject, KindRepo, KindServer,
 		KindArchitecture, KindProduction, KindSession, KindDecision,
