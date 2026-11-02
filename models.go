@@ -86,7 +86,10 @@ type ModelSpec struct {
 // ValidateModels checks the integrity of a backend's catalog. kind names the
 // backend in error messages. Called by the host at startup: an inconsistent
 // catalog must kill the daemon with a clear message, not silently produce a
-// wrong selector.
+// wrong selector. It returns the first failing model as an error wrapping
+// [ErrModelEmptyID], [ErrModelDuplicateID], [ErrModelEmptyLabel],
+// [ErrModelEmptyArg], [ErrModelControlChar] or [ErrModelUnknownRoute], to match
+// with errors.Is.
 func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
 	for index := range models {
@@ -187,7 +190,11 @@ func (c GatewayCreds) BaseURL() string { return c.baseURL }
 // Token is the authentication token. Empty only for the zero value.
 func (c GatewayCreds) Token() string { return c.token }
 
-// NewGatewayCreds builds a complete pair, or fails.
+// NewGatewayCreds builds a complete pair, or fails. It returns [ErrCredsMissing]
+// when both values are blank, [ErrCredsTokenNoURL] when only the token is set,
+// [ErrCredsURLNoToken] when only the base URL is set, and
+// [ErrCredsURLControlChar] or [ErrCredsTokenControl] when a value contains a
+// control character.
 func NewGatewayCreds(baseURL, token string) (GatewayCreds, error) {
 	baseURL, token = strings.TrimSpace(baseURL), strings.TrimSpace(token)
 	switch {

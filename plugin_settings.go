@@ -19,9 +19,9 @@ type Setting struct {
 
 // Resolve builds a PluginConfig from declared settings: each Setting's value is
 // read from getenv(Setting.Env), falling back to Default. A Required setting that
-// is still empty is an error naming every missing one, so the host can refuse to
-// start a misconfigured plugin with a clear message. getenv is injected so the
-// contract stays free of os (and is testable).
+// is still empty makes it return a [*MissingSettingsError] naming every missing
+// one, so the host can refuse to start a misconfigured plugin with a clear
+// message. getenv is injected so the contract stays free of os (and is testable).
 func Resolve(settings []Setting, getenv func(string) string) (PluginConfig, error) {
 	cfg := PluginConfig{Settings: make(map[string]string, len(settings))}
 	var missing []string
