@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestForegroundIsOptionalCapability(t *testing.T) {
+func TestForegroundIsOptionalCapability(_ *testing.T) {
 	var _ Foreground = fgStub{}
 }
 

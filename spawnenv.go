@@ -75,7 +75,7 @@ func MergeEnv(base []string, extra map[string]string) []string {
 // by newlines. Only the FIRST '=' separates the key from the value. Tokens
 // are often base64-encoded and contain one.
 func ParseEnvSetting(s string) map[string]string {
-	out := map[string]string{}
+	out := make(map[string]string)
 	for _, line := range strings.Split(s, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {

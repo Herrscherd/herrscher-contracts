@@ -47,10 +47,10 @@ func normalizeScopeName(name string) string {
 		switch {
 		case isWordRune(r):
 			if pendingSep && b.Len() > 0 {
-				b.WriteByte('-')
+				_ = b.WriteByte('-')
 			}
 			pendingSep = false
-			b.WriteRune(unicode.ToLower(r))
+			_, _ = b.WriteRune(unicode.ToLower(r))
 		default:
 			pendingSep = true
 		}
@@ -211,7 +211,7 @@ func expandScopeDepths(byKey map[string]Node, depth map[string]int, frontier []s
 
 func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	out := Subgraph{Root: shared.Root}
-	seen := map[string]bool{}
+	seen := make(map[string]bool)
 	if shared.Root.Key != "" {
 		seen[shared.Root.Key] = true
 	}
@@ -227,7 +227,7 @@ func mergeSubgraphs(shared, private Subgraph) Subgraph {
 	add(private.Root)
 	add(shared.Nodes...)
 	add(private.Nodes...)
-	seenEdge := map[Link]bool{}
+	seenEdge := make(map[Link]bool)
 	addEdges := func(edges []Link) {
 		for _, e := range edges {
 			if seenEdge[e] {

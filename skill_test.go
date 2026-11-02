@@ -6,6 +6,6 @@ type skillNativeStub struct{}
 
 func (skillNativeStub) NativeSkills() bool { return true }
 
-func TestSkillNativeSatisfied(t *testing.T) {
+func TestSkillNativeSatisfied(_ *testing.T) {
 	var _ SkillNative = skillNativeStub{}
 }

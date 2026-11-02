@@ -40,7 +40,7 @@ type ranker struct {
 }
 
 func newRanker(text string, now time.Time) ranker {
-	terms := map[string]bool{}
+	terms := make(map[string]bool)
 	for _, t := range tokenize(text) {
 		terms[t] = true
 	}
@@ -60,7 +60,7 @@ func (r ranker) score(n Node) (float64, bool) {
 		return 0, false
 	}
 	var tf, titleHits float64
-	seen := map[string]bool{}
+	seen := make(map[string]bool)
 	for _, tok := range tokenize(n.Title) {
 		if r.terms[tok] {
 			tf++

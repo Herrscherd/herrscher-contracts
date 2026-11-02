@@ -9,7 +9,7 @@ type resumableStub struct{ tok string }
 
 func (r resumableStub) ResumeToken() string { return r.tok }
 
-func TestResumeAwareSatisfied(t *testing.T) {
+func TestResumeAwareSatisfied(_ *testing.T) {
 	var _ ResumeAware = resumableStub{tok: "abc"}
 }
 

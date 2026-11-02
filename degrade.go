@@ -58,7 +58,7 @@ func (d degrading) React(ctx context.Context, conv Conversation, msg MessageID, 
 func (d degrading) Menu(ctx context.Context, conv Conversation, replyTo MessageID, prompt string, opts []Choice) error {
 	if !d.g.Manifest().Capabilities.SelectMenus {
 		var b strings.Builder
-		b.WriteString(prompt)
+		_, _ = b.WriteString(prompt)
 		for i, o := range opts {
 			fmt.Fprintf(&b, "\n%d. %s", i+1, o.Label)
 		}

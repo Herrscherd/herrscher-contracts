@@ -62,7 +62,7 @@ func TestMergeEnvNilIsIdentity(t *testing.T) {
 // returns a non-nil empty map, not nil. Identity must hold for it too.
 func TestMergeEnvEmptyMapIsIdentity(t *testing.T) {
 	base := []string{"PATH=/bin", "HOME=/home/x"}
-	got := MergeEnv(base, map[string]string{})
+	got := MergeEnv(base, make(map[string]string))
 	if len(got) != 2 || got[0] != "PATH=/bin" || got[1] != "HOME=/home/x" {
 		t.Fatalf("MergeEnv with an empty map changed the environment: %v", got)
 	}
@@ -98,7 +98,7 @@ func TestEncodeEnvSettingIsDeterministic(t *testing.T) {
 }
 
 func TestEncodeEnvSettingEmptyIsEmpty(t *testing.T) {
-	if EncodeEnvSetting(nil) != "" || EncodeEnvSetting(map[string]string{}) != "" {
+	if EncodeEnvSetting(nil) != "" || EncodeEnvSetting(make(map[string]string)) != "" {
 		t.Fatal("EncodeEnvSetting should render nothing for an empty map")
 	}
 }

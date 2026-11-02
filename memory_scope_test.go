@@ -101,7 +101,7 @@ func TestRecallScopedMergesAndDedups(t *testing.T) {
 	if sg.Root.Key != "proj" {
 		t.Fatalf("root should be the shared project, got %q", sg.Root.Key)
 	}
-	keys := map[string]int{}
+	keys := make(map[string]int)
 	for _, n := range sg.Nodes {
 		keys[n.Key]++
 	}
