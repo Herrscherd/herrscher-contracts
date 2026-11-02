@@ -195,6 +195,9 @@ linters:
       - path: ^coordinator_test\.go$
         linters: [revive]
         text: confusing-results
+      - path: ^degrade\.go$
+        linters: [revive]
+        text: "exported method degrading(Sink)?\\."
 
 formatters:
   enable:
