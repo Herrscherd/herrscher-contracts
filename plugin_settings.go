@@ -10,11 +10,17 @@ import (
 // absent fail the daemon at startup rather than surfacing as an opaque error
 // deep inside the plugin.
 type Setting struct {
-	Key      string
-	Env      string
-	Help     string
+	// Key is the name the plugin reads the value by through PluginConfig.Get.
+	Key string
+	// Env is the environment variable the value is read from. Empty means the
+	// setting has no environment source.
+	Env string
+	// Help describes the setting for the operator.
+	Help string
+	// Required makes an empty value a startup failure.
 	Required bool
-	Default  string
+	// Default is the value used when Env is unset or empty.
+	Default string
 }
 
 // Resolve builds a PluginConfig from declared settings: each Setting's value is

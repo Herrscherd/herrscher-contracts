@@ -168,8 +168,12 @@ func ApprovalsFromEnv(look func(string) string) ApprovalsGate {
 
 // ApprovalsGate is the approvals route a spawn decoded from its environment.
 type ApprovalsGate struct {
+	// Session is the herrscher session the spawn runs for.
 	Session string
-	Mode    string
-	Bin     string
-	Gated   bool
+	// Mode is the approvals mode the session runs under.
+	Mode string
+	// Bin is the herrscher binary the backend asks approvals with.
+	Bin string
+	// Gated reports whether the spawn must ask for approvals.
+	Gated bool
 }
