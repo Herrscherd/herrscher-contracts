@@ -21,13 +21,13 @@ const (
 	// is the forbidden shape: gateway traffic billed to the user's own login.
 	// It travels with EnvAnthropicAPIKey or not at all.
 	EnvAnthropicBaseURL = "ANTHROPIC_BASE_URL"
-	// EnvAnthropicAPIKey plutôt qu'ANTHROPIC_AUTH_TOKEN : c'est le premier slot
-	// de l'ordre de résolution des identifiants, donc celui qui prime le plus
-	// sûrement sur une session OAuth d'abonnement. Et « clé API longue durée »
-	// est la bonne sémantique pour ce que Neublox émet.
+	// EnvAnthropicAPIKey rather than ANTHROPIC_AUTH_TOKEN: it is the first slot in
+	// the credential resolution order, so it reliably takes precedence over a
+	// subscription OAuth session. A long-lived API key is also the right meaning
+	// for what Neublox issues.
 	//
-	// C'est un REMPLACEMENT. Poser les deux variables fait envoyer x-api-key et
-	// Authorization ensemble, et l'API rejette la requête en 401.
+	// It is a REPLACEMENT. Setting both variables sends x-api-key and Authorization
+	// together, and the API rejects the request with a 401.
 	EnvAnthropicAPIKey = "ANTHROPIC_API_KEY"
 	// EnvOpenAIBaseURL is the codex counterpart of EnvAnthropicBaseURL. The
 	// codex backend also treats its presence as the signal that this spawn is

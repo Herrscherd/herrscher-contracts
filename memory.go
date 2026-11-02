@@ -138,26 +138,26 @@ type Provisioner interface {
 	EnsureAgent(ctx context.Context, key, title string) error
 }
 
-// Location porte les manières d'ouvrir la note d'un nœud. Obsidian est le lien
-// humain préféré ; File est le fallback direct (éditeur/OS par défaut). Au moins
-// un champ est non vide pour une mémoire fichier.
+// Location holds the ways to open the note of a node. Obsidian is the preferred
+// link for a human; File is the direct fallback (default editor or OS). At least
+// one field is non-empty for a file-backed memory.
 type Location struct {
 	Obsidian string
 	File     string
 }
 
-// Locator est une capability OPTIONNELLE : une mémoire adossée à des fichiers
-// (le vault obsidian) sait localiser la note d'un Key et la rendre ouvrable par
-// un humain. Une mémoire non-fichier ne l'implémente pas ; le caller type-assert
-// et dégrade proprement. Même patron que Provisioner.
+// Locator is an OPTIONAL capability: a file-backed memory (the obsidian vault)
+// can locate the note of a Key and make it openable by a human. A memory that is
+// not file-backed does not implement it; the caller type-asserts and degrades
+// gracefully. Same pattern as Provisioner.
 type Locator interface {
-	// Locate renvoie les URIs ouvrables de la note du Key, ou une erreur si le
-	// Key est invalide ou absent.
+	// Locate returns the openable URIs of the note of the Key, or an error if the
+	// Key is invalid or absent.
 	Locate(ctx context.Context, key string) (Location, error)
 }
 
-// Deleter est une capability OPTIONNELLE : retirer un nœud par Key (« oublier »).
+// Deleter is an OPTIONAL capability: removing a node by Key ("forget").
 type Deleter interface {
-	// Delete retire le nœud au Key. Idempotent : un Key absent n'est pas une erreur.
+	// Delete removes the node at the Key. Idempotent: an absent Key is not an error.
 	Delete(ctx context.Context, key string) error
 }
