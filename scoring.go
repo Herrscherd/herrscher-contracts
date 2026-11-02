@@ -16,6 +16,12 @@ const (
 
 	recencyHalfLifeDays = 30.0
 	recencyNeutral      = 0.5
+	hoursPerDay         = 24.0
+
+	kindBoostCore    = 1.0
+	kindBoostEntity  = 0.6
+	kindBoostSession = 0.2
+	kindBoostOther   = 0.4
 )
 
 func tokenize(s string) []string {
@@ -90,7 +96,7 @@ func (r ranker) recencyScore(n Node) float64 {
 	if err != nil {
 		return recencyNeutral
 	}
-	ageDays := r.now.Sub(at).Hours() / 24
+	ageDays := r.now.Sub(at).Hours() / hoursPerDay
 	if ageDays < 0 {
 		ageDays = 0
 	}
@@ -100,15 +106,15 @@ func (r ranker) recencyScore(n Node) float64 {
 func kindBoost(k NodeKind) float64 {
 	switch k {
 	case KindDecision, KindUser, KindArchitecture, KindProduction:
-		return 1.0
+		return kindBoostCore
 	case KindProject, KindRepo, KindServer, KindOrganization, KindDomain, KindAgent:
-		return 0.6
+		return kindBoostEntity
 	case KindSession:
-		return 0.2
+		return kindBoostSession
 	case KindTranscript, KindSkill:
-		return 0.4
+		return kindBoostOther
 	default:
-		return 0.4
+		return kindBoostOther
 	}
 }
 
