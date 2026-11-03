@@ -36,6 +36,12 @@ func (g *recGateway) Menu(_ context.Context, _ Conversation, _ MessageID, prompt
 
 var _ Gateway = (*recGateway)(nil)
 
+var _ GatewayCloser = closerStub{}
+
+type closerStub struct{}
+
+func (closerStub) Close(context.Context) error { return nil }
+
 func TestInboundCarriesConversation(t *testing.T) {
 	in := Inbound{Conversation: Conversation{Gateway: "discord", ID: "c1"}, Author: "leo", Text: "hi"}
 	if in.Conversation.ID != "c1" || in.Author != "leo" {
