@@ -142,8 +142,8 @@ type Provisioner interface {
 // link for a human; File is the direct fallback (default editor or OS). At least
 // one field is non-empty for a file-backed memory.
 type Location struct {
-	Obsidian string
-	File     string
+	Obsidian string `json:"Obsidian"`
+	File     string `json:"File"`
 }
 
 // Locator is an OPTIONAL capability: a file-backed memory (the obsidian vault)

@@ -69,8 +69,8 @@ type RepoRef struct {
 // gateway (the terminal TUI) can repaint history without reading the state dir
 // (which lives behind the core's internal packages).
 type ScrollbackLine struct {
-	Role string
-	Text string
+	Role string `json:"Role"`
+	Text string `json:"Text"`
 }
 
 // CreateSession is the typed spec for SessionControl.Create. The structured
@@ -127,42 +127,42 @@ type CreateSession struct {
 
 // SessionInfo is a read-only view of a hub session.
 type SessionInfo struct {
-	Name string
+	Name string `json:"Name"`
 	// Incarnation is the stable opaque identity of this specific persisted
 	// session object. Closing and recreating the same Name yields a new value.
-	Incarnation string
-	ChannelID   string
-	Type        string
-	Gateways    []string
+	Incarnation string   `json:"Incarnation"`
+	ChannelID   string   `json:"ChannelID"`
+	Type        string   `json:"Type"`
+	Gateways    []string `json:"Gateways"`
 	// Vendor is the agent backend vendor ("claude"/"codex"/"cursor"), shown as a
 	// /resume picker column. Empty when unknown.
-	Vendor string
+	Vendor string `json:"Vendor"`
 	// Model is the model the session runs on, as a frontend should name it to a
 	// human ("claude-opus-5"). Empty when the session was created before the
 	// catalog existed and its invocation names no model.
-	Model string
+	Model string `json:"Model"`
 	// Effort is the reasoning effort the session runs at ("low"/"medium"/"high"),
 	// read from its invocation. Empty when the backend takes no such flag.
-	Effort string
+	Effort string `json:"Effort"`
 	// Project is the workspace sub-dir the session started from, a picker column.
-	Project string
+	Project string `json:"Project"`
 	// Dir is the session's resolved run directory (its worktree, or the workspace/
 	// project root). The base a gateway lists for @ file-mention completion. Empty
 	// means the session inherits the launcher's working directory.
-	Dir string
+	Dir string `json:"Dir"`
 	// Archived is true for a closed-but-kept session: a gateway skips it when
 	// building live tabs and lists it in the /resume picker.
-	Archived bool
+	Archived bool `json:"Archived"`
 	// Resumable is true when the session carries a backend resume token (⟲ column).
-	Resumable bool
+	Resumable bool `json:"Resumable"`
 	// LastTs is the last transcript entry's timestamp (RFC3339), for sorting the
 	// picker by recency. Empty when the session has no transcript.
-	LastTs string
+	LastTs string `json:"LastTs"`
 	// ContextTokens is how much of the model's context window the session's last
 	// recorded turn occupied (input + cache read + cache creation). It lets a
 	// frontend show an occupancy on attach, before it has watched a turn of its
 	// own. Zero when no turn was ever recorded with usage.
-	ContextTokens int
+	ContextTokens int `json:"ContextTokens"`
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's
