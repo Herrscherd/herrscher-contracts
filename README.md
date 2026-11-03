@@ -31,6 +31,7 @@ it is absent.
 | Port | File | Kind | What it does |
 |---|---|---|---|
 | `Gateway` | `gateway.go` | required | `Manifest`, `Post`, `Reply`, `React`, `Menu` |
+| `GatewayCloser` | `gateway.go` | optional | `Close(ctx)` stops the plugin's goroutines and waits for them within `ctx` |
 | `ChannelReader` | `host.go` | optional | `Enabled`, `DefaultChannel`, `EnsureChannel`, `Read`, `Unreact`, `UpsertStatusMessage` |
 | `ChannelAdmin` | `host.go` | optional | `Kind`, `CreateUnder`, `ForumPost`, `Archive`, `Send`, `ChannelRef` |
 | `MenuRouter` | `host.go` | optional | `RouteMenu`: menu picks return to a named route, not to the channel |
