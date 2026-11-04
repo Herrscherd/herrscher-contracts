@@ -27,24 +27,26 @@ var ErrNoCompactStage = errors.New("no compaction stage")
 var ErrNilCompactor = errors.New("nil compactor")
 
 // RunCompactStack runs stages in order against req, and returns the result of the
-// last stage that ran.
+// last stage that ran. Like [Compactor.Compact], it runs under the turn of the
+// session, and it hands onEvent to every stage.
 //
 // Each stage receives the usage the previous one left: its TokensAfter when that
-// was measured, and the usage it was given otherwise. The stack stops at the first
-// stage whose result is Done, and returns that result. A stage that fails stops
-// the stack, and its error is returned wrapped with the stage's Name, so
-// errors.Is still matches the cause. A stage whose Compactor is nil fails with
-// [ErrNilCompactor] in the same way. The stages before the failing one have
-// already run, and their effect on the conversation is not undone. An empty stack
-// returns [ErrNoCompactStage].
-func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequest) (CompactResult, error) {
+// was measured, and the usage it was given otherwise. The first measured stage
+// turns UsageMeasured on for the stages after it. The stack stops at the first
+// stage whose result is Done, and returns that result. The context is checked
+// before each stage: a cancelled context stops the stack before that stage runs.
+// A stage that fails, or whose Compactor is nil (ErrNilCompactor), stops the stack
+// too, and its error is returned wrapped with the stage's Name, so errors.Is still
+// matches the cause. The stages before it have already run, and their effect on
+// the conversation is not undone. An empty stack returns [ErrNoCompactStage].
+func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequest, onEvent func(BackendEvent)) (CompactResult, error) {
 	if len(stages) == 0 {
 		return CompactResult{}, ErrNoCompactStage
 	}
 	var result CompactResult
 	for _, stage := range stages {
 		var err error
-		result, err = runCompactStage(ctx, stage, req)
+		result, err = runCompactStage(ctx, stage, req, onEvent)
 		if err != nil {
 			return CompactResult{}, fmt.Errorf("compaction stage %q: %w", stage.Name, err)
 		}
@@ -53,14 +55,18 @@ func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequ
 		}
 		if result.TokensMeasured {
 			req.TokensUsed = result.TokensAfter
+			req.UsageMeasured = true
 		}
 	}
 	return result, nil
 }
 
-func runCompactStage(ctx context.Context, stage CompactStage, req CompactRequest) (CompactResult, error) {
+func runCompactStage(ctx context.Context, stage CompactStage, req CompactRequest, onEvent func(BackendEvent)) (CompactResult, error) {
+	if err := ctx.Err(); err != nil {
+		return CompactResult{}, err
+	}
 	if stage.Compactor == nil {
 		return CompactResult{}, ErrNilCompactor
 	}
-	return stage.Compactor.Compact(ctx, req)
+	return stage.Compactor.Compact(ctx, req, onEvent)
 }

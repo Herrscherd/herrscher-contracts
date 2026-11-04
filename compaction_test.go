@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 )
@@ -41,6 +42,54 @@ func TestParseCompactTriggerRefusesUnknownText(t *testing.T) {
 		}
 		if got != 0 {
 			t.Errorf("ParseCompactTrigger(%q) = %v, want the zero value on error", text, got)
+		}
+	}
+}
+
+func TestCompactTriggerMarshalsItsTextForm(t *testing.T) {
+	type envelope struct {
+		Trigger CompactTrigger `json:"Trigger"`
+	}
+	raw, err := json.Marshal(envelope{Trigger: TriggerAutomatic})
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	if string(raw) != `{"Trigger":"automatic"}` {
+		t.Fatalf("wire JSON = %s, want the text form", raw)
+	}
+	var back envelope
+	if err := json.Unmarshal(raw, &back); err != nil || back.Trigger != TriggerAutomatic {
+		t.Fatalf("json.Unmarshal() = %+v, %v, want TriggerAutomatic", back, err)
+	}
+}
+
+func TestCompactTriggerRefusesToMarshalAnUnknownValue(t *testing.T) {
+	_, err := CompactTrigger(9).MarshalText()
+	if !errors.Is(err, ErrUnknownCompactTrigger) {
+		t.Fatalf("MarshalText(9) error = %v, want ErrUnknownCompactTrigger", err)
+	}
+}
+
+func TestCompactTriggerUnmarshalRefusesUnknownText(t *testing.T) {
+	var trigger CompactTrigger
+	err := json.Unmarshal([]byte(`"soon"`), &trigger)
+	if !errors.Is(err, ErrUnknownCompactTrigger) {
+		t.Fatalf("json.Unmarshal(\"soon\") error = %v, want ErrUnknownCompactTrigger", err)
+	}
+}
+
+func TestValidateAutoCompactPercentAcceptsZeroAndTheRange(t *testing.T) {
+	for _, percent := range []int{0, 1, 92, 100} {
+		if err := ValidateAutoCompactPercent(percent); err != nil {
+			t.Fatalf("ValidateAutoCompactPercent(%d) error = %v, want nil", percent, err)
+		}
+	}
+}
+
+func TestValidateAutoCompactPercentRefusesOutOfRange(t *testing.T) {
+	for _, percent := range []int{-1, 101, 250} {
+		if err := ValidateAutoCompactPercent(percent); !errors.Is(err, ErrAutoCompactPercentOutOfRange) {
+			t.Fatalf("ValidateAutoCompactPercent(%d) error = %v, want ErrAutoCompactPercentOutOfRange", percent, err)
 		}
 	}
 }

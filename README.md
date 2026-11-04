@@ -25,7 +25,7 @@ it is absent.
 | `ChoiceAware` | `backend.go` | optional | `PendingChoice()`: the turn is blocked on an interactive pick |
 | `ChoiceInjector` | `backend.go` | optional | `InjectChoice` answers that pick out of band |
 | `SkillNative` | `skill.go` | optional | `NativeSkills()`: the backend loads skills itself, so the host skips injection |
-| `Compactor` | `compaction.go` | optional | `Compact(ctx, CompactRequest)` shortens a session's context. A backend's is its default, a plugin's is a custom stage |
+| `Compactor` | `compaction.go` | optional | `Compact(ctx, CompactRequest, onEvent)` shortens a session's context. A backend's is its default, a plugin's is a custom stage |
 
 ### Channel edge
 
@@ -122,15 +122,28 @@ A session's compaction is a stack of `CompactStage`s that the host runs in its
 configured order with `RunCompactStack`:
 
 - each stage receives the usage the previous one left, its `TokensAfter` when
-  `TokensMeasured` is true, and the usage it was given otherwise;
+  `TokensMeasured` is true, and the usage it was given otherwise. The first
+  measured stage turns `UsageMeasured` on, and `TokensUsed` and `TokenLimit` are
+  read only while it is on;
+- the context is checked before each stage, so a cancelled context stops the
+  stack before the next stage runs;
 - a stage whose result is `Done` stops the stack, and its result is returned;
-- a failing stage stops the stack, and its error is returned wrapped with the
-  stage's name, so `errors.Is` still matches the cause. The stages before it
-  keep their effect;
+- a failing stage, or one whose `Compactor` is nil (`ErrNilCompactor`), stops the
+  stack, and its error is returned wrapped with the stage's name, so `errors.Is`
+  still matches the cause. The stages before it keep their effect;
 - the stage named `CompactStageBackend` is the session's own backend compaction.
 
-`SessionInfo.AutoCompactPercent` is the share of the context window at which the
-session compacts itself without being asked. Zero means it never does.
+The host calls `Compact` only while it holds the turn of the session, under the
+same exclusion as `Respond`. The host renders the outcome (the note, the tokens
+before and after) to the gateways, not the stage. Progress goes through the
+`onEvent` callback, as for `Respond`.
+
+`CompactTrigger` marshals to its text form (`"manual"`, `"automatic"`), and
+refuses to marshal a value that names no trigger.
+
+`SessionInfo.AutoCompactPercent` is the share of the context window, in percent,
+at which the session compacts itself without being asked. Zero means it never
+does, and 1 to 100 is the threshold. `ValidateAutoCompactPercent` checks it.
 
 ## Model routing
 
