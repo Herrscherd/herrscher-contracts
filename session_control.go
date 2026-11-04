@@ -169,6 +169,10 @@ type SessionInfo struct {
 	// [ValidateAutoCompactPercent] where the host produces it; JSON decoding does
 	// not validate it.
 	AutoCompactPercent int `json:"AutoCompactPercent"`
+	// ContextWindow is the context window size, in tokens, that the host resolved
+	// for the session's vendor. A frontend divides ContextTokens by it to show an
+	// occupancy. Zero when the host did not resolve it, such as an older daemon.
+	ContextWindow int `json:"ContextWindow"`
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's

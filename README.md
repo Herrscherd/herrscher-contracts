@@ -148,6 +148,10 @@ at which the session compacts itself without being asked. Zero means it never
 does, and 1 to 100 is the threshold. The host checks it with
 `ValidateAutoCompactPercent` where it produces the value; JSON decoding does not.
 
+`SessionInfo.ContextWindow` is the context window size, in tokens, that the host
+resolved for the session's vendor. Zero means the host did not resolve it, as an
+older daemon does, and a frontend falls back to its own size.
+
 ## Model routing
 
 A backend declares the models it knows how to run in `Manifest.Models`
