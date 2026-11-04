@@ -26,8 +26,8 @@ type Compactor interface {
 }
 
 // CompactTrigger says why a compaction runs. It is a closed set whose zero value
-// is not a trigger: [ParseCompactTrigger] never returns it, and it does not
-// marshal.
+// is not a trigger: [ParseCompactTrigger] never returns it, and the zero value
+// does not marshal.
 type CompactTrigger int
 
 const (
@@ -112,7 +112,8 @@ type CompactRequest struct {
 	Session SessionInfo
 	Trigger CompactTrigger
 	// UsageMeasured is true when TokensUsed and TokenLimit come from a measured
-	// context window. RunCompactStack turns it on once a stage measures its tokens.
+	// context window. RunCompactStack normalises it on entry, then sets it to
+	// whether the request has a TokenLimit once a stage measures its tokens.
 	UsageMeasured bool
 	TokensUsed    int
 	TokenLimit    int
