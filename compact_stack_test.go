@@ -240,3 +240,19 @@ func TestRunCompactStackToleratesANilEventHandler(t *testing.T) {
 		t.Fatalf("RunCompactStack() error = %v", err)
 	}
 }
+
+func TestRunCompactStackDropsAnInitialUsageMeasuredWithoutATokenLimit(t *testing.T) {
+	var seen []CompactRequest
+	var ran []string
+	stages := []CompactStage{
+		recordingStage("unmeasured", CompactResult{}, nil, &seen, &ran),
+		recordingStage("after", CompactResult{}, nil, &seen, &ran),
+	}
+	request := CompactRequest{UsageMeasured: true, TokensUsed: 1000, TokenLimit: 0}
+	if _, err := RunCompactStack(t.Context(), stages, request, ignoreEvents); err != nil {
+		t.Fatalf("RunCompactStack() error = %v", err)
+	}
+	if seen[1].UsageMeasured {
+		t.Fatalf("second stage saw UsageMeasured = true with TokenLimit 0, want false: the request's flag is not trusted without a window")
+	}
+}

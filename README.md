@@ -123,8 +123,9 @@ configured order with `RunCompactStack`:
 
 - each stage receives the usage the previous one left, its `TokensAfter` when
   `TokensMeasured` is true, and the usage it was given otherwise. The first
-  measured stage turns `UsageMeasured` on when the request has a `TokenLimit`,
-  and `TokensUsed` and `TokenLimit` are read only while it is on;
+  measured stage sets `UsageMeasured` to whether the request has a `TokenLimit`
+  (the request's own flag is normalised the same way on entry), and `TokensUsed`
+  and `TokenLimit` are read only while it is on;
 - the context is checked before each stage, so a cancelled context stops the
   stack before the next stage runs;
 - a stage whose result is `Done` stops the stack, and its result is returned;
