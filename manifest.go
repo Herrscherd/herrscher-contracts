@@ -53,6 +53,12 @@ type Capabilities struct {
 	// asked for approvals anyway. It belongs to the plugin because the plugin is
 	// what knows the reason. Empty for a backend that does gate.
 	GateWhy string
+	// Compactor is true when the live instance implements [Compactor], and it must
+	// match that implementation. The host reads it before instantiating the plugin,
+	// so a stage can be named and checked in a configuration without starting a
+	// backend to ask. The host must report a plugin that declares it without
+	// implementing Compactor, never ignore the mismatch silently.
+	Compactor bool
 }
 
 // Status is a plugin's own claim about its maturity. It exists so maturity is

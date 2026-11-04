@@ -25,6 +25,7 @@ it is absent.
 | `ChoiceAware` | `backend.go` | optional | `PendingChoice()`: the turn is blocked on an interactive pick |
 | `ChoiceInjector` | `backend.go` | optional | `InjectChoice` answers that pick out of band |
 | `SkillNative` | `skill.go` | optional | `NativeSkills()`: the backend loads skills itself, so the host skips injection |
+| `Compactor` | `compaction.go` | optional | `Compact(ctx, CompactRequest, onEvent)` shortens a session's context. A backend's is its default, a plugin's is a custom stage |
 
 ### Channel edge
 
@@ -74,6 +75,8 @@ it is absent.
 | `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | the model catalog a backend declares, its route, and the policy that bounds it, plus `ValidateModels`, `FilterModels`, `GatewayCreds` and `NewGatewayCreds` |
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
+| `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports |
+| `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
 
 ## Registration and config
 
@@ -107,6 +110,43 @@ The host calls it apart from the port factory, so a gateway that never
 instantiates for want of a token still ships its playbook. A factory that returns
 an error installs nothing, which is how a plugin declines on a machine that lacks
 the tool its playbook describes.
+
+## Compaction
+
+A backend that implements `Compactor` compacts its own sessions: for Claude that
+is `/compact`. A plugin may also implement it, to offer a custom step. The
+manifest declares it with `Capabilities.Compactor`, so a stack can be checked
+before any plugin is instantiated.
+
+A session's compaction is a stack of `CompactStage`s that the host runs in its
+configured order with `RunCompactStack`:
+
+- each stage receives the usage the previous one left, its `TokensAfter` when
+  `TokensMeasured` is true, and the usage it was given otherwise. The first
+  measured stage sets `UsageMeasured` to whether the request has a `TokenLimit`
+  (the request's own flag is normalised the same way on entry), and `TokensUsed`
+  and `TokenLimit` are read only while it is on;
+- the context is checked before each stage, so a cancelled context stops the
+  stack before the next stage runs;
+- a stage whose result is `Done` stops the stack, and its result is returned;
+- a failing stage, or one whose `Compactor` is nil (`ErrNilCompactor`), stops the
+  stack, and its error is returned wrapped with the stage's name, so `errors.Is`
+  still matches the cause. The stages before it keep their effect;
+- the stage named `CompactStageBackend` is the session's own backend compaction;
+- a nil `onEvent` is replaced by one that drops the events.
+
+The host calls `Compact` only while it holds the turn of the session, under the
+same exclusion as `Respond`. The host renders the outcome (the note, the tokens
+before and after) to the gateways, not the stage. Progress goes through the
+`onEvent` callback, as for `Respond`.
+
+`CompactTrigger` marshals to its text form (`"manual"`, `"automatic"`), and
+refuses to marshal a value that names no trigger.
+
+`SessionInfo.AutoCompactPercent` is the share of the context window, in percent,
+at which the session compacts itself without being asked. Zero means it never
+does, and 1 to 100 is the threshold. The host checks it with
+`ValidateAutoCompactPercent` where it produces the value; JSON decoding does not.
 
 ## Model routing
 
