@@ -165,7 +165,7 @@ type SessionInfo struct {
 	ContextTokens int `json:"ContextTokens"`
 	// AutoCompactPercent is the share of the context window, in percent, at which
 	// the session compacts itself without being asked. Zero means it never does.
-	AutoCompactPercent int `json:"auto_compact_percent"`
+	AutoCompactPercent int `json:"AutoCompactPercent"`
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's

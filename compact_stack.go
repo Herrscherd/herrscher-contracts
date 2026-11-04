@@ -12,7 +12,7 @@ import (
 const CompactStageBackend = "backend"
 
 // CompactStage is one step of a compaction stack: the name it is configured
-// under, and the Compactor that runs it. Compactor must not be nil.
+// under, and the Compactor that runs it.
 type CompactStage struct {
 	Name      string
 	Compactor Compactor
@@ -22,6 +22,10 @@ type CompactStage struct {
 // Match it with errors.Is.
 var ErrNoCompactStage = errors.New("no compaction stage")
 
+// ErrNilCompactor is returned by [RunCompactStack] when a stage has no Compactor.
+// Match it with errors.Is.
+var ErrNilCompactor = errors.New("nil compactor")
+
 // RunCompactStack runs stages in order against req, and returns the result of the
 // last stage that ran.
 //
@@ -29,9 +33,10 @@ var ErrNoCompactStage = errors.New("no compaction stage")
 // was measured, and the usage it was given otherwise. The stack stops at the first
 // stage whose result is Done, and returns that result. A stage that fails stops
 // the stack, and its error is returned wrapped with the stage's Name, so
-// errors.Is still matches the cause. The stages before the failing one have
+// errors.Is still matches the cause. A stage whose Compactor is nil fails with
+// [ErrNilCompactor] in the same way. The stages before the failing one have
 // already run, and their effect on the conversation is not undone. An empty stack
-// returns [ErrNoCompactStage]. A stage with a nil Compactor panics.
+// returns [ErrNoCompactStage].
 func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequest) (CompactResult, error) {
 	if len(stages) == 0 {
 		return CompactResult{}, ErrNoCompactStage
@@ -39,7 +44,7 @@ func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequ
 	var result CompactResult
 	for _, stage := range stages {
 		var err error
-		result, err = stage.Compactor.Compact(ctx, req)
+		result, err = runCompactStage(ctx, stage, req)
 		if err != nil {
 			return CompactResult{}, fmt.Errorf("compaction stage %q: %w", stage.Name, err)
 		}
@@ -51,4 +56,11 @@ func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequ
 		}
 	}
 	return result, nil
+}
+
+func runCompactStage(ctx context.Context, stage CompactStage, req CompactRequest) (CompactResult, error) {
+	if stage.Compactor == nil {
+		return CompactResult{}, ErrNilCompactor
+	}
+	return stage.Compactor.Compact(ctx, req)
 }

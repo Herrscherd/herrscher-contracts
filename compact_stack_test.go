@@ -121,3 +121,20 @@ func TestRunCompactStackRefusesAnEmptyStack(t *testing.T) {
 		t.Fatalf("RunCompactStack(nil) error = %v, want ErrNoCompactStage", err)
 	}
 }
+
+func TestRunCompactStackRefusesANilCompactorAndStopsThere(t *testing.T) {
+	var seen []CompactRequest
+	var ran []string
+	stages := []CompactStage{
+		recordingStage("first", CompactResult{}, nil, &seen, &ran),
+		{Name: "unwired"},
+		recordingStage("never", CompactResult{}, nil, &seen, &ran),
+	}
+	_, err := RunCompactStack(t.Context(), stages, CompactRequest{})
+	if !errors.Is(err, ErrNilCompactor) {
+		t.Fatalf("RunCompactStack() error = %v, want ErrNilCompactor", err)
+	}
+	if want := []string{"first"}; !slices.Equal(ran, want) {
+		t.Fatalf("stages ran %v, want %v", ran, want)
+	}
+}
