@@ -31,6 +31,21 @@ func TestMergeDiscoveredDropsSameArgOnSameRoute(t *testing.T) {
 	}
 }
 
+func TestMergeDiscoveredDropsDuplicateAmongDiscovered(t *testing.T) {
+	discovered := []ModelSpec{
+		{ID: "dup-a", Label: "A", Arg: "same-arg", Route: RouteNative},
+		{ID: "dup-b", Label: "B", Arg: "same-arg", Route: RouteNative},
+	}
+
+	merged, err := MergeDiscovered("v", nil, discovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(merged) != 1 || merged[0].ID != "dup-a" {
+		t.Fatalf("same route and arg listed twice: %+v", merged)
+	}
+}
+
 func TestMergeDiscoveredNewModelHasDerivedLabelAndNoPrice(t *testing.T) {
 	discovered := []ModelSpec{
 		{ID: "new-with-label", Label: "New One", Arg: "new-with-label", Efforts: []string{"low"}, Route: RouteNative, InputPrice: 7},

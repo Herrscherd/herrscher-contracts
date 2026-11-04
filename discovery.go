@@ -22,7 +22,7 @@ func MergeDiscovered(kind string, static, discovered []ModelSpec) ([]ModelSpec, 
 	}
 	merged := append([]ModelSpec{}, static...)
 	for _, spec := range named {
-		if isListed(static, spec) {
+		if isListed(merged, spec) {
 			continue
 		}
 		merged = append(merged, withoutPrice(spec))
