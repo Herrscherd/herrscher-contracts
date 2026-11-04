@@ -33,7 +33,7 @@ func TestMergeDiscoveredDropsSameArgOnSameRoute(t *testing.T) {
 
 func TestMergeDiscoveredNewModelHasDerivedLabelAndNoPrice(t *testing.T) {
 	discovered := []ModelSpec{
-		{ID: "new-with-label", Label: "New One", Arg: "new-with-label", Efforts: []string{"low"}, Route: RouteNative},
+		{ID: "new-with-label", Label: "New One", Arg: "new-with-label", Efforts: []string{"low"}, Route: RouteNative, InputPrice: 7},
 		{ID: "new-without-label", Arg: "new-without-label", Route: RouteNative},
 	}
 
@@ -67,6 +67,19 @@ func TestMergeDiscoveredRejectsInvalidListAsAWhole(t *testing.T) {
 	}
 	if merged != nil {
 		t.Fatalf("partial merge returned: %+v", merged)
+	}
+}
+
+func TestMergeDiscoveredRejectsMalformedEntryWithStaticID(t *testing.T) {
+	static := []ModelSpec{{ID: "kept", Label: "Kept", Arg: "kept", Route: RouteNative}}
+	discovered := []ModelSpec{{ID: "kept", Label: "Kept", Arg: "kept", Route: "tunnel"}}
+
+	merged, err := MergeDiscovered("v", static, discovered)
+	if !errors.Is(err, ErrModelUnknownRoute) {
+		t.Fatalf("err = %v, want ErrModelUnknownRoute", err)
+	}
+	if merged != nil {
+		t.Fatalf("malformed entry silently accepted: %+v", merged)
 	}
 }
 
