@@ -198,6 +198,20 @@ The variable names are constants for the same reason: `EnvAnthropicBaseURL`,
 as a literal on both sides compiles green everywhere and fails only at run time,
 silently, by running natively on the user's own login.
 
+### Account profiles
+
+A profile is a second login the user owns for one vendor (a personal and a work
+account, say), each kept in its own directory. The host points the vendor CLI at
+that directory with one variable, given by `ProfileHomeEnv`: `CLAUDE_CONFIG_DIR`
+for claude, `CODEX_HOME` for codex. `ProfileEnv` builds that single entry.
+
+Cursor has no profile. Its CLI offers no variable that relocates its login on
+every platform, so `ProfileHomeEnv` refuses it with `ErrNoProfileHome`.
+
+`ParseProfileName` is the only way to a `ProfileName`. It refuses the reserved
+name `native`, which means no override at all, so the zero value of a profile
+field is the native login.
+
 ## Who is asking
 
 `WithPrincipal(ctx, "chat:1234")` marks a context as carrying the caller's
