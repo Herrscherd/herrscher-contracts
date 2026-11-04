@@ -31,8 +31,10 @@ var ErrNilCompactor = errors.New("nil compactor")
 // session, and it hands onEvent to every stage.
 //
 // Each stage receives the usage the previous one left: its TokensAfter when that
-// was measured, and the usage it was given otherwise. The first measured stage
-// turns UsageMeasured on for the stages after it. The stack stops at the first
+// was measured, and the usage it was given otherwise. A measured stage turns
+// UsageMeasured on for the stages after it, but only when the request carries a
+// TokenLimit: without one there is no window to read the usage against. A nil
+// onEvent is replaced by one that drops the events. The stack stops at the first
 // stage whose result is Done, and returns that result. The context is checked
 // before each stage: a cancelled context stops the stack before that stage runs.
 // A stage that fails, or whose Compactor is nil (ErrNilCompactor), stops the stack
@@ -42,6 +44,9 @@ var ErrNilCompactor = errors.New("nil compactor")
 func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequest, onEvent func(BackendEvent)) (CompactResult, error) {
 	if len(stages) == 0 {
 		return CompactResult{}, ErrNoCompactStage
+	}
+	if onEvent == nil {
+		onEvent = dropEvent
 	}
 	var result CompactResult
 	for _, stage := range stages {
@@ -55,11 +60,13 @@ func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequ
 		}
 		if result.TokensMeasured {
 			req.TokensUsed = result.TokensAfter
-			req.UsageMeasured = true
+			req.UsageMeasured = req.TokenLimit > 0
 		}
 	}
 	return result, nil
 }
+
+func dropEvent(BackendEvent) {}
 
 func runCompactStage(ctx context.Context, stage CompactStage, req CompactRequest, onEvent func(BackendEvent)) (CompactResult, error) {
 	if err := ctx.Err(); err != nil {

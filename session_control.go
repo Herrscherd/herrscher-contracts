@@ -165,8 +165,9 @@ type SessionInfo struct {
 	ContextTokens int `json:"ContextTokens"`
 	// AutoCompactPercent is the share of the context window, in percent, at which
 	// the session compacts itself without being asked. Zero means it never does, and
-	// 1 to 100 is the threshold. Any other value is invalid: see
-	// [ValidateAutoCompactPercent].
+	// 1 to 100 is the threshold. The value is validated by
+	// [ValidateAutoCompactPercent] where the host produces it; JSON decoding does
+	// not validate it.
 	AutoCompactPercent int `json:"AutoCompactPercent"`
 }
 

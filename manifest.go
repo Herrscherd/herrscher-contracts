@@ -56,8 +56,8 @@ type Capabilities struct {
 	// Compactor is true when the live instance implements [Compactor], and it must
 	// match that implementation. The host reads it before instantiating the plugin,
 	// so a stage can be named and checked in a configuration without starting a
-	// backend to ask. A plugin that declares it without implementing the port is
-	// reported by the host, never silently ignored.
+	// backend to ask. The host must report a plugin that declares it without
+	// implementing Compactor, never ignore the mismatch silently.
 	Compactor bool
 }
 

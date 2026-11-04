@@ -19,7 +19,7 @@ import (
 // process without a lock of its own. Progress goes through onEvent, which the host
 // always passes non-nil, as for Respond. The host renders the outcome to the
 // gateways (the note, the tokens before and after), not the stage. A backend that
-// does not implement Compactor has no default stage, and the host refuses the
+// does not implement Compactor has no default stage, and the host must refuse the
 // compaction before sending anything.
 type Compactor interface {
 	Compact(ctx context.Context, req CompactRequest, onEvent func(BackendEvent)) (CompactResult, error)
@@ -106,7 +106,8 @@ func (t CompactTrigger) isKnown() bool {
 // runs. A stage that follows another one receives the usage that one left, so
 // they are not the usage at the start of the stack. They are read only when
 // UsageMeasured is true: without it their zero values say nothing, and a stage
-// must not divide by TokenLimit.
+// must not divide by TokenLimit. UsageMeasured true guarantees that TokensUsed is
+// measured and that TokenLimit is greater than zero.
 type CompactRequest struct {
 	Session SessionInfo
 	Trigger CompactTrigger
@@ -141,7 +142,8 @@ var ErrAutoCompactPercentOutOfRange = errors.New("auto compact percent out of ra
 // ValidateAutoCompactPercent checks a SessionInfo.AutoCompactPercent: zero means no
 // automatic compaction, and 1 to 100 is the share of the window that triggers it.
 // Any other value returns an error matching [ErrAutoCompactPercentOutOfRange]. The
-// host calls it before it emits a session with that value.
+// host calls it where it produces the value, before it emits the session. JSON
+// decoding does not validate the value.
 func ValidateAutoCompactPercent(percent int) error {
 	if percent < 0 || percent > 100 {
 		return fmt.Errorf("%w: %d", ErrAutoCompactPercentOutOfRange, percent)

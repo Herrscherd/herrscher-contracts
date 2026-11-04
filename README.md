@@ -123,15 +123,16 @@ configured order with `RunCompactStack`:
 
 - each stage receives the usage the previous one left, its `TokensAfter` when
   `TokensMeasured` is true, and the usage it was given otherwise. The first
-  measured stage turns `UsageMeasured` on, and `TokensUsed` and `TokenLimit` are
-  read only while it is on;
+  measured stage turns `UsageMeasured` on when the request has a `TokenLimit`,
+  and `TokensUsed` and `TokenLimit` are read only while it is on;
 - the context is checked before each stage, so a cancelled context stops the
   stack before the next stage runs;
 - a stage whose result is `Done` stops the stack, and its result is returned;
 - a failing stage, or one whose `Compactor` is nil (`ErrNilCompactor`), stops the
   stack, and its error is returned wrapped with the stage's name, so `errors.Is`
   still matches the cause. The stages before it keep their effect;
-- the stage named `CompactStageBackend` is the session's own backend compaction.
+- the stage named `CompactStageBackend` is the session's own backend compaction;
+- a nil `onEvent` is replaced by one that drops the events.
 
 The host calls `Compact` only while it holds the turn of the session, under the
 same exclusion as `Respond`. The host renders the outcome (the note, the tokens
@@ -143,7 +144,8 @@ refuses to marshal a value that names no trigger.
 
 `SessionInfo.AutoCompactPercent` is the share of the context window, in percent,
 at which the session compacts itself without being asked. Zero means it never
-does, and 1 to 100 is the threshold. `ValidateAutoCompactPercent` checks it.
+does, and 1 to 100 is the threshold. The host checks it with
+`ValidateAutoCompactPercent` where it produces the value; JSON decoding does not.
 
 ## Model routing
 

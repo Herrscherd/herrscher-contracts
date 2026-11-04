@@ -90,7 +90,7 @@ func TestRunCompactStackMarksUsageMeasuredOnceAStageMeasuresIt(t *testing.T) {
 		recordingStage("measured", CompactResult{TokensAfter: 300, TokensMeasured: true}, nil, &seen, &ran),
 		recordingStage("after", CompactResult{}, nil, &seen, &ran),
 	}
-	if _, err := RunCompactStack(t.Context(), stages, CompactRequest{}, ignoreEvents); err != nil {
+	if _, err := RunCompactStack(t.Context(), stages, CompactRequest{TokenLimit: 8000}, ignoreEvents); err != nil {
 		t.Fatalf("RunCompactStack() error = %v", err)
 	}
 	if got := []bool{seen[0].UsageMeasured, seen[1].UsageMeasured, seen[2].UsageMeasured}; !slices.Equal(got, []bool{false, false, true}) {
@@ -197,5 +197,46 @@ func TestRunCompactStackForwardsProgressToEveryStage(t *testing.T) {
 	}
 	if want := []string{"first", "second"}; !slices.Equal(kinds, want) {
 		t.Fatalf("progress events %v, want %v", kinds, want)
+	}
+}
+
+func TestRunCompactStackDoesNotMarkUsageMeasuredWithoutATokenLimit(t *testing.T) {
+	var seen []CompactRequest
+	var ran []string
+	stages := []CompactStage{
+		recordingStage("measured", CompactResult{TokensAfter: 500, TokensMeasured: true}, nil, &seen, &ran),
+		recordingStage("after", CompactResult{}, nil, &seen, &ran),
+	}
+	if _, err := RunCompactStack(t.Context(), stages, CompactRequest{}, ignoreEvents); err != nil {
+		t.Fatalf("RunCompactStack() error = %v", err)
+	}
+	if seen[1].UsageMeasured {
+		t.Fatalf("second stage saw UsageMeasured = true with TokenLimit 0, want false: the usage has no window to be read against")
+	}
+}
+
+func TestRunCompactStackKeepsMeasuredUsageThroughAnUnmeasuredStage(t *testing.T) {
+	var seen []CompactRequest
+	var ran []string
+	stages := []CompactStage{
+		recordingStage("unmeasured", CompactResult{}, nil, &seen, &ran),
+		recordingStage("after", CompactResult{}, nil, &seen, &ran),
+	}
+	request := CompactRequest{UsageMeasured: true, TokensUsed: 1000, TokenLimit: 8000}
+	if _, err := RunCompactStack(t.Context(), stages, request, ignoreEvents); err != nil {
+		t.Fatalf("RunCompactStack() error = %v", err)
+	}
+	if !seen[1].UsageMeasured || seen[1].TokensUsed != 1000 {
+		t.Fatalf("second stage saw UsageMeasured %v and usage %d, want true and 1000", seen[1].UsageMeasured, seen[1].TokensUsed)
+	}
+}
+
+func TestRunCompactStackToleratesANilEventHandler(t *testing.T) {
+	emitting := CompactStage{Name: "emitting", Compactor: compactFunc(func(_ context.Context, _ CompactRequest, onEvent func(BackendEvent)) (CompactResult, error) {
+		onEvent(BackendEvent{Kind: "progress"})
+		return CompactResult{}, nil
+	})}
+	if _, err := RunCompactStack(t.Context(), []CompactStage{emitting}, CompactRequest{}, nil); err != nil {
+		t.Fatalf("RunCompactStack() error = %v", err)
 	}
 }
