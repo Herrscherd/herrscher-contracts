@@ -22,16 +22,31 @@ func TestSessionInfoJSONKeepsGoFieldNames(t *testing.T) {
 		LastTs:             "2026-11-03T10:00:00Z",
 		ContextTokens:      4200,
 		AutoCompactPercent: 92,
+		ContextWindow:      400000,
 	}
-	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92}`
+	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92,"ContextWindow":400000}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got SessionInfo
 		err := json.Unmarshal(raw, &got)
-		if err == nil && (got.Name != want.Name || got.ChannelID != want.ChannelID || len(got.Gateways) != len(want.Gateways) || got.ContextTokens != want.ContextTokens) {
+		if err == nil && (got.Name != want.Name || got.ChannelID != want.ChannelID || len(got.Gateways) != len(want.Gateways) || got.ContextTokens != want.ContextTokens || got.ContextWindow != want.ContextWindow) {
 			t.Fatalf("SessionInfo decoded to %+v, want %+v", got, want)
 		}
 		return got, err
 	})
+}
+
+func TestSessionInfoWithoutContextWindowDecodesToZero(t *testing.T) {
+	const oldDaemonJSON = `{"Name":"lead","Vendor":"codex","ContextTokens":4200,"AutoCompactPercent":92}`
+	var got SessionInfo
+	if err := json.Unmarshal([]byte(oldDaemonJSON), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.ContextWindow != 0 {
+		t.Fatalf("ContextWindow = %d from a message without the field, want 0", got.ContextWindow)
+	}
+	if got.ContextTokens != 4200 || got.AutoCompactPercent != 92 {
+		t.Fatalf("the other fields decoded to %+v", got)
+	}
 }
 
 func TestScrollbackLineJSONKeepsGoFieldNames(t *testing.T) {
