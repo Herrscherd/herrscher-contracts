@@ -183,6 +183,24 @@ forbids third-party developers from producing. Making that state unrepresentable
 is stronger than testing for it afterwards. The zero value stays constructible
 but is empty on both sides, so it is never a half-pair.
 
+### Discovery
+
+A backend that can list its models on the current machine sets
+`Plugin.Discover`, a `ModelDiscoverer`. It receives a `DiscoveryAccess` (the
+gateway pair the host holds, and a `Getenv` for the vendor's own key or
+settings) and returns what the vendor serves now. A vendor with no listing on
+this machine returns no models and no error, and the static catalog stands
+alone. An error is a failed attempt: the host logs it and keeps its last list.
+
+`MergeDiscovered(kind, static, discovered)` is the only way discovered models
+enter a catalog. It validates the discovered list as a whole, so one malformed
+entry rejects the lot and the static catalog is kept. A discovered model that
+the static list already names, by `ID` or by route and `Arg`, is dropped: the
+static entry keeps its label, price and efforts. A new model keeps the vendor's
+label, or takes its `ID`, and carries no `InputPrice`, since the catalog has no
+price for it. The host then applies `FilterModels` as it does to a static list,
+so under `gateway-only` a discovered native model stays absent.
+
 ### The spawn environment
 
 `MergeEnv`, `ParseEnvSetting` and `EncodeEnvSetting` carry the environment the
