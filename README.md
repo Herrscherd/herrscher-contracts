@@ -316,7 +316,8 @@ only part of the module with dependencies beyond the standard library:
 - `Catalog.Message(lang, key, params)` renders a message. A `{{.Name}}` field with
   no entry in `params` is an error. Every entry of `params` must be a scalar: a
   string, a bool, an integer (`int`, `int8` to `int64`, `uint`, `uint8` to `uint64`) or
-  a float (`float32`, `float64`), named types of those kinds included. Any other value,
+  a float (`float32`, `float64`), of exactly these types: a named type such as `Language`
+  is refused, so the caller passes its underlying value. Any other value,
   nil untyped or typed, pointer, slice, map, struct or func, is refused with
   `ErrParamType` even when the message does not use that field, because the template
   would render it as text such as `<nil>` or `[]`. A key missing in a language renders in English, and a

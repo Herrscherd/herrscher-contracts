@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"maps"
-	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -104,8 +103,9 @@ func parseMessage(message *goi18n.Message) error {
 // Message renders the text of key in lang. Each params entry fills the {{.Name}}
 // field of that name, and an entry named Count also selects the CLDR plural form.
 // A field with no entry in params is an error. Every entry of params must be a scalar:
-// a string, a bool, an integer or a float, named types of those kinds included. Any other
-// value is refused with ErrParamType, even when the message does not use that field.
+// a string, a bool, an integer or a float, of exactly these types. A named type such as
+// Language is refused, so the caller passes its underlying value. Any other value is
+// refused with ErrParamType, even when the message does not use that field.
 // A key missing in lang renders in English and logs a warning once per key and
 // language. A key missing in every language returns the key itself and logs a
 // warning once. It returns an error for an unsupported language, or for a message
@@ -146,11 +146,11 @@ func refuseNonScalarParams(params map[string]any) error {
 }
 
 func isScalar(value any) bool {
-	switch reflect.ValueOf(value).Kind() {
-	case reflect.String, reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
+	switch value.(type) {
+	case string, bool,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
 		return true
 	default:
 		return false

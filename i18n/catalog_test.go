@@ -249,6 +249,9 @@ func TestMessageRefusesNonScalarParams(t *testing.T) {
 		{"nil Count", i18n.English, "session.count", map[string]any{"Count": nil}, "Count", "<nil>"},
 		{"nil beside a value", i18n.French, "session.name", map[string]any{"Name": "Atlas", "Title": nil}, "Title", "<nil>"},
 		{"unused non-scalar", i18n.English, "session.name", map[string]any{"Name": "Atlas", "Title": []string{"x"}}, "Title", "[]string"},
+		{"named string", i18n.English, "session.name", map[string]any{"Name": sessionLabel("Atlas")}, "Name", "sessionLabel"},
+		{"named int", i18n.English, "session.name", map[string]any{"Name": sessionRank(7)}, "Name", "sessionRank"},
+		{"named Language", i18n.English, "session.name", map[string]any{"Name": i18n.French}, "Name", "i18n.Language"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -268,15 +271,13 @@ func TestMessageAcceptsScalarParams(t *testing.T) {
 	scalars := []any{
 		"Atlas", true, 1, int8(1), int16(1), int32(1), int64(1),
 		uint(1), uint8(1), uint16(1), uint32(1), uint64(1), float32(1.5), 1.5,
-		sessionLabel("Atlas"), sessionRank(7),
 	}
 	for _, value := range scalars {
 		if _, err := catalog.Message(i18n.English, "session.name", map[string]any{"Name": value}); err != nil {
 			t.Fatalf("Message with Name %v (%T) returned error %v", value, value, err)
 		}
 	}
-	assertMessage(t, catalog, i18n.English, "session.name", map[string]any{"Name": sessionLabel("Atlas")}, "Session Atlas")
-	assertMessage(t, catalog, i18n.English, "session.name", map[string]any{"Name": sessionRank(7)}, "Session 7")
+	assertMessage(t, catalog, i18n.English, "session.name", map[string]any{"Name": int64(7)}, "Session 7")
 }
 
 func TestMessageWarningsAreBounded(t *testing.T) {
