@@ -191,3 +191,34 @@ func TestMergeDiscoveredIgnoresInvalidDiscardedPrices(t *testing.T) {
 		t.Fatalf("MergeDiscovered = %+v, want both models", merged)
 	}
 }
+
+func TestMergeDiscoveredNegativeWindowIsUnknownAndKeepsList(t *testing.T) {
+	discovered := []ModelSpec{
+		{ID: "bad", Arg: "bad", Route: RouteNative, ContextWindow: -1},
+		{ID: "good", Arg: "good", Route: RouteNative, ContextWindow: 8000},
+	}
+
+	merged, err := MergeDiscovered("v", nil, discovered)
+	if err != nil {
+		t.Fatalf("MergeDiscovered rejected the list over a negative window: %v", err)
+	}
+	if len(merged) != 2 || merged[0].ContextWindow != 0 || merged[1].ContextWindow != 8000 {
+		t.Fatalf("MergeDiscovered = %+v, want both models with the bad window as unknown", merged)
+	}
+}
+
+func TestMergeDiscoveredMatchesStaticByIDBeforeRouteAndArg(t *testing.T) {
+	static := []ModelSpec{
+		{ID: "a", Label: "A", Arg: "x", Route: RouteNative},
+		{ID: "b", Label: "B", Arg: "b", Route: RouteNative},
+	}
+	discovered := []ModelSpec{{ID: "b", Arg: "x", Route: RouteNative, ContextWindow: 5}}
+
+	merged, err := MergeDiscovered("v", static, discovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if merged[0].ContextWindow != 0 || merged[1].ContextWindow != 5 {
+		t.Fatalf("window went to the wrong static entry: a=%d b=%d, want a=0 b=5", merged[0].ContextWindow, merged[1].ContextWindow)
+	}
+}

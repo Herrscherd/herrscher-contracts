@@ -213,10 +213,11 @@ func FilterModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
 // the Hidden ones. It never resolves an ID; use FilterModels for that. The
 // result is always non-nil.
 func SelectableModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
-	out := make([]ModelSpec, 0, len(models))
-	for index := range models {
-		if policy.Allows(models[index].Route) && !models[index].Hidden {
-			out = append(out, models[index])
+	allowed := FilterModels(models, policy)
+	out := make([]ModelSpec, 0, len(allowed))
+	for index := range allowed {
+		if !allowed[index].Hidden {
+			out = append(out, allowed[index])
 		}
 	}
 	return out

@@ -46,14 +46,21 @@ func prepareDiscovered(discovered []ModelSpec) []ModelSpec {
 			named[index].Label = named[index].ID
 		}
 		clearPrices(&named[index])
+		if named[index].ContextWindow < 0 {
+			named[index].ContextWindow = 0
+		}
 	}
 	return named
 }
 
 func listedPosition(static []ModelSpec, spec ModelSpec) (int, bool) {
 	for index := range static {
-		known := &static[index]
-		if known.ID == spec.ID || (known.Route == spec.Route && known.Arg == spec.Arg) {
+		if static[index].ID == spec.ID {
+			return index, true
+		}
+	}
+	for index := range static {
+		if static[index].Route == spec.Route && static[index].Arg == spec.Arg {
 			return index, true
 		}
 	}

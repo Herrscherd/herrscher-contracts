@@ -213,7 +213,7 @@ alone. An error is a failed attempt: the host logs it and keeps its last list.
 `MergeDiscovered(kind, static, discovered)` is the only way discovered models
 enter a catalog. It validates the discovered list as a whole, so one malformed
 entry rejects the lot and the static catalog is kept. A discovered model that
-the static list already names, by `ID` or by route and `Arg`, is dropped: the
+the static list already names, by `ID` first and then by route and `Arg`, is dropped: the
 static entry keeps its label, price and efforts. A new model keeps the vendor's
 label, or takes its `ID`. The four prices (`InputPrice`, `OutputPrice`,
 `CacheReadPrice`, `CacheWritePrice`) are always reset to zero on a discovered
@@ -221,6 +221,7 @@ model, since a gateway price is ours and the discovery does not know it. They ar
 discarded before validation, so a bad price on a discovered model never rejects
 the list. The `ContextWindow` is kept: a new model takes it, and a static model
 takes it when it is non-zero, while its label and prices stay as they are. A
+negative window is read as unknown (0) and does not reject the list. A
 static `Hidden` model that discovery lists again stays hidden. The host then
 applies `FilterModels` as it does to a static list, so under `gateway-only` a
 discovered native model stays absent.
