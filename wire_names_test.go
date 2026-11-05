@@ -66,6 +66,30 @@ func TestSessionInfoWithoutLanguageDecodesToUnknown(t *testing.T) {
 	}
 }
 
+func TestPromptJSONKeepsLanguageAsItsNumber(t *testing.T) {
+	want := Prompt{Content: "bonjour", Author: "shan", ChannelID: "chan-9", Language: i18n.French}
+	const wantJSON = `{"Content":"bonjour","Context":"","Author":"shan","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2}`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got Prompt
+		err := json.Unmarshal(raw, &got)
+		if err == nil && got.Language != want.Language {
+			t.Fatalf("Prompt decoded Language %v, want %v", got.Language, want.Language)
+		}
+		return got, err
+	})
+}
+
+func TestPromptWithoutLanguageDecodesToUnknown(t *testing.T) {
+	const oldHostJSON = `{"Content":"bonjour","Author":"shan"}`
+	var got Prompt
+	if err := json.Unmarshal([]byte(oldHostJSON), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Language != 0 {
+		t.Fatalf("Language = %v from a message without the field, want the zero value", got.Language)
+	}
+}
+
 func TestScrollbackLineJSONKeepsGoFieldNames(t *testing.T) {
 	want := ScrollbackLine{Role: "user", Text: "hello"}
 	const wantJSON = `{"Role":"user","Text":"hello"}`

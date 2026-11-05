@@ -182,8 +182,10 @@ type SessionInfo struct {
 	// ContextWindow is the context window size, in tokens, that the host resolved
 	// for the session's vendor. A frontend divides ContextTokens by it to show an
 	// occupancy. Zero when the host did not resolve it, such as an older daemon.
-	ContextWindow int           `json:"ContextWindow"`
-	Language      i18n.Language `json:"Language"`
+	ContextWindow int `json:"ContextWindow"`
+	// Language is the language of the session. Zero means unknown: the reader falls
+	// back to the operator's default language.
+	Language i18n.Language `json:"Language"`
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's
