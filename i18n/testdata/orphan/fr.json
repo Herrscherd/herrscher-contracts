@@ -1,0 +1,10 @@
+[
+  {
+    "id": "session.archived",
+    "other": "Session archivée"
+  },
+  {
+    "id": "session.deleted",
+    "other": "Session supprimée"
+  }
+]

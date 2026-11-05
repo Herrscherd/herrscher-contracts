@@ -48,6 +48,7 @@ func TestCheckRefusesViolations(t *testing.T) {
 		{"different fields", "params", "uses fields [Title], English uses [Name]"},
 		{"template function", "functions", `function "printf" not defined`},
 		{"control structure", "control", "only {{.Name}} fields are allowed"},
+		{"orphan key", "orphan", `message "session.deleted" in fr is not defined in English`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

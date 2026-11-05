@@ -34,8 +34,9 @@ type fieldSets map[i18n.Language]map[string]map[string]struct{}
 // i18n.Messages. Every key of English must be defined in each supported language,
 // with the plural forms that language needs when the English message is plural.
 // Every language must use the same {{.Name}} fields as English, and a message
-// holds nothing but such fields. Each violation is reported with Errorf, and a
-// source that cannot be read stops the test with Fatalf.
+// holds nothing but such fields. Every key a language defines must also exist in
+// English, so an orphan key is refused. Each violation is reported with Errorf,
+// and a source that cannot be read stops the test with Fatalf.
 func Check(reporter TB, sources ...fs.FS) {
 	reporter.Helper()
 	messages, err := i18n.Messages(sources...)
@@ -46,6 +47,18 @@ func Check(reporter TB, sources ...fs.FS) {
 	fields := collectFields(reporter, messages)
 	for _, key := range sortedKeys(messages[i18n.English]) {
 		checkKey(reporter, messages, fields, key)
+	}
+	checkOrphans(reporter, messages)
+}
+
+func checkOrphans(reporter TB, messages map[i18n.Language]map[string]*goi18n.Message) {
+	reporter.Helper()
+	for _, lang := range i18n.Languages() {
+		for _, key := range sortedKeys(messages[lang]) {
+			if _, defined := messages[i18n.English][key]; !defined {
+				reporter.Errorf("message %q in %s is not defined in English", key, lang)
+			}
+		}
 	}
 }
 
