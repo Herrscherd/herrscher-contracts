@@ -353,7 +353,13 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `Code` is a closed `uint16` enum: `CodeSessionNotFound`, `CodeSessionExists`,
   `CodeUnknownAgent`, `CodeSessionCreated`, `CodeSessionClosed`, `CodeUnexpected`,
   `CodeSettingInvalid`, `CodeSettingMissing`, `CodeNodeMerged`, `CodeCompactUnavailable`,
-  `CodeCompacted`, `CodeAddressPlaintextRefused`.
+  `CodeCompacted`, `CodeAddressPlaintextRefused`, the compaction reasons
+  `CodeCompactTimeoutInvalid`, `CodeCompactInstructionRefused` and `CodeCompactNoThread`,
+  and the transport and announcement codes `CodeTransportTLSNotConfigured`,
+  `CodeTransportAnnounceKeyMissing`, `CodeTransportAnnounceKeyWeak`,
+  `CodeTransportAnnounceAddrRefused`, `CodeTransportAnnounceUnusable`,
+  `CodeTransportAnnounceUnauthenticated`, `CodeTransportAnnounceStale`,
+  `CodeTransportAnnounceOversized` and `CodeTransportAnnounceMalformed`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -362,7 +368,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   codes, `Detail` for `CodeUnexpected`, `Setting` and `Value` for
   `CodeSettingInvalid`, `Settings` for `CodeSettingMissing`, `Reason` for
   `CodeCompactUnavailable`, `Address` for `CodeAddressPlaintextRefused`, and none
-  for `CodeNodeMerged` and `CodeCompacted`. Each parameter declares its kind, and
+  for `CodeNodeMerged`, `CodeCompacted` and the codes added in v0.20.0, which
+  carry no argument. Each parameter declares its kind, and
   every one is a `Text`. `Settings` is a text the caller composes, for instance the
   names of the missing settings joined with `, `: it is not a list, and the text is
   shown as it is.

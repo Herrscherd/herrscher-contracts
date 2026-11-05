@@ -58,5 +58,65 @@
     "id": "address.plaintext_refused",
     "description": "A plaintext connection to a non-loopback address was refused",
     "other": "plaintext connection to {{.Address}} refused: TLS is required outside loopback"
+  },
+  {
+    "id": "compact.timeout_invalid",
+    "description": "The compaction timeout is not a positive duration",
+    "other": "context compaction unavailable: the compaction timeout must be a positive duration"
+  },
+  {
+    "id": "compact.instruction_refused",
+    "description": "The backend cannot take an instruction for a compaction",
+    "other": "context compaction unavailable: this backend cannot take an instruction for a compaction"
+  },
+  {
+    "id": "compact.no_thread",
+    "description": "No turn has run yet, so there is no context to compact",
+    "other": "context compaction unavailable: no turn has run yet, so there is nothing to compact"
+  },
+  {
+    "id": "transport.tls_not_configured",
+    "description": "A connection requires TLS and TLS is not configured",
+    "other": "TLS is not configured"
+  },
+  {
+    "id": "transport.announce_key_missing",
+    "description": "No announce key is set",
+    "other": "no announce key is set"
+  },
+  {
+    "id": "transport.announce_key_weak",
+    "description": "The announce key is shorter than 32 bytes or all zero",
+    "other": "the announce key is shorter than 32 bytes or all zero"
+  },
+  {
+    "id": "transport.announce_addr_refused",
+    "description": "The announced address is refused by the allowlist, or no allowlist is set",
+    "other": "the announced address is refused by the allowlist, or no allowlist is set"
+  },
+  {
+    "id": "transport.announce_unusable",
+    "description": "An authentic announcement lacks an instance id, a category or a host:port address",
+    "other": "the announcement lacks an instance id, a category or a host:port address"
+  },
+  {
+    "id": "transport.announce_unauthenticated",
+    "description": "An announcement failed authentication",
+    "other": "the announcement failed authentication"
+  },
+  {
+    "id": "transport.announce_stale",
+    "description": "An announcement lies outside the freshness window",
+    "other": "the announcement is outside the freshness window"
+  },
+  {
+    "id": "transport.announce_oversized",
+    "description": "An announcement exceeds the size bound",
+    "other": "the announcement exceeds the size bound"
+  },
+  {
+    "id": "transport.announce_malformed",
+    "description": "An announcement is not a well-formed envelope",
+    "other": "the announcement is malformed"
   }
 ]

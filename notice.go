@@ -46,6 +46,30 @@ const (
 	// CodeAddressPlaintextRefused reports that a plaintext connection to Address
 	// was refused, because Address is not a loopback address and TLS is not set.
 	CodeAddressPlaintextRefused
+	// CodeCompactTimeoutInvalid reports that the compaction timeout is not a positive duration.
+	CodeCompactTimeoutInvalid
+	// CodeCompactInstructionRefused reports that the backend cannot take an instruction for a compaction.
+	CodeCompactInstructionRefused
+	// CodeCompactNoThread reports that no turn has run yet, so there is no context to compact.
+	CodeCompactNoThread
+	// CodeTransportTLSNotConfigured reports that a connection needs TLS and TLS is not configured.
+	CodeTransportTLSNotConfigured
+	// CodeTransportAnnounceKeyMissing reports that no announce key is set.
+	CodeTransportAnnounceKeyMissing
+	// CodeTransportAnnounceKeyWeak reports that the announce key is shorter than 32 bytes or all zero.
+	CodeTransportAnnounceKeyWeak
+	// CodeTransportAnnounceAddrRefused reports that the address of an announcement is refused by the allowlist, or that no allowlist is set.
+	CodeTransportAnnounceAddrRefused
+	// CodeTransportAnnounceUnusable reports that an announcement lacks an instance id, a category or a host:port address.
+	CodeTransportAnnounceUnusable
+	// CodeTransportAnnounceUnauthenticated reports that an announcement failed authentication.
+	CodeTransportAnnounceUnauthenticated
+	// CodeTransportAnnounceStale reports that an announcement lies outside the freshness window.
+	CodeTransportAnnounceStale
+	// CodeTransportAnnounceOversized reports that an announcement exceeds the size bound.
+	CodeTransportAnnounceOversized
+	// CodeTransportAnnounceMalformed reports that an announcement is not a well-formed envelope.
+	CodeTransportAnnounceMalformed
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -56,6 +80,10 @@ func Codes() []Code {
 		CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed, CodeUnexpected,
 		CodeSettingInvalid, CodeSettingMissing, CodeNodeMerged, CodeCompactUnavailable, CodeCompacted,
 		CodeAddressPlaintextRefused,
+		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread,
+		CodeTransportTLSNotConfigured, CodeTransportAnnounceKeyMissing, CodeTransportAnnounceKeyWeak,
+		CodeTransportAnnounceAddrRefused, CodeTransportAnnounceUnusable, CodeTransportAnnounceUnauthenticated,
+		CodeTransportAnnounceStale, CodeTransportAnnounceOversized, CodeTransportAnnounceMalformed,
 	}
 }
 
@@ -87,6 +115,30 @@ func (c Code) Key() string {
 		return "compaction.done"
 	case CodeAddressPlaintextRefused:
 		return "address.plaintext_refused"
+	case CodeCompactTimeoutInvalid:
+		return "compact.timeout_invalid"
+	case CodeCompactInstructionRefused:
+		return "compact.instruction_refused"
+	case CodeCompactNoThread:
+		return "compact.no_thread"
+	case CodeTransportTLSNotConfigured:
+		return "transport.tls_not_configured"
+	case CodeTransportAnnounceKeyMissing:
+		return "transport.announce_key_missing"
+	case CodeTransportAnnounceKeyWeak:
+		return "transport.announce_key_weak"
+	case CodeTransportAnnounceAddrRefused:
+		return "transport.announce_addr_refused"
+	case CodeTransportAnnounceUnusable:
+		return "transport.announce_unusable"
+	case CodeTransportAnnounceUnauthenticated:
+		return "transport.announce_unauthenticated"
+	case CodeTransportAnnounceStale:
+		return "transport.announce_stale"
+	case CodeTransportAnnounceOversized:
+		return "transport.announce_oversized"
+	case CodeTransportAnnounceMalformed:
+		return "transport.announce_malformed"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -105,7 +157,11 @@ func (c Code) params() (map[string]ArgKind, bool) {
 		return map[string]ArgKind{"Reason": ArgText}, true
 	case CodeAddressPlaintextRefused:
 		return map[string]ArgKind{"Address": ArgText}, true
-	case CodeNodeMerged, CodeCompacted:
+	case CodeNodeMerged, CodeCompacted,
+		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread,
+		CodeTransportTLSNotConfigured, CodeTransportAnnounceKeyMissing, CodeTransportAnnounceKeyWeak,
+		CodeTransportAnnounceAddrRefused, CodeTransportAnnounceUnusable, CodeTransportAnnounceUnauthenticated,
+		CodeTransportAnnounceStale, CodeTransportAnnounceOversized, CodeTransportAnnounceMalformed:
 		return nil, true
 	}
 	return nil, false

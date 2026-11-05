@@ -336,6 +336,21 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"unexpected error: boom",
 			"erreur inattendue : boom",
 		},
+		{
+			Notice{Code: CodeNodeMerged},
+			"this node is folded into an umbrella; restore it with force to detach it",
+			"ce nœud est replié dans un regroupement ; pour le détacher, restaure-le en forçant l'opération",
+		},
+		{
+			Notice{Code: CodeCompactNoThread},
+			"context compaction unavailable: no turn has run yet, so there is nothing to compact",
+			"compaction du contexte indisponible : aucun tour n'a encore été joué, il n'y a rien à compacter",
+		},
+		{
+			Notice{Code: CodeTransportAnnounceKeyWeak},
+			"the announce key is shorter than 32 bytes or all zero",
+			"la clé d'annonce fait moins de 32 octets ou ne contient que des zéros",
+		},
 	}
 	renderer := NewRenderer()
 	for _, tc := range cases {
@@ -435,18 +450,30 @@ func TestResultCarriesNoticeOrData(t *testing.T) {
 
 func TestCodeValuesAreFrozen(t *testing.T) {
 	frozen := map[Code]uint16{
-		CodeSessionNotFound:         1,
-		CodeSessionExists:           2,
-		CodeUnknownAgent:            3,
-		CodeSessionCreated:          4,
-		CodeSessionClosed:           5,
-		CodeUnexpected:              6,
-		CodeSettingInvalid:          7,
-		CodeSettingMissing:          8,
-		CodeNodeMerged:              9,
-		CodeCompactUnavailable:      10,
-		CodeCompacted:               11,
-		CodeAddressPlaintextRefused: 12,
+		CodeSessionNotFound:                  1,
+		CodeSessionExists:                    2,
+		CodeUnknownAgent:                     3,
+		CodeSessionCreated:                   4,
+		CodeSessionClosed:                    5,
+		CodeUnexpected:                       6,
+		CodeSettingInvalid:                   7,
+		CodeSettingMissing:                   8,
+		CodeNodeMerged:                       9,
+		CodeCompactUnavailable:               10,
+		CodeCompacted:                        11,
+		CodeAddressPlaintextRefused:          12,
+		CodeCompactTimeoutInvalid:            13,
+		CodeCompactInstructionRefused:        14,
+		CodeCompactNoThread:                  15,
+		CodeTransportTLSNotConfigured:        16,
+		CodeTransportAnnounceKeyMissing:      17,
+		CodeTransportAnnounceKeyWeak:         18,
+		CodeTransportAnnounceAddrRefused:     19,
+		CodeTransportAnnounceUnusable:        20,
+		CodeTransportAnnounceUnauthenticated: 21,
+		CodeTransportAnnounceStale:           22,
+		CodeTransportAnnounceOversized:       23,
+		CodeTransportAnnounceMalformed:       24,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))
