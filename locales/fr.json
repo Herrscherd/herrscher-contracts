@@ -36,13 +36,13 @@
   },
   {
     "id": "setting.missing",
-    "description": "Un réglage requis n'est pas défini",
-    "other": "le réglage {{.Setting}} doit être défini"
+    "description": "Des réglages requis ne sont pas définis",
+    "other": "ces réglages doivent être définis : {{.Settings}}"
   },
   {
     "id": "node.merged",
     "description": "Un nœud est replié dans un umbrella et ne peut pas être restauré avant d'être détaché",
-    "other": "ce nœud est replié dans un umbrella ; restaure-le avec force pour le détacher"
+    "other": "ce nœud est replié dans un umbrella ; restaure-le avec l'option force pour le détacher"
   },
   {
     "id": "compact.unavailable",
@@ -53,5 +53,10 @@
     "id": "compaction.done",
     "description": "Le contexte d'une session a été compacté",
     "other": "contexte compacté"
+  },
+  {
+    "id": "address.plaintext_refused",
+    "description": "Une connexion en clair vers une adresse hors boucle locale a été refusée",
+    "other": "connexion en clair vers {{.Address}} refusée : le TLS est requis hors boucle locale"
   }
 ]

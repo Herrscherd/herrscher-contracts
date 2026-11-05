@@ -31,16 +31,20 @@ const (
 	// CodeSettingInvalid reports that the setting Setting holds the value Value,
 	// which it does not accept.
 	CodeSettingInvalid
-	// CodeSettingMissing reports that the setting Setting must be set.
+	// CodeSettingMissing reports that the settings Settings must be set, in the
+	// order the list gives them.
 	CodeSettingMissing
 	// CodeNodeMerged reports that a node is folded into an umbrella and must be
 	// detached before it can be restored.
 	CodeNodeMerged
 	// CodeCompactUnavailable reports that a context compaction cannot run. Reason
-	// holds the technical reason, which is shown as is and never translated.
+	// holds the technical reason, given as a text argument.
 	CodeCompactUnavailable
 	// CodeCompacted reports that the context of the session was compacted.
 	CodeCompacted
+	// CodeAddressPlaintextRefused reports that a plaintext connection to Address
+	// was refused, because Address is not a loopback address and TLS is not set.
+	CodeAddressPlaintextRefused
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -50,6 +54,7 @@ func Codes() []Code {
 	return []Code{
 		CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed, CodeUnexpected,
 		CodeSettingInvalid, CodeSettingMissing, CodeNodeMerged, CodeCompactUnavailable, CodeCompacted,
+		CodeAddressPlaintextRefused,
 	}
 }
 
@@ -79,6 +84,8 @@ func (c Code) Key() string {
 		return "compact.unavailable"
 	case CodeCompacted:
 		return "compaction.done"
+	case CodeAddressPlaintextRefused:
+		return "address.plaintext_refused"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -92,9 +99,11 @@ func (c Code) params() ([]string, bool) {
 	case CodeSettingInvalid:
 		return []string{"Setting", "Value"}, true
 	case CodeSettingMissing:
-		return []string{"Setting"}, true
+		return []string{"Settings"}, true
 	case CodeCompactUnavailable:
 		return []string{"Reason"}, true
+	case CodeAddressPlaintextRefused:
+		return []string{"Address"}, true
 	case CodeNodeMerged, CodeCompacted:
 		return nil, true
 	}

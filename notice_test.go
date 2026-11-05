@@ -371,3 +371,28 @@ func TestResultCarriesNoticeOrData(t *testing.T) {
 		t.Fatal("DataResult(nil) must equal the zero result")
 	}
 }
+
+func TestCodeValuesAreFrozen(t *testing.T) {
+	frozen := map[Code]uint16{
+		CodeSessionNotFound:         1,
+		CodeSessionExists:           2,
+		CodeUnknownAgent:            3,
+		CodeSessionCreated:          4,
+		CodeSessionClosed:           5,
+		CodeUnexpected:              6,
+		CodeSettingInvalid:          7,
+		CodeSettingMissing:          8,
+		CodeNodeMerged:              9,
+		CodeCompactUnavailable:      10,
+		CodeCompacted:               11,
+		CodeAddressPlaintextRefused: 12,
+	}
+	if len(frozen) != len(Codes()) {
+		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))
+	}
+	for code, value := range frozen {
+		if uint16(code) != value {
+			t.Errorf("%s = %d, frozen at %d: a code value is part of the wire and must not move", code.Key(), uint16(code), value)
+		}
+	}
+}

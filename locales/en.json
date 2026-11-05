@@ -36,8 +36,8 @@
   },
   {
     "id": "setting.missing",
-    "description": "A setting that must be set is absent",
-    "other": "setting {{.Setting}} must be set"
+    "description": "Settings that must be set are absent",
+    "other": "these settings must be set: {{.Settings}}"
   },
   {
     "id": "node.merged",
@@ -53,5 +53,10 @@
     "id": "compaction.done",
     "description": "A session context was compacted",
     "other": "context compacted"
+  },
+  {
+    "id": "address.plaintext_refused",
+    "description": "A plaintext connection to a non-loopback address was refused",
+    "other": "plaintext connection to {{.Address}} refused: TLS is required outside loopback"
   }
 ]
