@@ -3,6 +3,8 @@ package contracts
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
 
 func TestSessionInfoJSONKeepsGoFieldNames(t *testing.T) {
@@ -23,8 +25,9 @@ func TestSessionInfoJSONKeepsGoFieldNames(t *testing.T) {
 		ContextTokens:      4200,
 		AutoCompactPercent: 92,
 		ContextWindow:      400000,
+		Language:           i18n.French,
 	}
-	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92,"ContextWindow":400000}`
+	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92,"ContextWindow":400000,"Language":2}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got SessionInfo
 		err := json.Unmarshal(raw, &got)
@@ -45,6 +48,20 @@ func TestSessionInfoWithoutContextWindowDecodesToZero(t *testing.T) {
 		t.Fatalf("ContextWindow = %d from a message without the field, want 0", got.ContextWindow)
 	}
 	if got.ContextTokens != 4200 || got.AutoCompactPercent != 92 {
+		t.Fatalf("the other fields decoded to %+v", got)
+	}
+}
+
+func TestSessionInfoWithoutLanguageDecodesToUnknown(t *testing.T) {
+	const oldDaemonJSON = `{"Name":"lead","Vendor":"claude","ContextWindow":400000}`
+	var got SessionInfo
+	if err := json.Unmarshal([]byte(oldDaemonJSON), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Language != 0 {
+		t.Fatalf("Language = %v from a message without the field, want the zero value", got.Language)
+	}
+	if got.ContextWindow != 400000 {
 		t.Fatalf("the other fields decoded to %+v", got)
 	}
 }

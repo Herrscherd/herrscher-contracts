@@ -1,6 +1,10 @@
 package contracts
 
-import "context"
+import (
+	"context"
+
+	"github.com/Herrscherd/herrscher-contracts/i18n"
+)
 
 // SessionControl is the neutral seam by which a gateway drives the running hub's
 // session lifecycle. The hub implements it; a gateway receives it via
@@ -25,8 +29,10 @@ type SessionControl interface {
 	// Dispatch does: a notice of CodeSessionCreated on success.
 	Create(ctx context.Context, spec CreateSession) (Result, error)
 	// Close tears a session down by name, the typed counterpart to a
-	// "session close" Dispatch. force discards an uncommitted worktree. It returns a
-	// Result as Dispatch does: a notice of CodeSessionClosed on success.
+	// "session close" Dispatch. force discards an uncommitted worktree. Without it,
+	// a worktree holding uncommitted changes is refused with an error whose Notice
+	// is CodeSessionCloseDirty. It returns a Result as Dispatch does: a notice of
+	// CodeSessionClosed on success.
 	Close(ctx context.Context, name string, force bool) (Result, error)
 	// Sessions returns a snapshot of the hub's sessions, for a gateway that needs
 	// to enumerate them (e.g. autocompleting a session name).
@@ -176,7 +182,8 @@ type SessionInfo struct {
 	// ContextWindow is the context window size, in tokens, that the host resolved
 	// for the session's vendor. A frontend divides ContextTokens by it to show an
 	// occupancy. Zero when the host did not resolve it, such as an older daemon.
-	ContextWindow int `json:"ContextWindow"`
+	ContextWindow int           `json:"ContextWindow"`
+	Language      i18n.Language `json:"Language"`
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's
