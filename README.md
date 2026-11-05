@@ -65,7 +65,7 @@ it is absent.
 
 | Port | File | What it does |
 |---|---|---|
-| `SessionControl` | `session_control.go` | `Dispatch` (returns a `Result`), `Create`, `Close`, `Sessions`, `Scrollback`, `Resume`, `Interrupt` |
+| `SessionControl` | `session_control.go` | `Dispatch`, `Create` and `Close` (return a `Result`), `Sessions`, `Scrollback`, `Resume`, `Interrupt` |
 | `Coordinator` | `coordinator.go` | `Handoff`, `Delegate`, `Report`, `Merge`, `Seal`, `FanOut`, `Route` |
 | `RosterProvider` | `roster.go` | `Agents()`, the agents a session may delegate to |
 | `Liveness` | `liveness.go` | `HeartbeatAck`, the sink for a gateway's keepalive |
@@ -394,6 +394,32 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 
 Log lines, CLI syntax and flags, protocol markers and the prompts sent to agents
 are not translated. They stay in English.
+
+## Migration
+
+The next release is one breaking release: every change below lands together.
+
+- `Cmd.Run` returns `(Result, error)` instead of `(string, error)`. Return
+  `NoticeResult(notice)` for a message to a human, or `DataResult(v)` for data
+  that a caller renders itself. `Builder.Do` takes the same signature.
+- `SessionControl.Dispatch`, `Create` and `Close` return `(Result, error)` instead
+  of `(string, error)`. Read the notice with `Result.Notice()`, or the data with
+  `Result.Data()`. When the error is not nil, the `Result` is ignored.
+- `Builder.Help`, `Builder.Param`, `Builder.ValueParam` and `Cmd.Help` take a
+  catalog key, not a sentence. The module that declares the command renders the
+  key in its own catalog. The Go compiler does not tell a key from a sentence:
+  both are strings, so a sentence left in place compiles. The CLI guard of PR 8
+  catches it.
+- `NoticeSink` is additive and optional. A gateway that implements
+  `Notify(ctx, conv, lang, notice)` receives the notice and its language. Without
+  it, `Degrade` renders the notice as text.
+
+Messages that have no code yet, successes included, get codes from the shared
+catalog in PRs 4 to 6. Until a message has its code, its text is not in the shared
+catalog. A success is never `CodeUnexpected`: it has its own code, such as
+`CodeSessionCreated` or `CodeSessionClosed`. Texts specific to one module (Discord,
+the terminal UI, the CLI) stay out of the shared catalog: the module builds its own
+catalog with `i18n.NewCatalog`, and checks it with `i18ntest`.
 
 ## Further reading
 
