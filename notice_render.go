@@ -53,5 +53,9 @@ func (r *Renderer) Render(lang i18n.Language, notice Notice) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return catalog.Message(lang, notice.Code.Key(), params)
+	key := notice.Code.Key()
+	if !catalog.Has(key) {
+		return "", fmt.Errorf("code %q: %w", key, ErrMissingMessage)
+	}
+	return catalog.Message(lang, key, params)
 }

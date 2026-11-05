@@ -112,6 +112,16 @@ func TestMessageWarnsOncePerKeyAndLanguageUnderConcurrency(t *testing.T) {
 	}
 }
 
+func TestHasReportsKeysDefinedInAnyLanguage(t *testing.T) {
+	catalog := newCatalog(t, discardLogger(), "complete")
+	if !catalog.Has("session.archived") {
+		t.Fatal("Has(session.archived) = false, want true")
+	}
+	if catalog.Has("nowhere.key") {
+		t.Fatal("Has(nowhere.key) = true, want false")
+	}
+}
+
 func TestMessageReturnsKeyWhenMissingEverywhere(t *testing.T) {
 	var logs bytes.Buffer
 	catalog := newCatalog(t, slog.New(slog.NewTextHandler(&logs, nil)), "complete")

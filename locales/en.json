@@ -15,6 +15,16 @@
     "other": "unknown agent: {{.Name}}"
   },
   {
+    "id": "session.created",
+    "description": "A session was created and is live",
+    "other": "session {{.Name}} created"
+  },
+  {
+    "id": "session.closed",
+    "description": "A session was closed",
+    "other": "session {{.Name}} closed"
+  },
+  {
     "id": "internal.unexpected",
     "description": "A failure without a code of its own, with its technical text",
     "other": "unexpected error: {{.Detail}}"

@@ -101,6 +101,17 @@ func parseMessage(message *goi18n.Message) error {
 	return nil
 }
 
+// Has reports whether key is defined in at least one language. A key that Has
+// reports false is the one Message returns as its own text.
+func (c *Catalog) Has(key string) bool {
+	for _, lang := range Languages() {
+		if _, err := c.render(lang, key, nil); !isMissing(err) {
+			return true
+		}
+	}
+	return false
+}
+
 // Message renders the text of key in lang. Each params entry fills the {{.Name}}
 // field of that name. A field with no entry in params is an error. Every entry of
 // params must be a scalar, of exactly these types: a string, a bool, an integer or a

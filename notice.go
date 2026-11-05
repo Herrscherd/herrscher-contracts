@@ -21,14 +21,20 @@ const (
 	CodeSessionExists
 	// CodeUnknownAgent reports that no agent is named Name.
 	CodeUnknownAgent
+	// CodeSessionCreated reports that the session Name was created and is live.
+	CodeSessionCreated
+	// CodeSessionClosed reports that the session Name was closed.
+	CodeSessionClosed
 	// CodeUnexpected reports a failure that has no code of its own. Detail holds
 	// its technical text, which is shown as is and never translated.
 	CodeUnexpected
 )
 
-// Codes returns every code, in declaration order.
+// Codes returns every code, in declaration order. Key and params switch over the
+// same constants: a constant added to one of them must be added here too, and
+// the test suite checks that no named constant is missing from this list.
 func Codes() []Code {
-	return []Code{CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeUnexpected}
+	return []Code{CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed, CodeUnexpected}
 }
 
 // Key returns the catalog key of the code. An out-of-set value returns its raw
@@ -41,6 +47,10 @@ func (c Code) Key() string {
 		return "session.exists"
 	case CodeUnknownAgent:
 		return "agent.unknown"
+	case CodeSessionCreated:
+		return "session.created"
+	case CodeSessionClosed:
+		return "session.closed"
 	case CodeUnexpected:
 		return "internal.unexpected"
 	}
@@ -49,7 +59,7 @@ func (c Code) Key() string {
 
 func (c Code) params() ([]string, bool) {
 	switch c {
-	case CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent:
+	case CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed:
 		return []string{"Name"}, true
 	case CodeUnexpected:
 		return []string{"Detail"}, true
@@ -78,6 +88,8 @@ const (
 	ArgRef
 )
 
+const countName = "Count"
+
 // Arg is one named argument of a Notice. Its zero value is malformed, and a
 // Notice that carries it is refused by Renderer.Render.
 type Arg struct {
@@ -93,7 +105,7 @@ func Text(name, value string) Arg {
 
 // Count returns the count argument, named Count, that selects the plural form.
 func Count(n int) Arg {
-	return Arg{name: "Count", kind: ArgCount, value: n}
+	return Arg{name: countName, kind: ArgCount, value: n}
 }
 
 // Ref returns the identifier argument named name of a platform object.
@@ -109,6 +121,13 @@ func (a Arg) Kind() ArgKind { return a.kind }
 
 // Value returns the string of a text or ref argument, or the int of a count.
 func (a Arg) Value() any { return a.value }
+
+func (a Arg) checkKind() error {
+	if (a.name == countName) != (a.kind == ArgCount) {
+		return fmt.Errorf("argument %q of kind %d: %w", a.name, uint8(a.kind), ErrNoticeArgs)
+	}
+	return nil
+}
 
 func (a Arg) param() (any, bool) {
 	switch a.kind {
@@ -142,6 +161,9 @@ var (
 	// its code declares: a malformed Arg, a name given twice, or a missing or
 	// unexpected name.
 	ErrNoticeArgs = errors.New("notice arguments do not match the code")
+	// ErrMissingMessage reports a code whose key the shared catalog does not define
+	// in any language, so no text could be shown to a human.
+	ErrMissingMessage = errors.New("no message for the code in any language")
 )
 
 func (n Notice) params() (map[string]any, error) {
@@ -154,6 +176,9 @@ func (n Notice) params() (map[string]any, error) {
 		value, valid := arg.param()
 		if !valid {
 			return nil, fmt.Errorf("argument %q of kind %d: %w", arg.name, uint8(arg.kind), ErrNoticeArgs)
+		}
+		if err := arg.checkKind(); err != nil {
+			return nil, err
 		}
 		if _, given := params[arg.name]; given {
 			return nil, fmt.Errorf("argument %q given twice: %w", arg.name, ErrNoticeArgs)

@@ -15,6 +15,16 @@
     "other": "agent inconnu : {{.Name}}"
   },
   {
+    "id": "session.created",
+    "description": "Une session vient d'être créée et est active",
+    "other": "session « {{.Name}} » créée"
+  },
+  {
+    "id": "session.closed",
+    "description": "Une session vient d'être fermée",
+    "other": "session « {{.Name}} » fermée"
+  },
+  {
     "id": "internal.unexpected",
     "description": "Un échec sans code propre, avec son texte technique",
     "other": "erreur inattendue : {{.Detail}}"

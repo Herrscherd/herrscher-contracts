@@ -3,11 +3,63 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
+
+func TestCodesAreExactlyTheNamedOnes(t *testing.T) {
+	listed := Codes()
+	for raw := 1; raw <= math.MaxUint16; raw++ {
+		code := Code(raw)
+		named := !strings.HasPrefix(code.Key(), "code.")
+		_, declared := code.params()
+		if inList := slices.Contains(listed, code); named != inList || named != declared {
+			t.Fatalf("code %d: named %v, declared %v, listed %v; Key, params and Codes must name the same constants", raw, named, declared, inList)
+		}
+	}
+}
+
+func TestArgKindMatchesName(t *testing.T) {
+	cases := []struct {
+		name  string
+		arg   Arg
+		valid bool
+	}{
+		{"count with the count kind", Count(1), true},
+		{"text named Count", Text(countName, "x"), false},
+		{"ref named Count", Ref(countName, "1"), false},
+		{"count kind under another name", Arg{name: "Name", kind: ArgCount, value: 1}, false},
+		{"text under another name", Text("Name", "x"), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.arg.checkKind()
+			if (err == nil) != tc.valid {
+				t.Fatalf("checkKind() = %v, want valid %v", err, tc.valid)
+			}
+			if err != nil && !errors.Is(err, ErrNoticeArgs) {
+				t.Fatalf("checkKind() = %v, want ErrNoticeArgs", err)
+			}
+		})
+	}
+}
+
+func TestRenderRefusesCodeWithoutMessage(t *testing.T) {
+	sources := fstest.MapFS{
+		"en.json": {Data: []byte(`[{"id":"session.exists","other":"a session named {{.Name}} already exists"}]`)},
+		"fr.json": {Data: []byte(`[{"id":"session.exists","other":"une session nommée « {{.Name}} » existe déjà"}]`)},
+	}
+	renderer := &Renderer{catalog: func() (*i18n.Catalog, error) { return i18n.NewCatalog(nil, sources) }}
+	text, err := renderer.Render(i18n.English, Notice{Code: CodeSessionNotFound, Args: []Arg{Text("Name", "x")}})
+	if !errors.Is(err, ErrMissingMessage) || text != "" {
+		t.Fatalf("Render of a code without message = %q, %v; want ErrMissingMessage and no text", text, err)
+	}
+}
 
 func TestCodeKeysAreDistinctAndNamed(t *testing.T) {
 	seen := make(map[string]Code)
@@ -73,6 +125,16 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			Notice{Code: CodeUnknownAgent, Args: []Arg{Text("Name", "x")}},
 			"unknown agent: x",
 			"agent inconnu : x",
+		},
+		{
+			Notice{Code: CodeSessionCreated, Args: []Arg{Text("Name", "x")}},
+			"session x created",
+			"session « x » créée",
+		},
+		{
+			Notice{Code: CodeSessionClosed, Args: []Arg{Text("Name", "x")}},
+			"session x closed",
+			"session « x » fermée",
 		},
 		{
 			Notice{Code: CodeUnexpected, Args: []Arg{Text("Detail", "boom")}},
@@ -170,5 +232,8 @@ func TestResultCarriesNoticeOrData(t *testing.T) {
 	}
 	if _, ok := (Result{}).Notice(); ok || (Result{}).Data() != nil {
 		t.Fatal("the zero result carries neither")
+	}
+	if DataResult(nil) != (Result{}) {
+		t.Fatal("DataResult(nil) must equal the zero result")
 	}
 }
