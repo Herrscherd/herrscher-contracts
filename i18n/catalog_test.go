@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
@@ -112,10 +113,20 @@ func TestMessageWarnsOncePerKeyAndLanguageUnderConcurrency(t *testing.T) {
 	}
 }
 
-func TestHasReportsKeysDefinedInAnyLanguage(t *testing.T) {
-	catalog := newCatalog(t, discardLogger(), "complete")
-	if !catalog.Has("session.archived") {
-		t.Fatal("Has(session.archived) = false, want true")
+func TestHasReportsKeysDefinedInEnglish(t *testing.T) {
+	sources := fstest.MapFS{
+		"en.json": {Data: []byte(`[{"id":"english.only","other":"english"}]`)},
+		"fr.json": {Data: []byte(`[{"id":"french.only","other":"français"}]`)},
+	}
+	catalog, err := i18n.NewCatalog(discardLogger(), sources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !catalog.Has("english.only") {
+		t.Fatal("Has(english.only) = false, want true")
+	}
+	if catalog.Has("french.only") {
+		t.Fatal("Has(french.only) = true, want false: a key without English text is not defined")
 	}
 	if catalog.Has("nowhere.key") {
 		t.Fatal("Has(nowhere.key) = true, want false")

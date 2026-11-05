@@ -42,8 +42,9 @@ func NewRenderer() *Renderer {
 
 // Render returns the text of notice in lang. It refuses a notice whose code is
 // unknown, or whose arguments do not match the parameters of its code, with
-// ErrUnknownCode or ErrNoticeArgs. A key missing in lang renders in English, as
-// the catalog does.
+// ErrUnknownCode or ErrNoticeArgs. It refuses a code whose key has no English
+// message with ErrMissingMessage. A key missing in lang renders in English, as the
+// catalog does.
 func (r *Renderer) Render(lang i18n.Language, notice Notice) (string, error) {
 	params, err := notice.params()
 	if err != nil {

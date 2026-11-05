@@ -162,8 +162,9 @@ var (
 	// unexpected name.
 	ErrNoticeArgs = errors.New("notice arguments do not match the code")
 	// ErrMissingMessage reports a code whose key the shared catalog does not define
-	// in any language, so no text could be shown to a human.
-	ErrMissingMessage = errors.New("no message for the code in any language")
+	// in English, the language every message falls back to, so no text could be
+	// shown to a human in any language.
+	ErrMissingMessage = errors.New("no English message for the code")
 )
 
 func (n Notice) params() (map[string]any, error) {

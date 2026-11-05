@@ -3,6 +3,9 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"math"
 	"slices"
 	"strings"
@@ -49,16 +52,125 @@ func TestArgKindMatchesName(t *testing.T) {
 	}
 }
 
-func TestRenderRefusesCodeWithoutMessage(t *testing.T) {
-	sources := fstest.MapFS{
-		"en.json": {Data: []byte(`[{"id":"session.exists","other":"a session named {{.Name}} already exists"}]`)},
-		"fr.json": {Data: []byte(`[{"id":"session.exists","other":"une session nommée « {{.Name}} » existe déjà"}]`)},
+func TestRenderRefusesCodeWithoutEnglishMessage(t *testing.T) {
+	cases := []struct {
+		name    string
+		sources fstest.MapFS
+		refused bool
+	}{
+		{"defined in no language", fstest.MapFS{
+			"en.json": {Data: []byte(`[{"id":"session.exists","other":"a session already exists"}]`)},
+			"fr.json": {Data: []byte(`[{"id":"session.exists","other":"une session existe déjà"}]`)},
+		}, true},
+		{"defined only in French", fstest.MapFS{
+			"en.json": {Data: []byte(`[{"id":"session.exists","other":"a session already exists"}]`)},
+			"fr.json": {Data: []byte(`[{"id":"session.not_found","other":"session « {{.Name}} » introuvable"}]`)},
+		}, true},
+		{"defined only in English", fstest.MapFS{
+			"en.json": {Data: []byte(`[{"id":"session.not_found","other":"session {{.Name}} not found"}]`)},
+		}, false},
 	}
-	renderer := &Renderer{catalog: func() (*i18n.Catalog, error) { return i18n.NewCatalog(nil, sources) }}
-	text, err := renderer.Render(i18n.English, Notice{Code: CodeSessionNotFound, Args: []Arg{Text("Name", "x")}})
-	if !errors.Is(err, ErrMissingMessage) || text != "" {
-		t.Fatalf("Render of a code without message = %q, %v; want ErrMissingMessage and no text", text, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			renderer := &Renderer{catalog: func() (*i18n.Catalog, error) { return i18n.NewCatalog(nil, tc.sources) }}
+			text, err := renderer.Render(i18n.French, Notice{Code: CodeSessionNotFound, Args: []Arg{Text("Name", "x")}})
+			if tc.refused {
+				if !errors.Is(err, ErrMissingMessage) || text != "" {
+					t.Fatalf("Render = %q, %v; want ErrMissingMessage and no text", text, err)
+				}
+				return
+			}
+			if err != nil || text != "session x not found" {
+				t.Fatalf("Render = %q, %v; want the English text through the fallback", text, err)
+			}
+		})
 	}
+}
+
+func TestRenderRefusesArgKindMismatchAtRender(t *testing.T) {
+	notice := Notice{Code: CodeSessionNotFound, Args: []Arg{{name: "Name", kind: ArgCount, value: 3}}}
+	text, err := NewRenderer().Render(i18n.English, notice)
+	if !errors.Is(err, ErrNoticeArgs) || text != "" {
+		t.Fatalf("Render of a count-kind argument under Name = %q, %v; want ErrNoticeArgs and no text", text, err)
+	}
+}
+
+func TestEveryCodeConstantIsListed(t *testing.T) {
+	file, err := parser.ParseFile(token.NewFileSet(), "notice.go", nil, parser.SkipObjectResolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	declared := codeConstantNames(file)
+	if len(declared) == 0 {
+		t.Fatal("no constant of type Code declared in notice.go")
+	}
+	listed := codesListNames(file)
+	for _, name := range declared {
+		if !slices.Contains(listed, name) {
+			t.Errorf("constant %s has type Code but is missing from Codes()", name)
+		}
+	}
+}
+
+func codeConstantNames(file *ast.File) []string {
+	var names []string
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if ok && gen.Tok == token.CONST {
+			names = append(names, codeNamesInBlock(gen)...)
+		}
+	}
+	return names
+}
+
+func codeNamesInBlock(gen *ast.GenDecl) []string {
+	var names []string
+	typeName := ""
+	for _, spec := range gen.Specs {
+		value, ok := spec.(*ast.ValueSpec)
+		if !ok {
+			continue
+		}
+		if value.Type != nil {
+			typeName = typeNameOf(value.Type)
+		}
+		if typeName == "Code" {
+			for _, name := range value.Names {
+				names = append(names, name.Name)
+			}
+		}
+	}
+	return names
+}
+
+func typeNameOf(expr ast.Expr) string {
+	if ident, ok := expr.(*ast.Ident); ok {
+		return ident.Name
+	}
+	return ""
+}
+
+func codesListNames(file *ast.File) []string {
+	var names []string
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "Codes" || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(node ast.Node) bool {
+			lit, ok := node.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+			for _, elt := range lit.Elts {
+				if ident, ok := elt.(*ast.Ident); ok {
+					names = append(names, ident.Name)
+				}
+			}
+			return true
+		})
+	}
+	return names
 }
 
 func TestCodeKeysAreDistinctAndNamed(t *testing.T) {

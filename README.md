@@ -372,7 +372,7 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `locales/en.json` and `locales/fr.json`, embedded in the module. `NewRenderer()`
   builds the catalog on first use. `Render` refuses a notice whose code is
   unknown, whose arguments are not exactly the names its code declares, or whose
-  code has no message in any language. The last one returns `ErrMissingMessage`:
+  code has no English message, the fallback language. The last one returns `ErrMissingMessage`:
   a raw key is never returned to a human. The other two return `ErrUnknownCode`
   and `ErrNoticeArgs`.
 - `NoticeError` is an error that reaches a human: it implements `Notice() Notice`.
