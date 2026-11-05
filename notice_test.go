@@ -347,9 +347,14 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"compaction du contexte indisponible : aucun tour n'a encore été joué, il n'y a rien à compacter",
 		},
 		{
-			Notice{Code: CodeTransportAnnounceKeyWeak},
-			"the announce key is shorter than 32 bytes or all zero",
-			"la clé d'annonce fait moins de 32 octets ou ne contient que des zéros",
+			Notice{Code: CodeCompactTimeoutInvalid},
+			"context compaction unavailable: the compaction timeout must be a positive duration",
+			"compaction du contexte indisponible : le délai de compaction doit être une durée positive",
+		},
+		{
+			Notice{Code: CodeCompactInstructionRefused},
+			"context compaction unavailable: this backend cannot take an instruction for a compaction",
+			"compaction du contexte indisponible : ce fournisseur ne peut pas recevoir d'instruction de compaction",
 		},
 	}
 	renderer := NewRenderer()
@@ -450,30 +455,21 @@ func TestResultCarriesNoticeOrData(t *testing.T) {
 
 func TestCodeValuesAreFrozen(t *testing.T) {
 	frozen := map[Code]uint16{
-		CodeSessionNotFound:                  1,
-		CodeSessionExists:                    2,
-		CodeUnknownAgent:                     3,
-		CodeSessionCreated:                   4,
-		CodeSessionClosed:                    5,
-		CodeUnexpected:                       6,
-		CodeSettingInvalid:                   7,
-		CodeSettingMissing:                   8,
-		CodeNodeMerged:                       9,
-		CodeCompactUnavailable:               10,
-		CodeCompacted:                        11,
-		CodeAddressPlaintextRefused:          12,
-		CodeCompactTimeoutInvalid:            13,
-		CodeCompactInstructionRefused:        14,
-		CodeCompactNoThread:                  15,
-		CodeTransportTLSNotConfigured:        16,
-		CodeTransportAnnounceKeyMissing:      17,
-		CodeTransportAnnounceKeyWeak:         18,
-		CodeTransportAnnounceAddrRefused:     19,
-		CodeTransportAnnounceUnusable:        20,
-		CodeTransportAnnounceUnauthenticated: 21,
-		CodeTransportAnnounceStale:           22,
-		CodeTransportAnnounceOversized:       23,
-		CodeTransportAnnounceMalformed:       24,
+		CodeSessionNotFound:           1,
+		CodeSessionExists:             2,
+		CodeUnknownAgent:              3,
+		CodeSessionCreated:            4,
+		CodeSessionClosed:             5,
+		CodeUnexpected:                6,
+		CodeSettingInvalid:            7,
+		CodeSettingMissing:            8,
+		CodeNodeMerged:                9,
+		CodeCompactUnavailable:        10,
+		CodeCompacted:                 11,
+		CodeAddressPlaintextRefused:   12,
+		CodeCompactTimeoutInvalid:     13,
+		CodeCompactInstructionRefused: 14,
+		CodeCompactNoThread:           15,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))
