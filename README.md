@@ -4,7 +4,8 @@
 and the core consumes only these.
 
 It is types and interfaces plus a few thin helpers. No runtime, no daemon, no
-plugin logic. Zero dependencies: Go standard library only, Go 1.25.
+plugin logic. The root package has no dependency beyond the Go standard library;
+the `i18n` sub-package adds go-i18n and x/text (see below). Go 1.27.
 
 ```go
 import contracts "github.com/Herrscherd/herrscher-contracts"
@@ -285,6 +286,40 @@ policy over the plain `Memory` verbs.
 
 `EnforceBudget`, `NextState` and `Score` back per-node size limits, node
 lifecycle states, and relevance ranking.
+
+## Translated messages (`i18n`)
+
+The `i18n` sub-package is the runtime of herrscher's translated texts. It is the
+only part of the module with dependencies beyond the standard library:
+`github.com/nicksnyder/go-i18n/v2` and `golang.org/x/text`.
+
+- `Language` is the closed set of supported languages, `English` and `French`.
+  `ParseLanguage` accepts a BCP 47 tag or a POSIX locale in any letter case
+  (`fr`, `fr_FR.UTF-8`, `en_US`, `C`, `POSIX`). `FromEnv` reads `LC_ALL`,
+  `LC_MESSAGES` and `LANG` in that order through an injected `getenv`, and
+  `Resolve` returns the first supported candidate, or English when none is.
+- A catalog is a set of JSON files, one per language, named after it
+  (`en.json`, `fr.json`), in the go-i18n v2 format:
+  `{"id": "session.archived", "other": "Session archived"}`. A placeholder is
+  `{{.Name}}`. Only plain fields are allowed: no template functions and no
+  control structures.
+- A message that is plural in English has `one` and `other` forms, and so does
+  each other language. The form is chosen by the language's CLDR rules from the
+  `Count` parameter.
+- `NewCatalog(logger, sources...)` builds a catalog from several `fs.FS`, usually
+  one embedded directory per package. A key defined twice across the sources is
+  refused with `ErrDuplicateKey` and is never silently overwritten.
+- `Catalog.Message(lang, key, params)` renders a message. A key missing in a
+  language renders in English. A key missing everywhere returns the key itself.
+  Each of these cases logs one warning per key and language. An unsupported
+  language, or parameters that cannot fill the message, returns an error.
+- `i18ntest.Check(t, sources...)` is the guard for the test of each package that
+  owns messages. Every English key must exist in each supported language with its
+  plural forms, and each language must use the same fields as English. It does
+  not report a key defined only in a non-English language.
+
+Log lines, CLI syntax and flags, protocol markers and the prompts sent to agents
+are not translated. They stay in English.
 
 ## Further reading
 

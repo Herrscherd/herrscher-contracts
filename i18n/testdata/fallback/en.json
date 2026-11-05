@@ -1,0 +1,10 @@
+[
+  {
+    "id": "greeting",
+    "other": "Hello"
+  },
+  {
+    "id": "only.english",
+    "other": "Only in English"
+  }
+]
