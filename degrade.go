@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
 
 // Degrade wraps a Gateway and falls back to a simpler action for each action the
 // plugin does not announce. The manager always calls the rich method; degradation
 // lives here, never in the domain.
 func Degrade(gateway Gateway) Gateway {
-	wrapped := degrading{gateway}
+	wrapped := degrading{g: gateway, renderer: NewRenderer()}
 	if isEventSink(gateway) {
 		return degradingSink{wrapped}
 	}
@@ -25,7 +27,10 @@ func isEventSink(gateway Gateway) bool {
 	return ok
 }
 
-type degrading struct{ g Gateway }
+type degrading struct {
+	g        Gateway
+	renderer *Renderer
+}
 
 func (d degrading) Manifest() Manifest { return d.g.Manifest() }
 
@@ -58,6 +63,17 @@ func (d degrading) Menu(ctx context.Context, conv Conversation, replyTo MessageI
 		return err
 	}
 	return d.g.Menu(ctx, conv, replyTo, prompt, opts)
+}
+
+func (d degrading) Notify(ctx context.Context, conv Conversation, lang i18n.Language, notice Notice) (MessageID, error) {
+	if s, ok := d.g.(NoticeSink); ok {
+		return s.Notify(ctx, conv, lang, notice)
+	}
+	text, err := d.renderer.Render(lang, notice)
+	if err != nil {
+		return "", err
+	}
+	return d.g.Post(ctx, conv, text)
 }
 
 func (d degrading) BindSessionControl(control SessionControl) {

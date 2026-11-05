@@ -10,7 +10,7 @@ type stubControl struct {
 	picked    []string
 }
 
-func (s *stubControl) Dispatch(context.Context, []string) (string, error)    { return "", nil }
+func (s *stubControl) Dispatch(context.Context, []string) (Result, error)    { return Result{}, nil }
 func (s *stubControl) Create(context.Context, CreateSession) (string, error) { return "", nil }
 func (s *stubControl) Close(context.Context, string, bool) (string, error)   { return "", nil }
 func (s *stubControl) Sessions() []SessionInfo                               { return nil }

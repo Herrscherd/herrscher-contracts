@@ -13,8 +13,9 @@ type SessionControl interface {
 	// the same vocabulary the operator CLI uses, e.g.
 	// {"session","create","--name","foo"}. It applies the command and, for
 	// lifecycle changes, brings the affected sessions live (or tears them down) in
-	// the running hub. It returns a human-readable result or an error.
-	Dispatch(ctx context.Context, args []string) (string, error)
+	// the running hub. It returns a Result: a Notice for the operator, or data for
+	// a caller that renders it, and an error whose Notice tells the operator why.
+	Dispatch(ctx context.Context, args []string) (Result, error)
 	// Create starts a session from a typed spec, the structured counterpart to a
 	// "session create" Dispatch. Programmatic callers (a gateway bootstrapping its
 	// default session, a UI close/create button) use this instead of assembling

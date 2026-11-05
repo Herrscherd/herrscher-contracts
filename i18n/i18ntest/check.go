@@ -53,6 +53,54 @@ func Check(reporter TB, sources ...fs.FS) {
 	checkOrphans(reporter, messages)
 }
 
+// CheckDeclared guards the match between the messages of sources and the
+// parameters a code declares for each of them. declared maps every message key to
+// the names of its {{.Name}} fields. Each declared key must exist in every
+// supported language and use exactly its declared fields, and a key the sources
+// define without a declaration is refused. Each violation is reported with Errorf,
+// and a source that cannot be read stops the test with Fatalf.
+func CheckDeclared(reporter TB, declared map[string][]string, sources ...fs.FS) {
+	reporter.Helper()
+	messages, err := catalogfile.Read(sources, languageOfFile)
+	if err != nil {
+		reporter.Fatalf("read catalogs: %v", err)
+		return
+	}
+	for _, key := range sortedKeys(declared) {
+		checkDeclaredKey(reporter, messages, key, declared[key])
+	}
+	for _, lang := range i18n.Languages() {
+		for _, key := range sortedKeys(messages[lang]) {
+			if _, known := declared[key]; !known {
+				reporter.Errorf("message %q in %s is not declared", key, lang)
+			}
+		}
+	}
+}
+
+func checkDeclaredKey(reporter TB, messages map[i18n.Language]map[string]*goi18n.Message, key string, names []string) {
+	reporter.Helper()
+	want := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		want[name] = struct{}{}
+	}
+	for _, lang := range i18n.Languages() {
+		message, defined := messages[lang][key]
+		if !defined {
+			reporter.Errorf("message %q missing in %s", key, lang)
+			continue
+		}
+		got, err := messageFields(message)
+		if err != nil {
+			reporter.Errorf("message %q in %s: %v", key, lang, err)
+			continue
+		}
+		if !maps.Equal(got, want) {
+			reporter.Errorf("message %q in %s uses fields %v, declared %v", key, lang, sortedNames(got), sortedNames(want))
+		}
+	}
+}
+
 func languageOfFile(name string) (i18n.Language, error) {
 	return i18n.ParseLanguage(strings.TrimSuffix(name, ".json"))
 }

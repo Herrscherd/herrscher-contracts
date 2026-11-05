@@ -10,8 +10,8 @@ func TestBuilderProducesCmd(t *testing.T) {
 		Help("start a session").
 		Param("name", "session name", true).
 		Param("shared", "use main checkout", false).
-		Do(func(_ context.Context, in Input) (string, error) {
-			return "ok " + in.Get("name"), nil
+		Do(func(_ context.Context, in Input) (Result, error) {
+			return DataResult("ok " + in.Get("name")), nil
 		})
 
 	if got := c.Path; len(got) != 2 || got[0] != "session" || got[1] != "create" {
@@ -26,16 +26,16 @@ func TestBuilderProducesCmd(t *testing.T) {
 	if c.Params[1].Required {
 		t.Fatal("shared must be optional")
 	}
-	out, err := c.Run(context.Background(), Input{Args: map[string]string{"name": "x"}})
-	if err != nil || out != "ok x" {
-		t.Fatalf("run = %q, %v", out, err)
+	result, err := c.Run(context.Background(), Input{Args: map[string]string{"name": "x"}})
+	if err != nil || result.Data() != "ok x" {
+		t.Fatalf("run = %v, %v", result.Data(), err)
 	}
 }
 
 func TestBuilderDeclaresOptionalValueParam(t *testing.T) {
 	c := New("session", "seed").
 		ValueParam("turn_id", "turn identity", false).
-		Do(func(context.Context, Input) (string, error) { return "", nil })
+		Do(func(context.Context, Input) (Result, error) { return Result{}, nil })
 
 	if len(c.Params) != 1 {
 		t.Fatalf("params = %+v, want one", c.Params)

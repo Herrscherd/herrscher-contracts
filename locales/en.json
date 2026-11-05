@@ -1,0 +1,22 @@
+[
+  {
+    "id": "session.not_found",
+    "description": "A session named in a command does not exist",
+    "other": "no session named {{.Name}}"
+  },
+  {
+    "id": "session.exists",
+    "description": "A session cannot be created because its name is taken",
+    "other": "a session named {{.Name}} already exists"
+  },
+  {
+    "id": "agent.unknown",
+    "description": "An agent named in a command is not configured",
+    "other": "unknown agent: {{.Name}}"
+  },
+  {
+    "id": "internal.unexpected",
+    "description": "A failure without a code of its own, with its technical text",
+    "other": "unexpected error: {{.Detail}}"
+  }
+]

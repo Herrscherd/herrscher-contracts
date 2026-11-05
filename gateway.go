@@ -1,6 +1,10 @@
 package contracts
 
-import "context"
+import (
+	"context"
+
+	"github.com/Herrscherd/herrscher-contracts/i18n"
+)
 
 // Gateway is the port a chat-platform plugin implements. Method-based: the
 // manager calls the rich method and the degrading decorator falls back when a
@@ -18,6 +22,14 @@ type Gateway interface {
 // If ctx expires before they have returned, Close returns ctx.Err().
 type GatewayCloser interface {
 	Close(ctx context.Context) error
+}
+
+// NoticeSink is the optional port of a gateway that renders a Notice itself, in
+// the language it is given, with its own markup and emojis. A gateway without it
+// receives the notice as plain text, rendered by Degrade, so it never shows a
+// notice in a language it was not asked for.
+type NoticeSink interface {
+	Notify(ctx context.Context, conv Conversation, lang i18n.Language, notice Notice) (MessageID, error)
 }
 
 // Inbound is a message arriving from a gateway into the manager.
