@@ -402,13 +402,14 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   it carries neither. When `Dispatch` returns an error, its `Result` is ignored. `Cmd.Help`, `Param.Help` and the help
   of a `Builder` are catalog keys: the module that declares the command renders
   them, in its own catalog.
-- `NoticeSink` is the optional port of a gateway that renders a notice itself, in
-  the language it receives, with its own markup. A message missing from that
+- `NoticeSink` is the optional port of a gateway that renders a notice itself,
+  in the language it receives, with its own markup. A message missing from that
   language renders in English. Without it, `Degrade` renders the notice as plain
-  text in the language and posts it through `Post` as it is, with the same English
-  fallback, so no emoji or markup is added on that path. The `Text` arguments are
-  not escaped there: the gateway's `Post` must neutralise them. A gateway that renders `CodeUnexpected` puts its
-  `Detail` in a code block, untranslated; `Degrade` keeps the plain text.
+  text in the language and posts it through `Post` as it is, with the same
+  English fallback, so no emoji or markup is added on that path. The `Text`
+  arguments are not escaped there: the gateway's `Post` must neutralise them. A
+  gateway that renders `CodeUnexpected` puts its `Detail` in a code block,
+  untranslated; `Degrade` keeps the plain text.
 
 Log lines, CLI syntax and flags, protocol markers and the prompts sent to agents
 are not translated. They stay in English.

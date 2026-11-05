@@ -96,23 +96,63 @@ func TestRenderRefusesArgKindMismatchAtRender(t *testing.T) {
 	}
 }
 
+func argsWithRefUnder(declared map[string]ArgKind, ref string) []Arg {
+	args := make([]Arg, 0, len(declared))
+	for name := range declared {
+		if name == ref {
+			args = append(args, Ref(name, "123"))
+		} else {
+			args = append(args, Text(name, "x"))
+		}
+	}
+	return args
+}
+
 func TestRenderRefusesRefForEveryDeclaredTextParam(t *testing.T) {
 	renderer := NewRenderer()
 	for _, code := range Codes() {
 		declared, _ := code.params()
-		for name := range declared {
-			var args []Arg
-			for other := range declared {
-				if other == name {
-					args = append(args, Ref(other, "123"))
-				} else {
-					args = append(args, Text(other, "x"))
-				}
+		for name, kind := range declared {
+			if kind != ArgText {
+				continue
 			}
-			text, err := renderer.Render(i18n.English, Notice{Code: code, Args: args})
+			text, err := renderer.Render(i18n.English, Notice{Code: code, Args: argsWithRefUnder(declared, name)})
 			if !errors.Is(err, ErrNoticeArgs) || text != "" {
 				t.Fatalf("Render of code %q with a ref under %s = %q, %v; want ErrNoticeArgs and no text", code.Key(), name, text, err)
 			}
+		}
+	}
+}
+
+func TestRenderAcceptsTextForEveryDeclaredParam(t *testing.T) {
+	renderer := NewRenderer()
+	for _, code := range Codes() {
+		declared, _ := code.params()
+		var args []Arg
+		for name := range declared {
+			args = append(args, Text(name, "x"))
+		}
+		for _, lang := range i18n.Languages() {
+			if _, err := renderer.Render(lang, Notice{Code: code, Args: args}); err != nil {
+				t.Fatalf("Render of code %q in %v with text arguments: %v", code.Key(), lang, err)
+			}
+		}
+	}
+}
+
+func TestRenderSettingsTextIsShownAsItIs(t *testing.T) {
+	renderer := NewRenderer()
+	notice := Notice{Code: CodeSettingMissing, Args: []Arg{Text("Settings", "a, b")}}
+	cases := []struct {
+		lang i18n.Language
+		want string
+	}{
+		{i18n.English, "these settings must be set: a, b"},
+		{i18n.French, "ces réglages doivent être définis : a, b"},
+	}
+	for _, tc := range cases {
+		if got, err := renderer.Render(tc.lang, notice); err != nil || got != tc.want {
+			t.Fatalf("Render in %v = %q, %v; want %q", tc.lang, got, err, tc.want)
 		}
 	}
 }
