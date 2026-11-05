@@ -69,6 +69,37 @@ func TestMergeDiscoveredNewModelHasDerivedLabelAndNoPrice(t *testing.T) {
 	}
 }
 
+func TestMergeDiscoveredNewModelKeepsContextWindowButNoPrices(t *testing.T) {
+	discovered := []ModelSpec{
+		{ID: "new", Arg: "new", Route: RouteNative, ContextWindow: 200000, InputPrice: 1, OutputPrice: 2, CacheReadPrice: 3, CacheWritePrice: 4},
+	}
+
+	merged, err := MergeDiscovered("v", nil, discovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := merged[0]
+	if got.ContextWindow != 200000 {
+		t.Fatalf("ContextWindow = %d, want 200000 from the vendor listing", got.ContextWindow)
+	}
+	if got.InputPrice != 0 || got.OutputPrice != 0 || got.CacheReadPrice != 0 || got.CacheWritePrice != 0 {
+		t.Fatalf("discovered model carries a price: %+v", got)
+	}
+}
+
+func TestMergeDiscoveredKeepsHiddenStaticEntryWhenStillListed(t *testing.T) {
+	static := []ModelSpec{{ID: "old", Label: "Old", Arg: "old", Route: RouteNative, Hidden: true}}
+	discovered := []ModelSpec{{ID: "old", Arg: "old", Route: RouteNative}}
+
+	merged, err := MergeDiscovered("v", static, discovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(merged) != 1 || !merged[0].Hidden {
+		t.Fatalf("hidden static model came back visible: %+v", merged)
+	}
+}
+
 func TestMergeDiscoveredRejectsInvalidListAsAWhole(t *testing.T) {
 	static := []ModelSpec{{ID: "kept", Label: "Kept", Arg: "kept", Route: RouteNative}}
 	discovered := []ModelSpec{

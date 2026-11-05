@@ -155,7 +155,8 @@ older daemon does, and a frontend falls back to its own size.
 ## Model routing
 
 A backend declares the models it knows how to run in `Manifest.Models`
-(`[]ModelSpec{ID, Label, Arg, Efforts, Route, InputPrice}`), so the catalog is
+(`[]ModelSpec{ID, Label, Arg, Efforts, Route, InputPrice, OutputPrice,
+CacheReadPrice, CacheWritePrice, ContextWindow, Hidden}`), so the catalog is
 readable without instantiating anything.
 
 `ID` is what the host persists in session state. `Arg` is only what goes on the
@@ -164,6 +165,17 @@ CLI's `--model`, and the two often differ.
 `ValidateModels(kind, models)` is what the host calls at startup. An empty
 `ID`, `Label` or `Arg`, a duplicate `ID`, or an unknown route is a startup
 failure, not a silently wrong selector.
+
+The prices are USD per million tokens and `ContextWindow` is in tokens. Zero
+means unknown, and a gateway route carries OUR prices, as `InputPrice` does. A
+negative number is refused with `ErrModelNegative`, and a NaN or infinite price
+with `ErrModelNotFinite`. A discovered model never carries a price: the merge
+keeps its `ContextWindow` and drops every price.
+
+`Hidden` marks a retired or historical model. The selector leaves it out, but
+its `ID` still resolves a session or agent recorded with it. It shares the ID
+space with the visible models, so a hidden and a visible model cannot have the
+same `ID`.
 
 `Route` is binary. `RouteNative` means the vendor CLI uses the login present on
 the machine. `RouteGateway` means it is pointed at the product's own paid

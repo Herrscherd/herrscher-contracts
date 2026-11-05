@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"unicode"
 )
@@ -15,6 +16,8 @@ var (
 	ErrModelEmptyArg       = errors.New("empty argument")
 	ErrModelControlChar    = errors.New("control character")
 	ErrModelUnknownRoute   = errors.New("unknown route")
+	ErrModelNegative       = errors.New("negative number")
+	ErrModelNotFinite      = errors.New("number is not finite")
 	ErrCredsMissing        = errors.New("gateway credentials: neither base URL nor token available")
 	ErrCredsTokenNoURL     = errors.New("gateway credentials: token without a base URL")
 	ErrCredsURLNoToken     = errors.New("gateway credentials: base URL without a token, refusing to run on the user's own subscription")
@@ -81,6 +84,22 @@ type ModelSpec struct {
 	// gateway route this is OUR price, not the upstream's. 0 = unknown, and
 	// the cost is then displayed in tokens alone.
 	InputPrice float64
+	// OutputPrice is the price in USD per million output tokens. Same rules as
+	// InputPrice: for a gateway route it is OUR price, 0 = unknown.
+	OutputPrice float64
+	// CacheReadPrice is the price in USD per million tokens read from the
+	// prompt cache. Same rules as InputPrice, 0 = unknown.
+	CacheReadPrice float64
+	// CacheWritePrice is the price in USD per million tokens written to the
+	// prompt cache. Same rules as InputPrice, 0 = unknown.
+	CacheWritePrice float64
+	// ContextWindow is the size of the model's context window, in tokens. 0 =
+	// unknown.
+	ContextWindow int
+	// Hidden keeps the model out of the selector without removing it: a retired
+	// or historical model. Its ID still resolves a session or agent recorded
+	// with it.
+	Hidden bool
 }
 
 // ValidateModels checks the integrity of a backend's catalog. kind names the
@@ -88,8 +107,8 @@ type ModelSpec struct {
 // catalog must kill the daemon with a clear message, not silently produce a
 // wrong selector. It returns the first failing model as an error wrapping
 // [ErrModelEmptyID], [ErrModelDuplicateID], [ErrModelEmptyLabel],
-// [ErrModelEmptyArg], [ErrModelControlChar] or [ErrModelUnknownRoute], to match
-// with errors.Is.
+// [ErrModelEmptyArg], [ErrModelControlChar], [ErrModelUnknownRoute],
+// [ErrModelNegative] or [ErrModelNotFinite], to match with errors.Is.
 func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
 	for index := range models {
@@ -106,6 +125,39 @@ func ValidateModels(kind string, models []ModelSpec) error {
 		if err := validateModelRoute(kind, spec); err != nil {
 			return err
 		}
+		if err := validateModelNumbers(kind, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateModelNumbers(kind string, spec *ModelSpec) error {
+	for _, price := range []struct {
+		name  string
+		value float64
+	}{
+		{"InputPrice", spec.InputPrice},
+		{"OutputPrice", spec.OutputPrice},
+		{"CacheReadPrice", spec.CacheReadPrice},
+		{"CacheWritePrice", spec.CacheWritePrice},
+	} {
+		if err := validateModelPrice(kind, spec.ID, price.name, price.value); err != nil {
+			return err
+		}
+	}
+	if spec.ContextWindow < 0 {
+		return fmt.Errorf("backend %q: model %q, field ContextWindow: %w", kind, spec.ID, ErrModelNegative)
+	}
+	return nil
+}
+
+func validateModelPrice(kind, modelID, name string, price float64) error {
+	if math.IsNaN(price) || math.IsInf(price, 0) {
+		return fmt.Errorf("backend %q: model %q, field %s: %w", kind, modelID, name, ErrModelNotFinite)
+	}
+	if price < 0 {
+		return fmt.Errorf("backend %q: model %q, field %s: %w", kind, modelID, name, ErrModelNegative)
 	}
 	return nil
 }
@@ -158,9 +210,9 @@ func validateModelRoute(kind string, spec *ModelSpec) error {
 // non-nil so callers can serialize it to JSON without producing `null`.
 func FilterModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
 	out := make([]ModelSpec, 0, len(models))
-	for _, spec := range models {
-		if policy.Allows(spec.Route) {
-			out = append(out, spec)
+	for index := range models {
+		if policy.Allows(models[index].Route) {
+			out = append(out, models[index])
 		}
 	}
 	return out

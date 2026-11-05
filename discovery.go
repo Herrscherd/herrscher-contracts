@@ -22,11 +22,11 @@ func MergeDiscovered(kind string, static, discovered []ModelSpec) ([]ModelSpec, 
 		return nil, fmt.Errorf("discovered catalog: %w", err)
 	}
 	merged := append([]ModelSpec{}, static...)
-	for _, spec := range named {
-		if isListed(merged, spec) {
+	for index := range named {
+		if isListed(merged, named[index]) {
 			continue
 		}
-		merged = append(merged, withoutPrice(spec))
+		merged = append(merged, withoutPrice(named[index]))
 	}
 	if err := ValidateModels(kind, merged); err != nil {
 		return nil, fmt.Errorf("merged catalog: %w", err)
@@ -36,17 +36,18 @@ func MergeDiscovered(kind string, static, discovered []ModelSpec) ([]ModelSpec, 
 
 func labelDiscovered(discovered []ModelSpec) []ModelSpec {
 	named := make([]ModelSpec, len(discovered))
-	for index, spec := range discovered {
-		if spec.Label == "" {
-			spec.Label = spec.ID
+	copy(named, discovered)
+	for index := range named {
+		if named[index].Label == "" {
+			named[index].Label = named[index].ID
 		}
-		named[index] = spec
 	}
 	return named
 }
 
 func isListed(static []ModelSpec, spec ModelSpec) bool {
-	for _, known := range static {
+	for index := range static {
+		known := &static[index]
 		if known.ID == spec.ID || (known.Route == spec.Route && known.Arg == spec.Arg) {
 			return true
 		}
@@ -56,5 +57,8 @@ func isListed(static []ModelSpec, spec ModelSpec) bool {
 
 func withoutPrice(spec ModelSpec) ModelSpec {
 	spec.InputPrice = 0
+	spec.OutputPrice = 0
+	spec.CacheReadPrice = 0
+	spec.CacheWritePrice = 0
 	return spec
 }
