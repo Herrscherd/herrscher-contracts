@@ -1,6 +1,8 @@
 package contracts
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n/i18ntest"
@@ -9,8 +11,8 @@ import (
 func declaredParams() map[string][]string {
 	declared := make(map[string][]string, len(Codes()))
 	for _, code := range Codes() {
-		names, _ := code.params()
-		declared[code.Key()] = names
+		kinds, _ := code.params()
+		declared[code.Key()] = slices.Sorted(maps.Keys(kinds))
 	}
 	return declared
 }

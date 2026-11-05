@@ -96,6 +96,27 @@ func TestRenderRefusesArgKindMismatchAtRender(t *testing.T) {
 	}
 }
 
+func TestRenderRefusesRefForEveryDeclaredTextParam(t *testing.T) {
+	renderer := NewRenderer()
+	for _, code := range Codes() {
+		declared, _ := code.params()
+		for name := range declared {
+			var args []Arg
+			for other := range declared {
+				if other == name {
+					args = append(args, Ref(other, "123"))
+				} else {
+					args = append(args, Text(other, "x"))
+				}
+			}
+			text, err := renderer.Render(i18n.English, Notice{Code: code, Args: args})
+			if !errors.Is(err, ErrNoticeArgs) || text != "" {
+				t.Fatalf("Render of code %q with a ref under %s = %q, %v; want ErrNoticeArgs and no text", code.Key(), name, text, err)
+			}
+		}
+	}
+}
+
 func TestEveryCodeConstantIsListed(t *testing.T) {
 	var declared, listed []string
 	for _, file := range parsePackageFiles(t) {

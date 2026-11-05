@@ -77,7 +77,7 @@ it is absent.
 | `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | the model catalog a backend declares, its route, and the policy that bounds it, plus `ValidateModels`, `FilterModels`, `GatewayCreds` and `NewGatewayCreds` |
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
-| `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. the host reads `Note` alone today, so producers set `Note` (English) and `Notice` (the code) until the host carries the code |
+| `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
 
 ## Registration and config
@@ -362,7 +362,10 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   codes, `Detail` for `CodeUnexpected`, `Setting` and `Value` for
   `CodeSettingInvalid`, `Settings` for `CodeSettingMissing`, `Reason` for
   `CodeCompactUnavailable`, `Address` for `CodeAddressPlaintextRefused`, and none
-  for `CodeNodeMerged` and `CodeCompacted`.
+  for `CodeNodeMerged` and `CodeCompacted`. Each parameter declares its kind, and
+  every one is a `Text`. `Settings` is a text the caller composes, for instance the
+  names of the missing settings joined with `, `: it is not a list, and the text is
+  shown as it is.
   `Detail` holds the technical text of a failure with no code of its own. It is
   never translated: a gateway renders it in a code block, and `Degrade` renders it
   as plain text. `Reason` is an ordinary `Text` argument, the technical reason of a
@@ -379,7 +382,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   a gateway renders as a mention). Its zero value is malformed. `Arg` has no
   float constructor, so a decimal number is never rendered in Go format. `Render`
   checks that the name matches the kind: `Count` must be an `ArgCount`, and an
-  `ArgCount` must be named `Count`.
+  `ArgCount` must be named `Count`. It also checks each argument against the kind
+  its code declares for that name: a `Ref` or a `Count` given for a `Text`
+  parameter is refused with `ErrNoticeArgs`.
 - `Renderer` turns a `Notice` into text in a language, through the shared catalog
   `locales/en.json` and `locales/fr.json`, embedded in the module. `NewRenderer()`
   builds the catalog on first use. `Render` refuses a notice whose code is
@@ -400,8 +405,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `NoticeSink` is the optional port of a gateway that renders a notice itself, in
   the language it receives, with its own markup. A message missing from that
   language renders in English. Without it, `Degrade` renders the notice as plain
-  text in the language and posts it, with the same English fallback, so no emoji
-  or markup is added on that path. A gateway that renders `CodeUnexpected` puts its
+  text in the language and posts it through `Post` as it is, with the same English
+  fallback, so no emoji or markup is added on that path. The `Text` arguments are
+  not escaped there: the gateway's `Post` must neutralise them. A gateway that renders `CodeUnexpected` puts its
   `Detail` in a code block, untranslated; `Degrade` keeps the plain text.
 
 Log lines, CLI syntax and flags, protocol markers and the prompts sent to agents

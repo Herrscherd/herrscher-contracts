@@ -31,8 +31,9 @@ const (
 	// CodeSettingInvalid reports that the setting Setting holds the value Value,
 	// which it does not accept.
 	CodeSettingInvalid
-	// CodeSettingMissing reports that the settings Settings must be set, in the
-	// order the list gives them.
+	// CodeSettingMissing reports that the settings named in Settings must be set.
+	// Settings is a text the caller composes, for instance the names joined with
+	// ", ", and it is shown as it is.
 	CodeSettingMissing
 	// CodeNodeMerged reports that a node is folded into an umbrella and must be
 	// detached before it can be restored.
@@ -90,20 +91,20 @@ func (c Code) Key() string {
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
 
-func (c Code) params() ([]string, bool) {
+func (c Code) params() (map[string]ArgKind, bool) {
 	switch c {
 	case CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed:
-		return []string{"Name"}, true
+		return map[string]ArgKind{"Name": ArgText}, true
 	case CodeUnexpected:
-		return []string{"Detail"}, true
+		return map[string]ArgKind{"Detail": ArgText}, true
 	case CodeSettingInvalid:
-		return []string{"Setting", "Value"}, true
+		return map[string]ArgKind{"Setting": ArgText, "Value": ArgText}, true
 	case CodeSettingMissing:
-		return []string{"Settings"}, true
+		return map[string]ArgKind{"Settings": ArgText}, true
 	case CodeCompactUnavailable:
-		return []string{"Reason"}, true
+		return map[string]ArgKind{"Reason": ArgText}, true
 	case CodeAddressPlaintextRefused:
-		return []string{"Address"}, true
+		return map[string]ArgKind{"Address": ArgText}, true
 	case CodeNodeMerged, CodeCompacted:
 		return nil, true
 	}
@@ -201,8 +202,8 @@ var (
 	// ErrUnknownCode reports a notice whose code is outside the list of Codes.
 	ErrUnknownCode = errors.New("unknown notice code")
 	// ErrNoticeArgs reports a notice whose arguments do not match the parameters
-	// its code declares: a malformed Arg, a name given twice, or a missing or
-	// unexpected name.
+	// its code declares: a malformed Arg, a name given twice, a missing or
+	// unexpected name, or a kind other than the one the parameter declares.
 	ErrNoticeArgs = errors.New("notice arguments do not match the code")
 	// ErrMissingMessage reports a code whose key the shared catalog does not define
 	// in English, the language every message falls back to, so no text could be
@@ -224,13 +225,16 @@ func (n Notice) params() (map[string]any, error) {
 		if err := arg.checkKind(); err != nil {
 			return nil, err
 		}
+		if want, expected := declared[arg.name]; !expected || want != arg.kind {
+			return nil, fmt.Errorf("argument %q of kind %d does not match code %q: %w", arg.name, uint8(arg.kind), n.Code.Key(), ErrNoticeArgs)
+		}
 		if _, given := params[arg.name]; given {
 			return nil, fmt.Errorf("argument %q given twice: %w", arg.name, ErrNoticeArgs)
 		}
 		params[arg.name] = value
 	}
-	if !slices.Equal(slices.Sorted(maps.Keys(params)), slices.Sorted(slices.Values(declared))) {
-		return nil, fmt.Errorf("code %q takes %v, given %v: %w", n.Code.Key(), declared, slices.Sorted(maps.Keys(params)), ErrNoticeArgs)
+	if len(params) != len(declared) {
+		return nil, fmt.Errorf("code %q takes %v, given %v: %w", n.Code.Key(), slices.Sorted(maps.Keys(declared)), slices.Sorted(maps.Keys(params)), ErrNoticeArgs)
 	}
 	return params, nil
 }
