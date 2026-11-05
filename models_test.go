@@ -254,3 +254,44 @@ func TestValidateModelsRefusesHiddenModelSharingAnID(t *testing.T) {
 		t.Fatalf("ValidateModels error = %v, want %v", err, ErrModelDuplicateID)
 	}
 }
+
+func TestFilterModelsKeepsHiddenModelForResolution(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "live", Label: "Live", Arg: "live", Route: RouteNative},
+		{ID: "retired", Label: "Retired", Arg: "retired", Route: RouteNative, Hidden: true},
+	}
+	got := FilterModels(models, PolicyAll)
+	if len(got) != 2 || got[1].ID != "retired" {
+		t.Fatalf("FilterModels dropped the hidden model needed to resume it: %+v", got)
+	}
+}
+
+func TestSelectableModelsExcludesHiddenModel(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "live", Label: "Live", Arg: "live", Route: RouteNative},
+		{ID: "retired", Label: "Retired", Arg: "retired", Route: RouteNative, Hidden: true},
+	}
+	got := SelectableModels(models, PolicyAll)
+	if len(got) != 1 || got[0].ID != "live" {
+		t.Fatalf("SelectableModels = %+v, want only the visible model", got)
+	}
+}
+
+func TestSelectableModelsStillAppliesPolicy(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "native", Label: "Native", Arg: "native", Route: RouteNative},
+		{ID: "gateway", Label: "Gateway", Arg: "gateway", Route: RouteGateway},
+		{ID: "gateway-hidden", Label: "Old", Arg: "old", Route: RouteGateway, Hidden: true},
+	}
+	got := SelectableModels(models, PolicyGatewayOnly)
+	if len(got) != 1 || got[0].ID != "gateway" {
+		t.Fatalf("SelectableModels(gateway-only) = %+v, want only the visible gateway model", got)
+	}
+}
+
+func TestSelectableModelsReturnsEmptyNotNil(t *testing.T) {
+	models := []ModelSpec{{ID: "retired", Label: "Retired", Arg: "retired", Route: RouteNative, Hidden: true}}
+	if got := SelectableModels(models, PolicyAll); got == nil || len(got) != 0 {
+		t.Fatalf("SelectableModels = %#v, want a non-nil empty slice", got)
+	}
+}

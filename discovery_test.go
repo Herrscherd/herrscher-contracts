@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+	"math"
 	"testing"
 )
 
@@ -143,5 +144,50 @@ func TestGatewayOnlyDropsNativeDiscoveredModel(t *testing.T) {
 	kept := FilterModels(merged, PolicyGatewayOnly)
 	if len(kept) != 2 || kept[0].ID != "gw-x" || kept[1].ID != "gw-z" {
 		t.Fatalf("gateway-only kept %+v", kept)
+	}
+}
+
+func TestMergeDiscoveredTakesContextWindowForStaticModel(t *testing.T) {
+	static := []ModelSpec{{ID: "claude-x", Label: "Claude X", Arg: "claude-x", Route: RouteNative, InputPrice: 5}}
+	discovered := []ModelSpec{{ID: "claude-x", Arg: "claude-x", Route: RouteNative, ContextWindow: 200000, OutputPrice: 9}}
+
+	merged, err := MergeDiscovered("claude", static, discovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := merged[0]
+	if got.ContextWindow != 200000 {
+		t.Fatalf("ContextWindow = %d, want 200000 from the discovered listing", got.ContextWindow)
+	}
+	if got.Label != "Claude X" || got.InputPrice != 5 || got.OutputPrice != 0 {
+		t.Fatalf("discovery changed more than the window: %+v", got)
+	}
+}
+
+func TestMergeDiscoveredKeepsStaticContextWindowWhenDiscoveredUnknown(t *testing.T) {
+	static := []ModelSpec{{ID: "claude-x", Label: "Claude X", Arg: "claude-x", Route: RouteNative, ContextWindow: 100000}}
+	discovered := []ModelSpec{{ID: "claude-x", Arg: "claude-x", Route: RouteNative}}
+
+	merged, err := MergeDiscovered("claude", static, discovered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if merged[0].ContextWindow != 100000 {
+		t.Fatalf("ContextWindow = %d, want the static 100000 kept when discovery says nothing", merged[0].ContextWindow)
+	}
+}
+
+func TestMergeDiscoveredIgnoresInvalidDiscardedPrices(t *testing.T) {
+	discovered := []ModelSpec{
+		{ID: "bad-price", Arg: "bad-price", Route: RouteNative, OutputPrice: math.NaN(), CacheReadPrice: -1},
+		{ID: "good", Arg: "good", Route: RouteNative, ContextWindow: 8000},
+	}
+
+	merged, err := MergeDiscovered("v", nil, discovered)
+	if err != nil {
+		t.Fatalf("MergeDiscovered rejected the list over prices it discards: %v", err)
+	}
+	if len(merged) != 2 || merged[0].ID != "bad-price" || merged[1].ID != "good" {
+		t.Fatalf("MergeDiscovered = %+v, want both models", merged)
 	}
 }

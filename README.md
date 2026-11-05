@@ -169,13 +169,16 @@ failure, not a silently wrong selector.
 The prices are USD per million tokens and `ContextWindow` is in tokens. Zero
 means unknown, and a gateway route carries OUR prices, as `InputPrice` does. A
 negative number is refused with `ErrModelNegative`, and a NaN or infinite price
-with `ErrModelNotFinite`. A discovered model never carries a price: the merge
-keeps its `ContextWindow` and drops every price.
+with `ErrModelNotFinite`.
 
-`Hidden` marks a retired or historical model. The selector leaves it out, but
-its `ID` still resolves a session or agent recorded with it. It shares the ID
-space with the visible models, so a hidden and a visible model cannot have the
-same `ID`.
+`Hidden` marks a retired or historical model. It shares the ID space with the
+visible models, so a hidden and a visible model cannot have the same `ID`. The
+contract exposes two views of a catalog, and a host uses each for one job:
+
+- `FilterModels(models, policy)` is the resolution view. It keeps the hidden
+  models, so a session or agent recorded with one still finds its route by `ID`.
+- `SelectableModels(models, policy)` is the selector view. It applies the same
+  policy and also leaves out the hidden models. It never resolves an `ID`.
 
 `Route` is binary. `RouteNative` means the vendor CLI uses the login present on
 the machine. `RouteGateway` means it is pointed at the product's own paid
@@ -212,9 +215,15 @@ enter a catalog. It validates the discovered list as a whole, so one malformed
 entry rejects the lot and the static catalog is kept. A discovered model that
 the static list already names, by `ID` or by route and `Arg`, is dropped: the
 static entry keeps its label, price and efforts. A new model keeps the vendor's
-label, or takes its `ID`, and carries no `InputPrice`, since the catalog has no
-price for it. The host then applies `FilterModels` as it does to a static list,
-so under `gateway-only` a discovered native model stays absent.
+label, or takes its `ID`. The four prices (`InputPrice`, `OutputPrice`,
+`CacheReadPrice`, `CacheWritePrice`) are always reset to zero on a discovered
+model, since a gateway price is ours and the discovery does not know it. They are
+discarded before validation, so a bad price on a discovered model never rejects
+the list. The `ContextWindow` is kept: a new model takes it, and a static model
+takes it when it is non-zero, while its label and prices stay as they are. A
+static `Hidden` model that discovery lists again stays hidden. The host then
+applies `FilterModels` as it does to a static list, so under `gateway-only` a
+discovered native model stays absent.
 
 ### The spawn environment
 

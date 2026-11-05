@@ -83,23 +83,12 @@ type ModelSpec struct {
 	// InputPrice is the price shown in USD per million input tokens. For a
 	// gateway route this is OUR price, not the upstream's. 0 = unknown, and
 	// the cost is then displayed in tokens alone.
-	InputPrice float64
-	// OutputPrice is the price in USD per million output tokens. Same rules as
-	// InputPrice: for a gateway route it is OUR price, 0 = unknown.
-	OutputPrice float64
-	// CacheReadPrice is the price in USD per million tokens read from the
-	// prompt cache. Same rules as InputPrice, 0 = unknown.
-	CacheReadPrice float64
-	// CacheWritePrice is the price in USD per million tokens written to the
-	// prompt cache. Same rules as InputPrice, 0 = unknown.
+	InputPrice      float64
+	OutputPrice     float64
+	CacheReadPrice  float64
 	CacheWritePrice float64
-	// ContextWindow is the size of the model's context window, in tokens. 0 =
-	// unknown.
-	ContextWindow int
-	// Hidden keeps the model out of the selector without removing it: a retired
-	// or historical model. Its ID still resolves a session or agent recorded
-	// with it.
-	Hidden bool
+	ContextWindow   int
+	Hidden          bool
 }
 
 // ValidateModels checks the integrity of a backend's catalog. kind names the
@@ -206,12 +195,27 @@ func validateModelRoute(kind string, spec *ModelSpec) error {
 	return nil
 }
 
-// FilterModels keeps the models the policy allows. The result is always
-// non-nil so callers can serialize it to JSON without producing `null`.
+// FilterModels is the resolution view: it keeps the models the policy allows,
+// Hidden ones included, so a session or agent recorded with a hidden model
+// still finds its route by ID. The result is always non-nil so callers can
+// serialize it to JSON without producing `null`.
 func FilterModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
 	out := make([]ModelSpec, 0, len(models))
 	for index := range models {
 		if policy.Allows(models[index].Route) {
+			out = append(out, models[index])
+		}
+	}
+	return out
+}
+
+// SelectableModels is the selector view: the models the policy allows, minus
+// the Hidden ones. It never resolves an ID; use FilterModels for that. The
+// result is always non-nil.
+func SelectableModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
+	out := make([]ModelSpec, 0, len(models))
+	for index := range models {
+		if policy.Allows(models[index].Route) && !models[index].Hidden {
 			out = append(out, models[index])
 		}
 	}
