@@ -50,6 +50,9 @@ func TestCheckRefusesViolations(t *testing.T) {
 		{"control structure", "control", "only {{.Name}} fields are allowed"},
 		{"named template", "define", "only {{.Name}} fields are allowed"},
 		{"block", "block", "only {{.Name}} fields are allowed"},
+		{"pipe declaration", "pipe_declaration", "only {{.Name}} fields are allowed"},
+		{"dotted field", "dotted_field", "only {{.Name}} fields are allowed"},
+		{"string literal", "string_literal", "only {{.Name}} fields are allowed"},
 		{"orphan key", "orphan", `message "session.deleted" in fr is not defined in English`},
 	}
 	for _, tc := range cases {

@@ -221,10 +221,29 @@ func TestMessageRefusesMissingParam(t *testing.T) {
 	}
 }
 
-func TestMessageAcceptsNilParamValue(t *testing.T) {
+func TestMessageRefusesNilParamValue(t *testing.T) {
 	catalog := newCatalog(t, discardLogger(), "complete")
-	if _, err := catalog.Message(i18n.English, "session.name", map[string]any{"Name": nil}); err != nil {
-		t.Fatalf("Message with a nil Name returned error %v", err)
+	cases := []struct {
+		name   string
+		lang   i18n.Language
+		key    string
+		params map[string]any
+		field  string
+	}{
+		{"nil Name", i18n.English, "session.name", map[string]any{"Name": nil}, "Name"},
+		{"nil Count", i18n.English, "session.count", map[string]any{"Count": nil}, "Count"},
+		{"nil beside a value", i18n.French, "session.name", map[string]any{"Name": "Atlas", "Title": nil}, "Title"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := catalog.Message(tc.lang, tc.key, tc.params)
+			if !errors.Is(err, i18n.ErrNilParam) {
+				t.Fatalf("Message(%v, %q) error = %v, want ErrNilParam", tc.lang, tc.key, err)
+			}
+			if !strings.Contains(err.Error(), tc.field) {
+				t.Fatalf("error %q does not name the field %q", err, tc.field)
+			}
+		})
 	}
 }
 

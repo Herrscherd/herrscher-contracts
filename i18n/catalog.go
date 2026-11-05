@@ -21,6 +21,9 @@ import (
 // ErrDuplicateKey is returned by NewCatalog when a key is defined twice across the sources.
 var ErrDuplicateKey = catalogfile.ErrDuplicateKey
 
+// ErrNilParam is returned by Message when a param holds nil, which the template would render as "<no value>".
+var ErrNilParam = errors.New("nil param value")
+
 const (
 	countParam    = "Count"
 	maxRemembered = 1024
@@ -98,13 +101,16 @@ func parseMessage(message *goi18n.Message) error {
 
 // Message renders the text of key in lang. Each params entry fills the {{.Name}}
 // field of that name, and an entry named Count also selects the CLDR plural form.
-// A field with no entry in params is an error; an entry whose value is nil is not.
+// A field with no entry in params is an error, and so is an entry whose value is nil (ErrNilParam).
 // A key missing in lang renders in English and logs a warning once per key and
 // language. A key missing in every language returns the key itself and logs a
 // warning once. It returns an error for an unsupported language, or for a message
 // that cannot be rendered with params. Rendering does not check that a message
 // holds only plain fields: Check does, in the test suite.
 func (c *Catalog) Message(lang Language, key string, params map[string]any) (string, error) {
+	if err := refuseNilParams(params); err != nil {
+		return "", err
+	}
 	text, err := c.render(lang, key, params)
 	if err == nil {
 		return text, nil
@@ -124,6 +130,15 @@ func (c *Catalog) Message(lang Language, key string, params map[string]any) (str
 	}
 	c.noteAbsent(lang, key)
 	return key, nil
+}
+
+func refuseNilParams(params map[string]any) error {
+	for _, name := range slices.Sorted(maps.Keys(params)) {
+		if params[name] == nil {
+			return fmt.Errorf("param %q: %w", name, ErrNilParam)
+		}
+	}
+	return nil
 }
 
 func (c *Catalog) render(lang Language, key string, params map[string]any) (string, error) {
