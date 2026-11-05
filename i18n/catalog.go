@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -101,11 +102,13 @@ func parseMessage(message *goi18n.Message) error {
 }
 
 // Message renders the text of key in lang. Each params entry fills the {{.Name}}
-// field of that name, and an entry named Count also selects the CLDR plural form.
-// A field with no entry in params is an error. Every entry of params must be a scalar:
-// a string, a bool, an integer or a float, of exactly these types. A named type such as
-// Language is refused, so the caller passes its underlying value. Any other value is
-// refused with ErrParamType, even when the message does not use that field.
+// field of that name. A field with no entry in params is an error. Every entry of
+// params must be a scalar, of exactly these types: a string, a bool, an integer or a
+// float. A named type such as Language is refused, so the caller passes its underlying
+// value. Any other value is refused with ErrParamType, even when the message does not
+// use that field. The Count entry also selects the CLDR plural form: it takes a string,
+// a signed integer, or an unsigned integer up to math.MaxInt64. Any other type, a float
+// included, is refused with ErrParamType.
 // A key missing in lang renders in English and logs a warning once per key and
 // language. A key missing in every language returns the key itself and logs a
 // warning once. It returns an error for an unsupported language, or for a message
@@ -115,7 +118,11 @@ func (c *Catalog) Message(lang Language, key string, params map[string]any) (str
 	if err := refuseNonScalarParams(params); err != nil {
 		return "", err
 	}
-	text, err := c.render(lang, key, params)
+	normalized, err := normalizeCount(params)
+	if err != nil {
+		return "", err
+	}
+	text, err := c.render(lang, key, normalized)
 	if err == nil {
 		return text, nil
 	}
@@ -124,7 +131,7 @@ func (c *Catalog) Message(lang Language, key string, params map[string]any) (str
 	}
 	if lang != English {
 		c.noteFallback(lang, key)
-		text, err = c.render(English, key, params)
+		text, err = c.render(English, key, normalized)
 		if err == nil {
 			return text, nil
 		}
@@ -143,6 +150,46 @@ func refuseNonScalarParams(params map[string]any) error {
 		}
 	}
 	return nil
+}
+
+func normalizeCount(params map[string]any) (map[string]any, error) {
+	count, found := params[countParam]
+	if !found {
+		return params, nil
+	}
+	converted, err := countValue(count)
+	if err != nil {
+		return nil, err
+	}
+	normalized := maps.Clone(params)
+	normalized[countParam] = converted
+	return normalized, nil
+}
+
+func countValue(count any) (any, error) {
+	switch value := count.(type) {
+	case int, int8, int16, int32, int64, string:
+		return value, nil
+	case uint:
+		return unsignedCount(uint64(value))
+	case uint8:
+		return unsignedCount(uint64(value))
+	case uint16:
+		return unsignedCount(uint64(value))
+	case uint32:
+		return unsignedCount(uint64(value))
+	case uint64:
+		return unsignedCount(value)
+	default:
+		return nil, fmt.Errorf("param %q of type %T: %w", countParam, count, ErrParamType)
+	}
+}
+
+func unsignedCount(count uint64) (any, error) {
+	if count > math.MaxInt64 {
+		return nil, fmt.Errorf("param %q value %d exceeds %d: %w", countParam, count, int64(math.MaxInt64), ErrParamType)
+	}
+	return int64(count), nil
 }
 
 func isScalar(value any) bool {

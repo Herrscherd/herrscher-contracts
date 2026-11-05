@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -204,11 +205,19 @@ func TestMessagePluralForms(t *testing.T) {
 
 func TestMessageRefusesUnsupportedCountType(t *testing.T) {
 	catalog := newCatalog(t, discardLogger(), "complete")
-	for _, count := range []any{true, 1.5} {
-		if _, err := catalog.Message(i18n.English, "session.count", map[string]any{"Count": count}); err == nil {
-			t.Fatalf("Message with Count %v (%T) returned no error", count, count)
+	for _, count := range []any{true, 1.5, float32(1.5), uint64(math.MaxInt64) + 1} {
+		_, err := catalog.Message(i18n.English, "session.count", map[string]any{"Count": count})
+		if !errors.Is(err, i18n.ErrParamType) {
+			t.Fatalf("Message with Count %v (%T) error = %v, want ErrParamType", count, count, err)
 		}
 	}
+}
+
+func TestMessageAcceptsUnsignedCount(t *testing.T) {
+	catalog := newCatalog(t, discardLogger(), "complete")
+	assertMessage(t, catalog, i18n.English, "session.count", map[string]any{"Count": uint(3)}, "3 sessions")
+	assertMessage(t, catalog, i18n.English, "session.count", map[string]any{"Count": uint8(1)}, "1 session")
+	assertMessage(t, catalog, i18n.English, "session.count", map[string]any{"Count": uint64(math.MaxInt64)}, "9223372036854775807 sessions")
 }
 
 func TestMessageRefusesMissingParam(t *testing.T) {
@@ -249,6 +258,8 @@ func TestMessageRefusesNonScalarParams(t *testing.T) {
 		{"nil Count", i18n.English, "session.count", map[string]any{"Count": nil}, "Count", "<nil>"},
 		{"nil beside a value", i18n.French, "session.name", map[string]any{"Name": "Atlas", "Title": nil}, "Title", "<nil>"},
 		{"unused non-scalar", i18n.English, "session.name", map[string]any{"Name": "Atlas", "Title": []string{"x"}}, "Title", "[]string"},
+		{"uintptr", i18n.English, "session.name", map[string]any{"Name": uintptr(1)}, "Name", "uintptr"},
+		{"complex128", i18n.English, "session.name", map[string]any{"Name": complex128(1)}, "Name", "complex128"},
 		{"named string", i18n.English, "session.name", map[string]any{"Name": sessionLabel("Atlas")}, "Name", "sessionLabel"},
 		{"named int", i18n.English, "session.name", map[string]any{"Name": sessionRank(7)}, "Name", "sessionRank"},
 		{"named Language", i18n.English, "session.name", map[string]any{"Name": i18n.French}, "Name", "i18n.Language"},

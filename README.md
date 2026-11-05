@@ -308,7 +308,8 @@ only part of the module with dependencies beyond the standard library:
   `{{.Name}}`.
 - A message that is plural in English has `one` and `other` forms, and so does
   each other language. The form is chosen by the language's CLDR rules from the
-  `Count` parameter, which must be an integer or a numeric string.
+  `Count` parameter, which is a numeric string, a signed integer, or an unsigned integer up to
+  `math.MaxInt64`. Any other type, a float included, is refused with `ErrParamType`.
 - `NewCatalog(logger, sources...)` builds a catalog from several `fs.FS`, usually
   one embedded directory per package. A key defined twice across the sources is
   refused with `ErrDuplicateKey`. A template that does not parse, including a
