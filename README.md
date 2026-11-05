@@ -353,8 +353,15 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `Code` is a closed `uint16` enum: `CodeSessionNotFound`, `CodeSessionExists`,
   `CodeUnknownAgent`, `CodeSessionCreated`, `CodeSessionClosed`, `CodeUnexpected`,
   `CodeSettingInvalid`, `CodeSettingMissing`, `CodeNodeMerged`, `CodeCompactUnavailable`,
-  `CodeCompacted`, `CodeAddressPlaintextRefused`, and the compaction reasons
-  `CodeCompactTimeoutInvalid`, `CodeCompactInstructionRefused` and `CodeCompactNoThread`.
+  `CodeCompacted`, `CodeAddressPlaintextRefused`, the compaction reasons
+  `CodeCompactTimeoutInvalid`, `CodeCompactInstructionRefused` and `CodeCompactNoThread`,
+  and the session, agent and host codes `CodeSessionLimit`, `CodeNoHome`,
+  `CodeNoHostRegistered`, `CodeServiceControlUnavailable`, `CodeModelRequired`,
+  `CodeExplicitCmdRefused`, `CodeInvalidValue`, `CodeSharedAgent`,
+  `CodeUnknownApprovalMode`, `CodeAgentExists`, `CodeAgentInvalidName`,
+  `CodeAgentNotFound`, `CodeUnsupportedHomeType`, the generic `CodeEntityNotFound` and
+  `CodeEntityUnknown`, `CodeScheduleNotFound`, `CodeChannelKindUnder`,
+  `CodeChannelKindHome` and `CodeInvalidValueHint`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -363,11 +370,22 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   codes, `Detail` for `CodeUnexpected`, `Setting` and `Value` for
   `CodeSettingInvalid`, `Settings` for `CodeSettingMissing`, `Reason` for
   `CodeCompactUnavailable`, `Address` for `CodeAddressPlaintextRefused`, and none
-  for `CodeNodeMerged`, `CodeCompacted` and the codes added in v0.20.0, which
-  carry no argument. Each parameter declares its kind, and
-  every one is a `Text`. `Settings` is a text the caller composes, for instance the
-  names of the missing settings joined with `, `: it is not a list, and the text is
-  shown as it is.
+  for `CodeNodeMerged`, `CodeCompacted`, `CodeNoHome`, `CodeNoHostRegistered`,
+  `CodeServiceControlUnavailable`, `CodeModelRequired`, `CodeExplicitCmdRefused` and
+  the compaction reasons, which carry no argument. `CodeSessionLimit` takes `Count`,
+  a `Count` argument that selects the plural form. `CodeInvalidValue` takes `Field`
+  and `Value`, `CodeSharedAgent` takes `Agent`, `CodeUnknownApprovalMode` takes
+  `Mode`, `CodeAgentExists`, `CodeAgentInvalidName` and `CodeAgentNotFound` take
+  `Name`, and `CodeUnsupportedHomeType` takes `Type`. `CodeEntityNotFound` and
+  `CodeEntityUnknown` take `Kind` and `Name`, where `Kind` is shown as it is: the
+  French texts read `{Kind} « Name » introuvable` and
+  `valeur inconnue pour {Kind} : « Name »`. `CodeScheduleNotFound` takes `Name`,
+  `CodeChannelKindUnder` and `CodeChannelKindHome` take `Channel`, a `Ref`, and
+  `Kind`, and `CodeInvalidValueHint` takes `Field`, `Value` and `Hint`; `Hint` is a
+  text the caller composes and is shown as it is, so it is not translated. Each
+  parameter declares its kind, and every one is a `Text` except `Count`. `Settings`
+  is a text the caller composes, for instance the names of the missing settings
+  joined with `, `: it is not a list, and the text is shown as it is.
   `Detail` holds the technical text of a failure with no code of its own. It is
   never translated: a gateway renders it in a code block, and `Degrade` renders it
   as plain text. `Reason` is an ordinary `Text` argument, the technical reason of a

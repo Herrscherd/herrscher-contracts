@@ -38,7 +38,7 @@ func TestDegradeNoticeRendersTextForGatewayWithoutSink(t *testing.T) {
 	if _, err := sink.Notify(context.Background(), Conversation{}, i18n.French, notice); err != nil {
 		t.Fatal(err)
 	}
-	if len(rec.posts) != 1 || rec.posts[0] != "aucune session nommée « x »" {
+	if len(rec.posts) != 1 || rec.posts[0] != "session « x » introuvable" {
 		t.Fatalf("posts = %q, want the French text only", rec.posts)
 	}
 }

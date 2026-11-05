@@ -73,5 +73,101 @@
     "id": "compact.no_thread",
     "description": "No turn has run yet, so there is no context to compact",
     "other": "context compaction unavailable: no turn has run yet, so there is nothing to compact"
+  },
+  {
+    "id": "session.limit",
+    "description": "No session can be created because the session limit is reached",
+    "one": "session limit reached: {{.Count}} session allowed; close one before creating another",
+    "other": "session limit reached: {{.Count}} sessions allowed; close one before creating another"
+  },
+  {
+    "id": "home.missing",
+    "description": "A session is created before a home channel is set",
+    "other": "no home set; run `set home` first"
+  },
+  {
+    "id": "host.none_registered",
+    "description": "A remote host is requested but none is registered",
+    "other": "no host is registered"
+  },
+  {
+    "id": "service.control_unavailable",
+    "description": "The host cannot control its own service",
+    "other": "service control unavailable"
+  },
+  {
+    "id": "model.required",
+    "description": "A session under the gateway-only route policy names no model",
+    "other": "a model is required under the gateway-only route policy: without one the session would spawn on this machine's own vendor login"
+  },
+  {
+    "id": "cmd.explicit_refused",
+    "description": "A session names an explicit cmd under the gateway-only route policy",
+    "other": "an explicit cmd is refused under the gateway-only route policy: it bypasses the model catalog; select a model instead"
+  },
+  {
+    "id": "value.invalid",
+    "description": "A command argument holds a value that is malformed or out of range",
+    "other": "invalid value {{.Value}} for {{.Field}}"
+  },
+  {
+    "id": "agent.shared_refused",
+    "description": "An agent is requested for a session that runs in the main checkout",
+    "other": "session create with agent {{.Agent}} cannot be shared: an agent needs a place of its own, and shared:true runs in the main checkout"
+  },
+  {
+    "id": "approval.mode_unknown",
+    "description": "An approval mode is outside the modes the host knows",
+    "other": "unknown approval mode {{.Mode}}: ask, accept-edits, plan, auto, bypass or strict"
+  },
+  {
+    "id": "agent.exists",
+    "description": "An agent cannot be created because its name is taken",
+    "other": "agent {{.Name}} already exists"
+  },
+  {
+    "id": "agent.invalid_name",
+    "description": "An agent name is not a usable slug",
+    "other": "invalid agent name {{.Name}}"
+  },
+  {
+    "id": "agent.not_found",
+    "description": "An agent named in a command does not exist",
+    "other": "no agent {{.Name}}"
+  },
+  {
+    "id": "home.type_unsupported",
+    "description": "The home channel kind cannot host sessions",
+    "other": "home type {{.Type}} unsupported"
+  },
+  {
+    "id": "entity.not_found",
+    "description": "A named entity of a kind the shared codes do not name has no match",
+    "other": "no {{.Kind}} named {{.Name}}"
+  },
+  {
+    "id": "entity.unknown",
+    "description": "A name is not a known entity of a kind the shared codes do not name",
+    "other": "unknown {{.Kind}} {{.Name}}"
+  },
+  {
+    "id": "schedule.not_found",
+    "description": "A schedule named in a command does not exist",
+    "other": "no schedule named {{.Name}}"
+  },
+  {
+    "id": "channel.kind_under",
+    "description": "A channel of an unsuitable kind is given as the placement of a session",
+    "other": "channel {{.Channel}} is {{.Kind}}: under must be a category or forum (to run in an existing conversation, pass channel_id)"
+  },
+  {
+    "id": "channel.kind_home",
+    "description": "A channel of an unsuitable kind is set as the home",
+    "other": "channel {{.Channel}} is {{.Kind}}: home must be a category or forum"
+  },
+  {
+    "id": "value.invalid_hint",
+    "description": "A command argument holds a malformed or out of range value, with the reason",
+    "other": "invalid value {{.Value}} for {{.Field}}: {{.Hint}}"
   }
 ]

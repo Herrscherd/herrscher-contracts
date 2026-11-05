@@ -52,6 +52,45 @@ const (
 	CodeCompactInstructionRefused
 	// CodeCompactNoThread reports that no turn has run yet, so there is no context to compact.
 	CodeCompactNoThread
+	// CodeSessionLimit reports that no session can be created because Count sessions already run.
+	CodeSessionLimit
+	// CodeNoHome reports that a session cannot be created before a home channel is set.
+	CodeNoHome
+	// CodeNoHostRegistered reports that a remote host is requested but none is registered.
+	CodeNoHostRegistered
+	// CodeServiceControlUnavailable reports that the host cannot control its own service.
+	CodeServiceControlUnavailable
+	// CodeModelRequired reports that a session under the gateway-only route policy names no model.
+	CodeModelRequired
+	// CodeExplicitCmdRefused reports that a session names a cmd under the gateway-only route policy.
+	CodeExplicitCmdRefused
+	// CodeInvalidValue reports that the value Value is malformed or out of range for the field Field.
+	CodeInvalidValue
+	// CodeSharedAgent reports that the agent Agent cannot run in a session that shares the main checkout.
+	CodeSharedAgent
+	// CodeUnknownApprovalMode reports that the approval mode Mode is not one the host knows.
+	CodeUnknownApprovalMode
+	// CodeAgentExists reports that an agent named Name already exists.
+	CodeAgentExists
+	// CodeAgentInvalidName reports that Name is not a usable agent name.
+	CodeAgentInvalidName
+	// CodeAgentNotFound reports that no agent is named Name.
+	CodeAgentNotFound
+	// CodeUnsupportedHomeType reports that the home channel kind Type cannot host sessions.
+	CodeUnsupportedHomeType
+	// CodeEntityNotFound reports that no Kind named Name exists. Kind is shown as it is.
+	CodeEntityNotFound
+	// CodeEntityUnknown reports that Name is not a known Kind. Kind is shown as it is.
+	CodeEntityUnknown
+	// CodeScheduleNotFound reports that no schedule is named Name.
+	CodeScheduleNotFound
+	// CodeChannelKindUnder reports that the channel Channel has the kind Kind, which cannot hold an under placement.
+	CodeChannelKindUnder
+	// CodeChannelKindHome reports that the channel Channel has the kind Kind, which cannot be the home.
+	CodeChannelKindHome
+	// CodeInvalidValueHint reports that the value Value is malformed or out of range for the field Field,
+	// and that Hint says why. Hint is a text the caller composes, and it is shown as it is.
+	CodeInvalidValueHint
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -63,6 +102,12 @@ func Codes() []Code {
 		CodeSettingInvalid, CodeSettingMissing, CodeNodeMerged, CodeCompactUnavailable, CodeCompacted,
 		CodeAddressPlaintextRefused,
 		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread,
+		CodeSessionLimit, CodeNoHome, CodeNoHostRegistered, CodeServiceControlUnavailable,
+		CodeModelRequired, CodeExplicitCmdRefused, CodeInvalidValue, CodeSharedAgent,
+		CodeUnknownApprovalMode, CodeAgentExists, CodeAgentInvalidName, CodeAgentNotFound,
+		CodeUnsupportedHomeType,
+		CodeEntityNotFound, CodeEntityUnknown, CodeScheduleNotFound,
+		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint,
 	}
 }
 
@@ -100,6 +145,44 @@ func (c Code) Key() string {
 		return "compact.instruction_refused"
 	case CodeCompactNoThread:
 		return "compact.no_thread"
+	case CodeSessionLimit:
+		return "session.limit"
+	case CodeNoHome:
+		return "home.missing"
+	case CodeNoHostRegistered:
+		return "host.none_registered"
+	case CodeServiceControlUnavailable:
+		return "service.control_unavailable"
+	case CodeModelRequired:
+		return "model.required"
+	case CodeExplicitCmdRefused:
+		return "cmd.explicit_refused"
+	case CodeInvalidValue:
+		return "value.invalid"
+	case CodeSharedAgent:
+		return "agent.shared_refused"
+	case CodeUnknownApprovalMode:
+		return "approval.mode_unknown"
+	case CodeAgentExists:
+		return "agent.exists"
+	case CodeAgentInvalidName:
+		return "agent.invalid_name"
+	case CodeAgentNotFound:
+		return "agent.not_found"
+	case CodeUnsupportedHomeType:
+		return "home.type_unsupported"
+	case CodeEntityNotFound:
+		return "entity.not_found"
+	case CodeEntityUnknown:
+		return "entity.unknown"
+	case CodeScheduleNotFound:
+		return "schedule.not_found"
+	case CodeChannelKindUnder:
+		return "channel.kind_under"
+	case CodeChannelKindHome:
+		return "channel.kind_home"
+	case CodeInvalidValueHint:
+		return "value.invalid_hint"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -107,11 +190,11 @@ func (c Code) Key() string {
 func (c Code) params() (map[string]ArgKind, bool) {
 	switch c {
 	case CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed:
-		return map[string]ArgKind{"Name": ArgText}, true
+		return map[string]ArgKind{nameParam: ArgText}, true
 	case CodeUnexpected:
 		return map[string]ArgKind{"Detail": ArgText}, true
 	case CodeSettingInvalid:
-		return map[string]ArgKind{"Setting": ArgText, "Value": ArgText}, true
+		return map[string]ArgKind{"Setting": ArgText, valueParam: ArgText}, true
 	case CodeSettingMissing:
 		return map[string]ArgKind{"Settings": ArgText}, true
 	case CodeCompactUnavailable:
@@ -121,6 +204,29 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	case CodeNodeMerged, CodeCompacted,
 		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread:
 		return nil, true
+	case CodeSessionLimit:
+		return map[string]ArgKind{countName: ArgCount}, true
+	case CodeNoHome, CodeNoHostRegistered, CodeServiceControlUnavailable,
+		CodeModelRequired, CodeExplicitCmdRefused:
+		return nil, true
+	case CodeInvalidValue:
+		return map[string]ArgKind{"Field": ArgText, valueParam: ArgText}, true
+	case CodeSharedAgent:
+		return map[string]ArgKind{"Agent": ArgText}, true
+	case CodeUnknownApprovalMode:
+		return map[string]ArgKind{"Mode": ArgText}, true
+	case CodeAgentExists, CodeAgentInvalidName, CodeAgentNotFound:
+		return map[string]ArgKind{nameParam: ArgText}, true
+	case CodeUnsupportedHomeType:
+		return map[string]ArgKind{"Type": ArgText}, true
+	case CodeEntityNotFound, CodeEntityUnknown:
+		return map[string]ArgKind{"Kind": ArgText, nameParam: ArgText}, true
+	case CodeScheduleNotFound:
+		return map[string]ArgKind{nameParam: ArgText}, true
+	case CodeChannelKindUnder, CodeChannelKindHome:
+		return map[string]ArgKind{"Channel": ArgRef, "Kind": ArgText}, true
+	case CodeInvalidValueHint:
+		return map[string]ArgKind{"Field": ArgText, valueParam: ArgText, "Hint": ArgText}, true
 	}
 	return nil, false
 }
@@ -147,6 +253,11 @@ const (
 )
 
 const countName = "Count"
+
+const (
+	nameParam  = "Name"
+	valueParam = "Value"
+)
 
 // Arg is one named argument of a Notice. Its zero value is malformed, and a
 // Notice that carries it is refused by Renderer.Render.

@@ -102,10 +102,22 @@ func argsWithRefUnder(declared map[string]ArgKind, ref string) []Arg {
 		if name == ref {
 			args = append(args, Ref(name, "123"))
 		} else {
-			args = append(args, Text(name, "x"))
+			args = append(args, argOfKind(name, declared[name]))
 		}
 	}
 	return args
+}
+
+func argOfKind(name string, kind ArgKind) Arg {
+	switch kind {
+	case ArgCount:
+		return Count(2)
+	case ArgRef:
+		return Ref(name, "123")
+	case ArgText:
+		return Text(name, "x")
+	}
+	return Arg{}
 }
 
 func TestRenderRefusesRefForEveryDeclaredTextParam(t *testing.T) {
@@ -129,8 +141,8 @@ func TestRenderAcceptsTextForEveryDeclaredParam(t *testing.T) {
 	for _, code := range Codes() {
 		declared, _ := code.params()
 		var args []Arg
-		for name := range declared {
-			args = append(args, Text(name, "x"))
+		for name, kind := range declared {
+			args = append(args, argOfKind(name, kind))
 		}
 		for _, lang := range i18n.Languages() {
 			if _, err := renderer.Render(lang, Notice{Code: code, Args: args}); err != nil {
@@ -309,7 +321,7 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 		{
 			Notice{Code: CodeSessionNotFound, Args: []Arg{Text("Name", "x")}},
 			"no session named x",
-			"aucune session nommée « x »",
+			"session « x » introuvable",
 		},
 		{
 			Notice{Code: CodeSessionExists, Args: []Arg{Text("Name", "x")}},
@@ -350,6 +362,71 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			Notice{Code: CodeCompactTimeoutInvalid},
 			"context compaction unavailable: the compaction timeout must be a positive duration",
 			"compaction du contexte indisponible : le délai de compaction doit être une durée positive",
+		},
+		{
+			Notice{Code: CodeSessionLimit, Args: []Arg{Count(1)}},
+			"session limit reached: 1 session allowed; close one before creating another",
+			"limite de sessions atteinte : 1 session autorisée ; ferme-en une avant d'en créer une autre",
+		},
+		{
+			Notice{Code: CodeSessionLimit, Args: []Arg{Count(0)}},
+			"session limit reached: 0 sessions allowed; close one before creating another",
+			"limite de sessions atteinte : 0 session autorisée ; ferme-en une avant d'en créer une autre",
+		},
+		{
+			Notice{Code: CodeSessionLimit, Args: []Arg{Count(4)}},
+			"session limit reached: 4 sessions allowed; close one before creating another",
+			"limite de sessions atteinte : 4 sessions autorisées ; ferme-en une avant d'en créer une autre",
+		},
+		{
+			Notice{Code: CodeNoHome},
+			"no home set; run `set home` first",
+			"aucun accueil défini ; lance d'abord `set home`",
+		},
+		{
+			Notice{Code: CodeInvalidValue, Args: []Arg{Text("Field", "terminal_only"), Text("Value", "maybe")}},
+			"invalid value maybe for terminal_only",
+			"valeur invalide maybe pour terminal_only",
+		},
+		{
+			Notice{Code: CodeSharedAgent, Args: []Arg{Text("Agent", "x")}},
+			"session create with agent x cannot be shared: an agent needs a place of its own, and shared:true runs in the main checkout",
+			"la session ne peut pas être créée avec l'agent « x » en partage : un agent a besoin d'un espace à lui, et shared:true la lance dans le dépôt principal",
+		},
+		{
+			Notice{Code: CodeEntityNotFound, Args: []Arg{Text("Kind", "lead"), Text("Name", "x")}},
+			"no lead named x",
+			"lead « x » introuvable",
+		},
+		{
+			Notice{Code: CodeEntityUnknown, Args: []Arg{Text("Kind", "backend"), Text("Name", "x")}},
+			"unknown backend x",
+			"valeur inconnue pour backend : « x »",
+		},
+		{
+			Notice{Code: CodeScheduleNotFound, Args: []Arg{Text("Name", "x")}},
+			"no schedule named x",
+			"planification « x » introuvable",
+		},
+		{
+			Notice{Code: CodeChannelKindUnder, Args: []Arg{Ref("Channel", "123"), Text("Kind", "voice")}},
+			"channel 123 is voice: under must be a category or forum (to run in an existing conversation, pass channel_id)",
+			"le salon 123 est de type voice : « under » doit être une catégorie ou un forum (pour lancer une session dans une conversation existante, passe channel_id)",
+		},
+		{
+			Notice{Code: CodeChannelKindHome, Args: []Arg{Ref("Channel", "123"), Text("Kind", "voice")}},
+			"channel 123 is voice: home must be a category or forum",
+			"le salon 123 est de type voice : l'accueil doit être une catégorie ou un forum",
+		},
+		{
+			Notice{Code: CodeInvalidValueHint, Args: []Arg{Text("Field", "terminal_only"), Text("Value", "maybe"), Text("Hint", "use true or false")}},
+			"invalid value maybe for terminal_only: use true or false",
+			"valeur invalide maybe pour terminal_only : use true or false",
+		},
+		{
+			Notice{Code: CodeAgentNotFound, Args: []Arg{Text("Name", "x")}},
+			"no agent x",
+			"agent « x » introuvable",
 		},
 		{
 			Notice{Code: CodeCompactInstructionRefused},
@@ -470,6 +547,25 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeCompactTimeoutInvalid:     13,
 		CodeCompactInstructionRefused: 14,
 		CodeCompactNoThread:           15,
+		CodeSessionLimit:              16,
+		CodeNoHome:                    17,
+		CodeNoHostRegistered:          18,
+		CodeServiceControlUnavailable: 19,
+		CodeModelRequired:             20,
+		CodeExplicitCmdRefused:        21,
+		CodeInvalidValue:              22,
+		CodeSharedAgent:               23,
+		CodeUnknownApprovalMode:       24,
+		CodeAgentExists:               25,
+		CodeAgentInvalidName:          26,
+		CodeAgentNotFound:             27,
+		CodeUnsupportedHomeType:       28,
+		CodeEntityNotFound:            29,
+		CodeEntityUnknown:             30,
+		CodeScheduleNotFound:          31,
+		CodeChannelKindUnder:          32,
+		CodeChannelKindHome:           33,
+		CodeInvalidValueHint:          34,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))

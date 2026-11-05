@@ -2,7 +2,7 @@
   {
     "id": "session.not_found",
     "description": "Une session nommée dans une commande n'existe pas",
-    "other": "aucune session nommée « {{.Name}} »"
+    "other": "session « {{.Name}} » introuvable"
   },
   {
     "id": "session.exists",
@@ -73,5 +73,101 @@
     "id": "compact.no_thread",
     "description": "Aucun tour n'a encore été joué, donc il n'y a rien à compacter",
     "other": "compaction du contexte indisponible : aucun tour n'a encore été joué, il n'y a rien à compacter"
+  },
+  {
+    "id": "session.limit",
+    "description": "Aucune session ne peut être créée parce que la limite de sessions est atteinte",
+    "one": "limite de sessions atteinte : {{.Count}} session autorisée ; ferme-en une avant d'en créer une autre",
+    "other": "limite de sessions atteinte : {{.Count}} sessions autorisées ; ferme-en une avant d'en créer une autre"
+  },
+  {
+    "id": "home.missing",
+    "description": "Une session est créée avant que le salon d'accueil soit défini",
+    "other": "aucun accueil défini ; lance d'abord `set home`"
+  },
+  {
+    "id": "host.none_registered",
+    "description": "Un hôte distant est demandé alors qu'aucun n'est enregistré",
+    "other": "aucun hôte n'est enregistré"
+  },
+  {
+    "id": "service.control_unavailable",
+    "description": "L'hôte ne peut pas contrôler son propre service",
+    "other": "le contrôle du service n'est pas disponible"
+  },
+  {
+    "id": "model.required",
+    "description": "Une session sous la politique de route passerelle seule ne nomme aucun modèle",
+    "other": "un modèle est requis sous la politique de route « passerelle seule » : sans modèle, la session se lancerait sur la connexion fournisseur propre à cette machine"
+  },
+  {
+    "id": "cmd.explicit_refused",
+    "description": "Une session nomme une commande explicite sous la politique de route passerelle seule",
+    "other": "une commande explicite est refusée sous la politique de route « passerelle seule » : elle contourne le catalogue de modèles ; choisis plutôt un modèle"
+  },
+  {
+    "id": "value.invalid",
+    "description": "Un argument de commande a une valeur mal formée ou hors limites",
+    "other": "valeur invalide {{.Value}} pour {{.Field}}"
+  },
+  {
+    "id": "agent.shared_refused",
+    "description": "Un agent est demandé pour une session qui s'exécute dans le dépôt principal",
+    "other": "la session ne peut pas être créée avec l'agent « {{.Agent}} » en partage : un agent a besoin d'un espace à lui, et shared:true la lance dans le dépôt principal"
+  },
+  {
+    "id": "approval.mode_unknown",
+    "description": "Un mode d'approbation est hors des modes connus de l'hôte",
+    "other": "mode d'approbation inconnu {{.Mode}} : ask, accept-edits, plan, auto, bypass ou strict"
+  },
+  {
+    "id": "agent.exists",
+    "description": "Un agent ne peut pas être créé parce que son nom est pris",
+    "other": "l'agent « {{.Name}} » existe déjà"
+  },
+  {
+    "id": "agent.invalid_name",
+    "description": "Un nom d'agent n'est pas un identifiant utilisable",
+    "other": "nom d'agent invalide : {{.Name}}"
+  },
+  {
+    "id": "agent.not_found",
+    "description": "Un agent nommé dans une commande n'existe pas",
+    "other": "agent « {{.Name}} » introuvable"
+  },
+  {
+    "id": "home.type_unsupported",
+    "description": "Le type de salon d'accueil ne peut pas héberger de sessions",
+    "other": "le type de salon d'accueil {{.Type}} n'est pas pris en charge"
+  },
+  {
+    "id": "entity.not_found",
+    "description": "Une entité nommée d'un genre que les codes partagés ne nomment pas n'existe pas",
+    "other": "{{.Kind}} « {{.Name}} » introuvable"
+  },
+  {
+    "id": "entity.unknown",
+    "description": "Un nom n'est pas une entité connue d'un genre que les codes partagés ne nomment pas",
+    "other": "valeur inconnue pour {{.Kind}} : « {{.Name}} »"
+  },
+  {
+    "id": "schedule.not_found",
+    "description": "Une planification nommée dans une commande n'existe pas",
+    "other": "planification « {{.Name}} » introuvable"
+  },
+  {
+    "id": "channel.kind_under",
+    "description": "Un salon d'un type inadapté est donné comme emplacement d'une session",
+    "other": "le salon {{.Channel}} est de type {{.Kind}} : « under » doit être une catégorie ou un forum (pour lancer une session dans une conversation existante, passe channel_id)"
+  },
+  {
+    "id": "channel.kind_home",
+    "description": "Un salon d'un type inadapté est défini comme accueil",
+    "other": "le salon {{.Channel}} est de type {{.Kind}} : l'accueil doit être une catégorie ou un forum"
+  },
+  {
+    "id": "value.invalid_hint",
+    "description": "Un argument de commande a une valeur mal formée ou hors limites, avec la raison",
+    "other": "valeur invalide {{.Value}} pour {{.Field}} : {{.Hint}}"
   }
 ]
