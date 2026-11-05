@@ -13,17 +13,21 @@ type SessionControl interface {
 	// the same vocabulary the operator CLI uses, e.g.
 	// {"session","create","--name","foo"}. It applies the command and, for
 	// lifecycle changes, brings the affected sessions live (or tears them down) in
-	// the running hub. It returns a human-readable result or an error.
-	Dispatch(ctx context.Context, args []string) (string, error)
+	// the running hub. It returns a Result: a Notice for the operator, or data for
+	// a caller that renders it, and an error whose Notice tells the operator why.
+	// When err is not nil, the Result is ignored.
+	Dispatch(ctx context.Context, args []string) (Result, error)
 	// Create starts a session from a typed spec, the structured counterpart to a
 	// "session create" Dispatch. Programmatic callers (a gateway bootstrapping its
 	// default session, a UI close/create button) use this instead of assembling
 	// flag argv, so a renamed flag is a compile error rather than a silent no-op.
-	// It brings the new session live, like Dispatch.
-	Create(ctx context.Context, spec CreateSession) (string, error)
+	// It brings the new session live, like Dispatch, and returns a Result as
+	// Dispatch does: a notice of CodeSessionCreated on success.
+	Create(ctx context.Context, spec CreateSession) (Result, error)
 	// Close tears a session down by name, the typed counterpart to a
-	// "session close" Dispatch. force discards an uncommitted worktree.
-	Close(ctx context.Context, name string, force bool) (string, error)
+	// "session close" Dispatch. force discards an uncommitted worktree. It returns a
+	// Result as Dispatch does: a notice of CodeSessionClosed on success.
+	Close(ctx context.Context, name string, force bool) (Result, error)
 	// Sessions returns a snapshot of the hub's sessions, for a gateway that needs
 	// to enumerate them (e.g. autocompleting a session name).
 	Sessions() []SessionInfo

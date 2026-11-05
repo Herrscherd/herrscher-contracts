@@ -73,3 +73,33 @@ func TestCheckStopsWhenCatalogCannotBeRead(t *testing.T) {
 		t.Fatalf("Check() fatal = %v, failures = %v, want one fatal error", rec.fatal, rec.failures)
 	}
 }
+
+func TestCheckDeclaredAcceptsMatchingCatalog(t *testing.T) {
+	rec := &recorder{}
+	declared := map[string][]string{"session.archived": nil, "session.name": {"Name"}, "session.count": {"Count"}}
+	CheckDeclared(rec, declared, os.DirFS("../testdata/complete"))
+	if len(rec.failures) != 0 || len(rec.fatal) != 0 {
+		t.Fatalf("CheckDeclared() reported %v, fatal %v", rec.failures, rec.fatal)
+	}
+}
+
+func TestCheckDeclaredRefusesViolations(t *testing.T) {
+	cases := []struct {
+		name     string
+		declared map[string][]string
+		want     string
+	}{
+		{"undeclared key", map[string][]string{"session.archived": nil, "session.name": {"Name"}}, `message "session.count" in en is not declared`},
+		{"field differs from the declaration", map[string][]string{"session.archived": nil, "session.name": {"Title"}, "session.count": {"Count"}}, `message "session.name" in en uses fields [Name], declared [Title]`},
+		{"declared key absent from the catalog", map[string][]string{"session.archived": nil, "session.name": {"Name"}, "session.count": {"Count"}, "session.gone": nil}, `message "session.gone" missing in en`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := &recorder{}
+			CheckDeclared(rec, tc.declared, os.DirFS("../testdata/complete"))
+			if !rec.reported(tc.want) {
+				t.Fatalf("CheckDeclared reported %v, want a failure containing %q", rec.failures, tc.want)
+			}
+		})
+	}
+}

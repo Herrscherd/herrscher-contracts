@@ -4,8 +4,8 @@
 and the core consumes only these.
 
 It is types and interfaces plus a few thin helpers. No runtime, no daemon, no
-plugin logic. The root package has no dependency beyond the Go standard library;
-the `i18n` sub-package adds go-i18n and x/text (see below). Go 1.27.
+plugin logic. The root package depends on the Go standard library and on the
+`i18n` sub-package, which brings go-i18n and x/text (see below). Go 1.27.
 
 ```go
 import contracts "github.com/Herrscherd/herrscher-contracts"
@@ -41,6 +41,7 @@ it is absent.
 | `EventSink` | `event.go` | optional | `Emit(Event)`: the gateway renders the live turn stream itself |
 | `RoutedEventSink` | `event.go` | optional | `EmitTo(Conversation, Event)`, the multi-session variant, preferred over `EventSink` |
 | `Foreground` | `foreground.go` | optional | `RunForeground`: the gateway owns the main thread (a TUI). At most one |
+| `NoticeSink` | `gateway.go` | optional | `Notify(ctx, conv, lang, Notice)`: the gateway renders a notice itself, in the given language, with English as the fallback. Without it, `Degrade` renders the text |
 | `SessionControlReceiver` | `session_control.go` | optional | `BindSessionControl` receives the host's session-control handle |
 
 ### Memory
@@ -64,7 +65,7 @@ it is absent.
 
 | Port | File | What it does |
 |---|---|---|
-| `SessionControl` | `session_control.go` | `Dispatch`, `Create`, `Close`, `Sessions`, `Scrollback`, `Resume`, `Interrupt` |
+| `SessionControl` | `session_control.go` | `Dispatch`, `Create` and `Close` (return a `Result`), `Sessions`, `Scrollback`, `Resume`, `Interrupt` |
 | `Coordinator` | `coordinator.go` | `Handoff`, `Delegate`, `Report`, `Merge`, `Seal`, `FanOut`, `Route` |
 | `RosterProvider` | `roster.go` | `Agents()`, the agents a session may delegate to |
 | `Liveness` | `liveness.go` | `HeartbeatAck`, the sink for a gateway's keepalive |
@@ -278,7 +279,8 @@ all.
 
 `Degrade(Gateway)` wraps a gateway so callers always invoke the rich method:
 `Reply` falls back to `Post`, `Menu` to a numbered-list `Post`, `React` to a
-no-op, and `BindSessionControl` still forwards.
+no-op, `Notify` to a `Post` of the notice rendered as text, and
+`BindSessionControl` still forwards.
 
 `MemoryScope{Project, Agent}` plus `RecordShared`, `RecordPrivate`,
 `RecallScoped` and `RecallRelevant` implement shared-versus-private memory as a
@@ -291,7 +293,9 @@ lifecycle states, and relevance ranking.
 
 The `i18n` sub-package is the runtime of herrscher's translated texts. It is the
 only part of the module with dependencies beyond the standard library:
-`github.com/nicksnyder/go-i18n/v2` and `golang.org/x/text`.
+`github.com/nicksnyder/go-i18n/v2` and `golang.org/x/text`. The root package
+imports it for `Renderer`, so those dependencies reach every module that imports
+contracts.
 
 - `Language` is the closed set of supported languages, `English` and `French`.
   `ParseLanguage` accepts a BCP 47 tag or a POSIX locale in any letter case
@@ -302,6 +306,8 @@ only part of the module with dependencies beyond the standard library:
   its value is not a supported language, `FromEnv` reports false without looking
   at the variables after it. `Resolve` returns the first supported candidate, or
   English when none is.
+- French messages use the straight apostrophe (') and the « » guillemets, as the
+  French texts of the herrscher repositories do.
 - A catalog is a set of JSON files, one per language, named after it
   (`en.json`, `fr.json`), in the go-i18n v2 format:
   `{"id": "session.archived", "other": "Session archived"}`. A placeholder is
@@ -334,9 +340,86 @@ only part of the module with dependencies beyond the standard library:
   each supported language with its plural forms, each language must use the same
   fields as English, and a key defined in a non-English language but absent from
   English is refused.
+- `i18ntest.CheckDeclared(t, declared, sources...)` ties a catalog to the codes
+  that use it. `declared` maps each key to the names of its fields. Each declared
+  key must exist in every language with exactly those fields, and a key the
+  sources define without a declaration is refused.
+
+### Codes, notices and results
+
+Messages a human reads are named by a code, not by a sentence. The host emits
+`Notice{Code, Args}` and the front end renders it.
+
+- `Code` is a closed `uint16` enum: `CodeSessionNotFound`, `CodeSessionExists`,
+  `CodeUnknownAgent`, `CodeSessionCreated`, `CodeSessionClosed`, `CodeUnexpected`.
+  `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
+  exhaustive switch; a value outside the list returns its raw number, `code.N`.
+  `Codes()` lists every code, and a test scans the whole `uint16` range, so a
+  constant named in `Key` or `params` but missing from `Codes()` fails the suite.
+- `Code` declares its parameters, which are `Name` for the session and agent
+  codes and `Detail` for `CodeUnexpected`. `Detail` holds the technical text of a
+  failure with no code of its own. It is never translated: a gateway renders it in
+  a code block, and `Degrade` renders it as plain text.
+- A code of success, such as `CodeSessionCreated`, is a notice like any other: it
+  is never `CodeUnexpected`.
+- `Arg` is built only by `Text(name, value)`, `Count(n)` (named `Count`, it selects
+  the plural form) and `Ref(name, id)` (the identifier of a platform object, which
+  a gateway renders as a mention). Its zero value is malformed. `Arg` has no
+  float constructor, so a decimal number is never rendered in Go format. `Render`
+  checks that the name matches the kind: `Count` must be an `ArgCount`, and an
+  `ArgCount` must be named `Count`.
+- `Renderer` turns a `Notice` into text in a language, through the shared catalog
+  `locales/en.json` and `locales/fr.json`, embedded in the module. `NewRenderer()`
+  builds the catalog on first use. `Render` refuses a notice whose code is
+  unknown, whose arguments are not exactly the names its code declares, or whose
+  code has no English message, the fallback language. The last one returns `ErrMissingMessage`:
+  a raw key is never returned to a human. The other two return `ErrUnknownCode`
+  and `ErrNoticeArgs`.
+- `NoticeError` is an error that reaches a human: it implements `Notice() Notice`.
+  `NoticeOf(err)` returns the notice of the first `NoticeError` in the chain, or
+  `CodeUnexpected` with the error text as `Detail`. `errors.Is` and
+  `errors.AsType` keep matching the sentinels and types, not the text.
+- `Result` is what `Cmd.Run` and `SessionControl.Dispatch` return. It carries a
+  notice (`NoticeResult`) for the human, or typed data (`DataResult`) for a caller
+  that renders it itself, such as `--json`. `DataResult(nil)` equals `Result{}`:
+  it carries neither. When `Dispatch` returns an error, its `Result` is ignored. `Cmd.Help`, `Param.Help` and the help
+  of a `Builder` are catalog keys: the module that declares the command renders
+  them, in its own catalog.
+- `NoticeSink` is the optional port of a gateway that renders a notice itself, in
+  the language it receives, with its own markup. A message missing from that
+  language renders in English. Without it, `Degrade` renders the notice as plain
+  text in the language and posts it, with the same English fallback, so no emoji
+  or markup is added on that path. A gateway that renders `CodeUnexpected` puts its
+  `Detail` in a code block, untranslated; `Degrade` keeps the plain text.
 
 Log lines, CLI syntax and flags, protocol markers and the prompts sent to agents
 are not translated. They stay in English.
+
+## Migration
+
+The next release is one breaking release: every change below lands together.
+
+- `Cmd.Run` returns `(Result, error)` instead of `(string, error)`. Return
+  `NoticeResult(notice)` for a message to a human, or `DataResult(v)` for data
+  that a caller renders itself. `Builder.Do` takes the same signature.
+- `SessionControl.Dispatch`, `Create` and `Close` return `(Result, error)` instead
+  of `(string, error)`. Read the notice with `Result.Notice()`, or the data with
+  `Result.Data()`. When the error is not nil, the `Result` is ignored.
+- `Builder.Help`, `Builder.Param`, `Builder.ValueParam` and `Cmd.Help` take a
+  catalog key, not a sentence. The module that declares the command renders the
+  key in its own catalog. The Go compiler does not tell a key from a sentence:
+  both are strings, so a sentence left in place compiles. The CLI guard of PR 8
+  catches it.
+- `NoticeSink` is additive and optional. A gateway that implements
+  `Notify(ctx, conv, lang, notice)` receives the notice and its language. Without
+  it, `Degrade` renders the notice as text.
+
+Messages that have no code yet, successes included, get codes from the shared
+catalog in PRs 4 to 6. Until a message has its code, its text is not in the shared
+catalog. A success is never `CodeUnexpected`: it has its own code, such as
+`CodeSessionCreated` or `CodeSessionClosed`. Texts specific to one module (Discord,
+the terminal UI, the CLI) stay out of the shared catalog: the module builds its own
+catalog with `i18n.NewCatalog`, and checks it with `i18ntest`.
 
 ## Further reading
 

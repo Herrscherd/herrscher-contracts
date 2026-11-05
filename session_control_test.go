@@ -10,13 +10,15 @@ type stubControl struct {
 	picked    []string
 }
 
-func (s *stubControl) Dispatch(context.Context, []string) (string, error)    { return "", nil }
-func (s *stubControl) Create(context.Context, CreateSession) (string, error) { return "", nil }
-func (s *stubControl) Close(context.Context, string, bool) (string, error)   { return "", nil }
-func (s *stubControl) Sessions() []SessionInfo                               { return nil }
-func (s *stubControl) Scrollback(string) []ScrollbackLine                    { return nil }
-func (s *stubControl) Resume(string) error                                   { return nil }
-func (s *stubControl) Interrupt(string) bool                                 { return false }
+func (s *stubControl) Dispatch(context.Context, []string) (Result, error) { return Result{}, nil }
+
+func (s *stubControl) Create(context.Context, CreateSession) (Result, error) { return Result{}, nil }
+
+func (s *stubControl) Close(context.Context, string, bool) (Result, error) { return Result{}, nil }
+func (s *stubControl) Sessions() []SessionInfo                             { return nil }
+func (s *stubControl) Scrollback(string) []ScrollbackLine                  { return nil }
+func (s *stubControl) Resume(string) error                                 { return nil }
+func (s *stubControl) Interrupt(string) bool                               { return false }
 func (s *stubControl) Submit(_ string, in Inbound) bool {
 	s.submitted = append(s.submitted, in)
 	return true

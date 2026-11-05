@@ -1,0 +1,32 @@
+[
+  {
+    "id": "session.not_found",
+    "description": "Une session nommée dans une commande n'existe pas",
+    "other": "aucune session nommée « {{.Name}} »"
+  },
+  {
+    "id": "session.exists",
+    "description": "Une session ne peut pas être créée parce que son nom est pris",
+    "other": "une session nommée « {{.Name}} » existe déjà"
+  },
+  {
+    "id": "agent.unknown",
+    "description": "Un agent nommé dans une commande n'est pas configuré",
+    "other": "agent inconnu : {{.Name}}"
+  },
+  {
+    "id": "session.created",
+    "description": "Une session vient d'être créée et est active",
+    "other": "session « {{.Name}} » créée"
+  },
+  {
+    "id": "session.closed",
+    "description": "Une session vient d'être fermée",
+    "other": "session « {{.Name}} » fermée"
+  },
+  {
+    "id": "internal.unexpected",
+    "description": "Un échec sans code propre, avec son texte technique",
+    "other": "erreur inattendue : {{.Detail}}"
+  }
+]

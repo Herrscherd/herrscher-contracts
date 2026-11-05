@@ -14,7 +14,7 @@ type contributor struct{}
 
 func (contributor) Commands() []contracts.Cmd {
 	return []contracts.Cmd{contracts.New("channel", "read").Help("read a channel").Do(
-		func(context.Context, contracts.Input) (string, error) { return "", nil },
+		func(context.Context, contracts.Input) (contracts.Result, error) { return contracts.Result{}, nil },
 	)}
 }
 
