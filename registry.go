@@ -71,6 +71,9 @@ type Plugin struct {
 	// gateway missing its credentials never instantiates, and it must still ship
 	// its playbook. Nil when a plugin contributes none.
 	Skills SkillsFactory
+	// Discover lists the models the vendor serves now, when it can. Nil when
+	// the backend has no listing: its static Manifest.Models stands alone.
+	Discover ModelDiscoverer
 }
 
 // CommandSource is an optional capability of a live plugin instance: the verbs
