@@ -1,0 +1,16 @@
+[
+  {
+    "id": "session.archived",
+    "description": "Confirmation after a session is archived",
+    "other": "Session archived"
+  },
+  {
+    "id": "session.name",
+    "other": "Session {{.Name}}"
+  },
+  {
+    "id": "session.count",
+    "one": "{{.Count}} session",
+    "other": "{{.Count}} sessions"
+  }
+]

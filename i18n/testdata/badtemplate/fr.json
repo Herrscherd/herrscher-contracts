@@ -1,0 +1,6 @@
+[
+  {
+    "id": "greeting",
+    "other": "Bonjour {{.Name"
+  }
+]

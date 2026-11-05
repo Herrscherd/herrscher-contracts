@@ -4,7 +4,8 @@
 and the core consumes only these.
 
 It is types and interfaces plus a few thin helpers. No runtime, no daemon, no
-plugin logic. Zero dependencies: Go standard library only, Go 1.25.
+plugin logic. The root package has no dependency beyond the Go standard library;
+the `i18n` sub-package adds go-i18n and x/text (see below). Go 1.27.
 
 ```go
 import contracts "github.com/Herrscherd/herrscher-contracts"
@@ -285,6 +286,57 @@ policy over the plain `Memory` verbs.
 
 `EnforceBudget`, `NextState` and `Score` back per-node size limits, node
 lifecycle states, and relevance ranking.
+
+## Translated messages (`i18n`)
+
+The `i18n` sub-package is the runtime of herrscher's translated texts. It is the
+only part of the module with dependencies beyond the standard library:
+`github.com/nicksnyder/go-i18n/v2` and `golang.org/x/text`.
+
+- `Language` is the closed set of supported languages, `English` and `French`.
+  `ParseLanguage` accepts a BCP 47 tag or a POSIX locale in any letter case
+  (`fr`, `fr_FR.UTF-8`, `en_US`, `C`, `POSIX`). `String` renders a supported
+  language as its tag, and any other value as `Language(n)`.
+- `FromEnv` reads `LC_ALL`, `LC_MESSAGES` and `LANG` through an injected
+  `getenv`, as POSIX does: the first one that is set and not empty decides. If
+  its value is not a supported language, `FromEnv` reports false without looking
+  at the variables after it. `Resolve` returns the first supported candidate, or
+  English when none is.
+- A catalog is a set of JSON files, one per language, named after it
+  (`en.json`, `fr.json`), in the go-i18n v2 format:
+  `{"id": "session.archived", "other": "Session archived"}`. A placeholder is
+  `{{.Name}}`.
+- A message that is plural in English has `one` and `other` forms, and so does
+  each other language. The form is chosen by the language's CLDR rules from the
+  `Count` parameter, which is a numeric string, a signed integer, or an unsigned integer up to
+  `math.MaxInt64`. Any other type, a float included, is refused with `ErrParamType`.
+- `NewCatalog(logger, sources...)` builds a catalog from several `fs.FS`, usually
+  one embedded directory per package. A key defined twice across the sources is
+  refused with `ErrDuplicateKey`. A template that does not parse, including a
+  call to a template function, is refused at construction.
+- `Catalog.Message(lang, key, params)` renders a message. A `{{.Name}}` field with
+  no entry in `params` is an error. Every entry of `params` must be a scalar: a
+  string, a bool, an integer (`int`, `int8` to `int64`, `uint`, `uint8` to `uint64`) or
+  a float (`float32`, `float64`), of exactly these types: a named type such as `Language`
+  is refused, so the caller passes its underlying value. Any other value,
+  nil untyped or typed, pointer, slice, map, struct or func, is refused with
+  `ErrParamType` even when the message does not use that field, because the template
+  would render it as text such as `<nil>` or `[]`. A key missing in a language renders in English, and a
+  key missing everywhere returns the key itself. Each of these cases logs one
+  warning per key and language, for at most 1024 keys; past that, each further
+  missing key is logged every time it is asked for. An unsupported language, or a
+  `Count` that cannot be read, returns an error.
+- The restriction to plain fields is applied by `i18ntest.Check` only: a message
+  may not hold control structures, named templates or template functions. The
+  rendering does not enforce it, so the guard must run in the test suite of each
+  package that owns messages.
+- `i18ntest.Check(t, sources...)` is that guard. Every English key must exist in
+  each supported language with its plural forms, each language must use the same
+  fields as English, and a key defined in a non-English language but absent from
+  English is refused.
+
+Log lines, CLI syntax and flags, protocol markers and the prompts sent to agents
+are not translated. They stay in English.
 
 ## Further reading
 

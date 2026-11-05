@@ -1,0 +1,6 @@
+[
+  {
+    "id": "session.count",
+    "other": "{{.Count}} sessions"
+  }
+]
