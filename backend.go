@@ -1,6 +1,10 @@
 package contracts
 
-import "context"
+import (
+	"context"
+
+	"github.com/Herrscherd/herrscher-contracts/i18n"
+)
 
 // Backend is the model edge: it turns one inbound prompt into a reply, optionally
 // emitting intermediate progress events. The host neither knows nor cares which
@@ -22,14 +26,17 @@ type ResumeAware interface {
 // sent it, its identity, and local filesystem paths to any attachments already
 // downloaded for the backend to reference. Context carries memory-recalled
 // background (empty when no Memory plugin is wired). Data the backend fences
-// into the turn for continuity, never the user's instructions.
+// into the turn for continuity, never the user's instructions. Language is the
+// language of the session the turn belongs to, and the zero value when the host
+// does not know it: the backend then keeps its own default.
 type Prompt struct {
-	Content     string
-	Context     string
-	Author      string
-	MessageID   string
-	ChannelID   string
-	Attachments []string
+	Content     string        `json:"Content"`
+	Context     string        `json:"Context"`
+	Author      string        `json:"Author"`
+	MessageID   string        `json:"MessageID"`
+	ChannelID   string        `json:"ChannelID"`
+	Attachments []string      `json:"Attachments"`
+	Language    i18n.Language `json:"Language"`
 }
 
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a

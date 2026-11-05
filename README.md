@@ -300,7 +300,16 @@ contracts.
 - `Language` is the closed set of supported languages, `English` and `French`.
   `ParseLanguage` accepts a BCP 47 tag or a POSIX locale in any letter case
   (`fr`, `fr_FR.UTF-8`, `en_US`, `C`, `POSIX`). `String` renders a supported
-  language as its tag, and any other value as `Language(n)`.
+  language as its tag, and any other value as `Language(n)`. The zero value is
+  not a language: it means unknown. A language crosses the wire as its number
+  (`English` is 1, `French` is 2), so a value is frozen like a `Code`.
+- The session language reaches the plugins in two places. `SessionInfo.Language`
+  is what a gateway reads from `SessionControl.Sessions()`, to render the notices
+  of the session's conversation in it. `Prompt.Language` is what the host sets on
+  each turn, so a backend answers in it, and sees a change made by `/set lang`
+  from the next turn on. A zero `Language` means the host does not know it, and
+  the reader falls back to the operator's default. A backend that reads it
+  decides how to apply it; a backend that ignores it is unchanged.
 - `FromEnv` reads `LC_ALL`, `LC_MESSAGES` and `LANG` through an injected
   `getenv`, as POSIX does: the first one that is set and not empty decides. If
   its value is not a supported language, `FromEnv` reports false without looking
@@ -361,7 +370,7 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeUnknownApprovalMode`, `CodeAgentExists`, `CodeAgentInvalidName`,
   `CodeAgentNotFound`, `CodeUnsupportedHomeType`, the generic `CodeEntityNotFound` and
   `CodeEntityUnknown`, `CodeScheduleNotFound`, `CodeChannelKindUnder`,
-  `CodeChannelKindHome` and `CodeInvalidValueHint`.
+  `CodeChannelKindHome`, `CodeInvalidValueHint` and `CodeSessionCloseDirty`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -382,9 +391,12 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `valeur inconnue pour {Kind} : « Name »`. `CodeScheduleNotFound` takes `Name`,
   `CodeChannelKindUnder` and `CodeChannelKindHome` take `Channel`, a `Ref`, and
   `Kind`, and `CodeInvalidValueHint` takes `Field`, `Value` and `Hint`; `Hint` is a
-  text the caller composes and is shown as it is, so it is not translated. Each
-  parameter declares its kind, and every one is a `Text` except `Count`. `Settings`
-  is a text the caller composes, for instance the names of the missing settings
+  text the caller composes and is shown as it is, so it is not translated.
+  `CodeSessionCloseDirty` takes `Name`, the session whose worktree holds
+  uncommitted changes: a close refused for that reason is a normal outcome, not
+  `CodeUnexpected`, and its text tells the operator to commit or to close with
+  `force:true`. Each parameter declares its kind, and every one is a `Text` except
+  `Count`. `Settings` is a text the caller composes, for instance the names of the missing settings
   joined with `, `: it is not a list, and the text is shown as it is.
   `Detail` holds the technical text of a failure with no code of its own. It is
   never translated: a gateway renders it in a code block, and `Degrade` renders it

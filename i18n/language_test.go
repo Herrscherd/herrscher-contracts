@@ -132,3 +132,12 @@ func TestFromEnvReadsLocaleVariablesInOrder(t *testing.T) {
 		})
 	}
 }
+
+func TestLanguageValuesAreFrozen(t *testing.T) {
+	frozen := map[i18n.Language]uint8{i18n.English: 1, i18n.French: 2}
+	for lang, value := range frozen {
+		if uint8(lang) != value {
+			t.Errorf("%v = %d, frozen at %d: a language crosses the wire as its number", lang, uint8(lang), value)
+		}
+	}
+}

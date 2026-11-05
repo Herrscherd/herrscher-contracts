@@ -169,5 +169,10 @@
     "id": "value.invalid_hint",
     "description": "A command argument holds a malformed or out of range value, with the reason",
     "other": "invalid value {{.Value}} for {{.Field}}: {{.Hint}}"
+  },
+  {
+    "id": "session.close_dirty",
+    "description": "A session cannot be closed because its worktree holds uncommitted changes",
+    "other": "session {{.Name}} has uncommitted changes: commit them, or close it with force:true to discard them"
   }
 ]

@@ -429,6 +429,11 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"agent « x » introuvable",
 		},
 		{
+			Notice{Code: CodeSessionCloseDirty, Args: []Arg{Text("Name", "x")}},
+			"session x has uncommitted changes: commit them, or close it with force:true to discard them",
+			"la session « x » a des changements non validés : valide-les, ou ferme-la avec force:true pour les abandonner",
+		},
+		{
 			Notice{Code: CodeCompactInstructionRefused},
 			"context compaction unavailable: this backend cannot take an instruction for a compaction",
 			"compaction du contexte indisponible : ce fournisseur ne peut pas recevoir d'instruction de compaction",
@@ -566,6 +571,7 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeChannelKindUnder:          32,
 		CodeChannelKindHome:           33,
 		CodeInvalidValueHint:          34,
+		CodeSessionCloseDirty:         35,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))

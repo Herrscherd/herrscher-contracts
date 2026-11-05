@@ -3,6 +3,8 @@ package contracts
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
 
 func TestSessionInfoJSONKeepsGoFieldNames(t *testing.T) {
@@ -23,8 +25,9 @@ func TestSessionInfoJSONKeepsGoFieldNames(t *testing.T) {
 		ContextTokens:      4200,
 		AutoCompactPercent: 92,
 		ContextWindow:      400000,
+		Language:           i18n.French,
 	}
-	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92,"ContextWindow":400000}`
+	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92,"ContextWindow":400000,"Language":2}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got SessionInfo
 		err := json.Unmarshal(raw, &got)
@@ -46,6 +49,44 @@ func TestSessionInfoWithoutContextWindowDecodesToZero(t *testing.T) {
 	}
 	if got.ContextTokens != 4200 || got.AutoCompactPercent != 92 {
 		t.Fatalf("the other fields decoded to %+v", got)
+	}
+}
+
+func TestSessionInfoWithoutLanguageDecodesToUnknown(t *testing.T) {
+	const oldDaemonJSON = `{"Name":"lead","Vendor":"claude","ContextWindow":400000}`
+	var got SessionInfo
+	if err := json.Unmarshal([]byte(oldDaemonJSON), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Language != 0 {
+		t.Fatalf("Language = %v from a message without the field, want the zero value", got.Language)
+	}
+	if got.ContextWindow != 400000 {
+		t.Fatalf("the other fields decoded to %+v", got)
+	}
+}
+
+func TestPromptJSONKeepsLanguageAsItsNumber(t *testing.T) {
+	want := Prompt{Content: "bonjour", Author: "shan", ChannelID: "chan-9", Language: i18n.French}
+	const wantJSON = `{"Content":"bonjour","Context":"","Author":"shan","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2}`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got Prompt
+		err := json.Unmarshal(raw, &got)
+		if err == nil && got.Language != want.Language {
+			t.Fatalf("Prompt decoded Language %v, want %v", got.Language, want.Language)
+		}
+		return got, err
+	})
+}
+
+func TestPromptWithoutLanguageDecodesToUnknown(t *testing.T) {
+	const oldHostJSON = `{"Content":"bonjour","Author":"shan"}`
+	var got Prompt
+	if err := json.Unmarshal([]byte(oldHostJSON), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Language != 0 {
+		t.Fatalf("Language = %v from a message without the field, want the zero value", got.Language)
 	}
 }
 

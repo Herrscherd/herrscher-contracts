@@ -91,6 +91,8 @@ const (
 	// CodeInvalidValueHint reports that the value Value is malformed or out of range for the field Field,
 	// and that Hint says why. Hint is a text the caller composes, and it is shown as it is.
 	CodeInvalidValueHint
+	// CodeSessionCloseDirty reports that the session Name was not closed, because its worktree holds uncommitted changes.
+	CodeSessionCloseDirty
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -107,7 +109,7 @@ func Codes() []Code {
 		CodeUnknownApprovalMode, CodeAgentExists, CodeAgentInvalidName, CodeAgentNotFound,
 		CodeUnsupportedHomeType,
 		CodeEntityNotFound, CodeEntityUnknown, CodeScheduleNotFound,
-		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint,
+		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint, CodeSessionCloseDirty,
 	}
 }
 
@@ -183,6 +185,8 @@ func (c Code) Key() string {
 		return "channel.kind_home"
 	case CodeInvalidValueHint:
 		return "value.invalid_hint"
+	case CodeSessionCloseDirty:
+		return "session.close_dirty"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -227,6 +231,8 @@ func (c Code) params() (map[string]ArgKind, bool) {
 		return map[string]ArgKind{"Channel": ArgRef, "Kind": ArgText}, true
 	case CodeInvalidValueHint:
 		return map[string]ArgKind{"Field": ArgText, valueParam: ArgText, "Hint": ArgText}, true
+	case CodeSessionCloseDirty:
+		return map[string]ArgKind{nameParam: ArgText}, true
 	}
 	return nil, false
 }

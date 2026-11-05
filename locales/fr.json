@@ -169,5 +169,10 @@
     "id": "value.invalid_hint",
     "description": "Un argument de commande a une valeur mal formée ou hors limites, avec la raison",
     "other": "valeur invalide {{.Value}} pour {{.Field}} : {{.Hint}}"
+  },
+  {
+    "id": "session.close_dirty",
+    "description": "Une session ne peut pas être fermée, car son arbre de travail contient des changements non validés",
+    "other": "la session « {{.Name}} » a des changements non validés : valide-les, ou ferme-la avec force:true pour les abandonner"
   }
 ]
