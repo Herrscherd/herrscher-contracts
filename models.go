@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"unicode"
 )
@@ -15,6 +16,8 @@ var (
 	ErrModelEmptyArg       = errors.New("empty argument")
 	ErrModelControlChar    = errors.New("control character")
 	ErrModelUnknownRoute   = errors.New("unknown route")
+	ErrModelNegative       = errors.New("negative number")
+	ErrModelNotFinite      = errors.New("number is not finite")
 	ErrCredsMissing        = errors.New("gateway credentials: neither base URL nor token available")
 	ErrCredsTokenNoURL     = errors.New("gateway credentials: token without a base URL")
 	ErrCredsURLNoToken     = errors.New("gateway credentials: base URL without a token, refusing to run on the user's own subscription")
@@ -80,7 +83,12 @@ type ModelSpec struct {
 	// InputPrice is the price shown in USD per million input tokens. For a
 	// gateway route this is OUR price, not the upstream's. 0 = unknown, and
 	// the cost is then displayed in tokens alone.
-	InputPrice float64
+	InputPrice      float64
+	OutputPrice     float64
+	CacheReadPrice  float64
+	CacheWritePrice float64
+	ContextWindow   int
+	Hidden          bool
 }
 
 // ValidateModels checks the integrity of a backend's catalog. kind names the
@@ -88,8 +96,8 @@ type ModelSpec struct {
 // catalog must kill the daemon with a clear message, not silently produce a
 // wrong selector. It returns the first failing model as an error wrapping
 // [ErrModelEmptyID], [ErrModelDuplicateID], [ErrModelEmptyLabel],
-// [ErrModelEmptyArg], [ErrModelControlChar] or [ErrModelUnknownRoute], to match
-// with errors.Is.
+// [ErrModelEmptyArg], [ErrModelControlChar], [ErrModelUnknownRoute],
+// [ErrModelNegative] or [ErrModelNotFinite], to match with errors.Is.
 func ValidateModels(kind string, models []ModelSpec) error {
 	seen := make(map[string]bool, len(models))
 	for index := range models {
@@ -106,6 +114,39 @@ func ValidateModels(kind string, models []ModelSpec) error {
 		if err := validateModelRoute(kind, spec); err != nil {
 			return err
 		}
+		if err := validateModelNumbers(kind, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateModelNumbers(kind string, spec *ModelSpec) error {
+	for _, price := range []struct {
+		name  string
+		value float64
+	}{
+		{"InputPrice", spec.InputPrice},
+		{"OutputPrice", spec.OutputPrice},
+		{"CacheReadPrice", spec.CacheReadPrice},
+		{"CacheWritePrice", spec.CacheWritePrice},
+	} {
+		if err := validateModelPrice(kind, spec.ID, price.name, price.value); err != nil {
+			return err
+		}
+	}
+	if spec.ContextWindow < 0 {
+		return fmt.Errorf("backend %q: model %q, field ContextWindow: %w", kind, spec.ID, ErrModelNegative)
+	}
+	return nil
+}
+
+func validateModelPrice(kind, modelID, name string, price float64) error {
+	if math.IsNaN(price) || math.IsInf(price, 0) {
+		return fmt.Errorf("backend %q: model %q, field %s: %w", kind, modelID, name, ErrModelNotFinite)
+	}
+	if price < 0 {
+		return fmt.Errorf("backend %q: model %q, field %s: %w", kind, modelID, name, ErrModelNegative)
 	}
 	return nil
 }
@@ -154,13 +195,29 @@ func validateModelRoute(kind string, spec *ModelSpec) error {
 	return nil
 }
 
-// FilterModels keeps the models the policy allows. The result is always
-// non-nil so callers can serialize it to JSON without producing `null`.
+// FilterModels is the resolution view: it keeps the models the policy allows,
+// Hidden ones included, so a session or agent recorded with a hidden model
+// still finds its route by ID. The result is always non-nil so callers can
+// serialize it to JSON without producing `null`.
 func FilterModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
 	out := make([]ModelSpec, 0, len(models))
-	for _, spec := range models {
-		if policy.Allows(spec.Route) {
-			out = append(out, spec)
+	for index := range models {
+		if policy.Allows(models[index].Route) {
+			out = append(out, models[index])
+		}
+	}
+	return out
+}
+
+// SelectableModels is the selector view: the models the policy allows, minus
+// the Hidden ones. It never resolves an ID; use FilterModels for that. The
+// result is always non-nil.
+func SelectableModels(models []ModelSpec, policy RoutePolicy) []ModelSpec {
+	allowed := FilterModels(models, policy)
+	out := make([]ModelSpec, 0, len(allowed))
+	for index := range allowed {
+		if !allowed[index].Hidden {
+			out = append(out, allowed[index])
 		}
 	}
 	return out

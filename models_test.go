@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+	"math"
 	"testing"
 )
 
@@ -179,5 +180,118 @@ func TestValidateModelsRejectsControlCharacters(t *testing.T) {
 				t.Fatal("ValidateModels accepted a control character in a field that reaches the child")
 			}
 		})
+	}
+}
+
+func TestValidateModelsRejectsNegativeNumbers(t *testing.T) {
+	cases := []struct {
+		name string
+		spec ModelSpec
+	}{
+		{"negative InputPrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, InputPrice: -1}},
+		{"negative OutputPrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, OutputPrice: -1}},
+		{"negative CacheReadPrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, CacheReadPrice: -1}},
+		{"negative CacheWritePrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, CacheWritePrice: -1}},
+		{"negative ContextWindow", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, ContextWindow: -1}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateModels("k", []ModelSpec{tc.spec})
+			if !errors.Is(err, ErrModelNegative) {
+				t.Fatalf("ValidateModels error = %v, want %v", err, ErrModelNegative)
+			}
+		})
+	}
+}
+
+func TestValidateModelsRejectsNotFinitePrices(t *testing.T) {
+	cases := []struct {
+		name string
+		spec ModelSpec
+	}{
+		{"NaN InputPrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, InputPrice: math.NaN()}},
+		{"NaN OutputPrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, OutputPrice: math.NaN()}},
+		{"NaN CacheReadPrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, CacheReadPrice: math.NaN()}},
+		{"NaN CacheWritePrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, CacheWritePrice: math.NaN()}},
+		{"infinite OutputPrice", ModelSpec{ID: "x", Label: "X", Arg: "x", Route: RouteNative, OutputPrice: math.Inf(1)}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateModels("k", []ModelSpec{tc.spec})
+			if !errors.Is(err, ErrModelNotFinite) {
+				t.Fatalf("ValidateModels error = %v, want %v", err, ErrModelNotFinite)
+			}
+		})
+	}
+}
+
+func TestValidateModelsAcceptsKnownNumbersAndZeroUnknown(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "priced", Label: "Priced", Arg: "priced", Route: RouteNative, InputPrice: 3, OutputPrice: 15, CacheReadPrice: 0.3, CacheWritePrice: 3.75, ContextWindow: 200000},
+		{ID: "unknown", Label: "Unknown", Arg: "unknown", Route: RouteNative},
+	}
+	if err := ValidateModels("k", models); err != nil {
+		t.Fatalf("ValidateModels rejected known numbers or unknown zeros: %v", err)
+	}
+}
+
+func TestValidateModelsAcceptsHiddenModel(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "live", Label: "Live", Arg: "live", Route: RouteNative},
+		{ID: "retired", Label: "Retired", Arg: "retired", Route: RouteNative, Hidden: true},
+	}
+	if err := ValidateModels("k", models); err != nil {
+		t.Fatalf("ValidateModels rejected a hidden model: %v", err)
+	}
+}
+
+func TestValidateModelsRefusesHiddenModelSharingAnID(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "a", Label: "A", Arg: "a", Route: RouteNative},
+		{ID: "a", Label: "A retired", Arg: "a2", Route: RouteNative, Hidden: true},
+	}
+	if err := ValidateModels("k", models); !errors.Is(err, ErrModelDuplicateID) {
+		t.Fatalf("ValidateModels error = %v, want %v", err, ErrModelDuplicateID)
+	}
+}
+
+func TestFilterModelsKeepsHiddenModelForResolution(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "live", Label: "Live", Arg: "live", Route: RouteNative},
+		{ID: "retired", Label: "Retired", Arg: "retired", Route: RouteNative, Hidden: true},
+	}
+	got := FilterModels(models, PolicyAll)
+	if len(got) != 2 || got[1].ID != "retired" {
+		t.Fatalf("FilterModels dropped the hidden model needed to resume it: %+v", got)
+	}
+}
+
+func TestSelectableModelsExcludesHiddenModel(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "live", Label: "Live", Arg: "live", Route: RouteNative},
+		{ID: "retired", Label: "Retired", Arg: "retired", Route: RouteNative, Hidden: true},
+	}
+	got := SelectableModels(models, PolicyAll)
+	if len(got) != 1 || got[0].ID != "live" {
+		t.Fatalf("SelectableModels = %+v, want only the visible model", got)
+	}
+}
+
+func TestSelectableModelsStillAppliesPolicy(t *testing.T) {
+	models := []ModelSpec{
+		{ID: "native", Label: "Native", Arg: "native", Route: RouteNative},
+		{ID: "gateway", Label: "Gateway", Arg: "gateway", Route: RouteGateway},
+		{ID: "gateway-hidden", Label: "Old", Arg: "old", Route: RouteGateway, Hidden: true},
+	}
+	got := SelectableModels(models, PolicyGatewayOnly)
+	if len(got) != 1 || got[0].ID != "gateway" {
+		t.Fatalf("SelectableModels(gateway-only) = %+v, want only the visible gateway model", got)
+	}
+}
+
+func TestSelectableModelsReturnsEmptyNotNil(t *testing.T) {
+	models := []ModelSpec{{ID: "retired", Label: "Retired", Arg: "retired", Route: RouteNative, Hidden: true}}
+	if got := SelectableModels(models, PolicyAll); got == nil || len(got) != 0 {
+		t.Fatalf("SelectableModels = %#v, want a non-nil empty slice", got)
 	}
 }
