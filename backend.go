@@ -30,13 +30,13 @@ type ResumeAware interface {
 // language of the session the turn belongs to, and the zero value when the host
 // does not know it: the backend then keeps its own default.
 type Prompt struct {
-	Content     string
-	Context     string
-	Author      string
-	MessageID   string
-	ChannelID   string
-	Attachments []string
-	Language    i18n.Language
+	Content     string        `json:"Content"`
+	Context     string        `json:"Context"`
+	Author      string        `json:"Author"`
+	MessageID   string        `json:"MessageID"`
+	ChannelID   string        `json:"ChannelID"`
+	Attachments []string      `json:"Attachments"`
+	Language    i18n.Language `json:"Language"`
 }
 
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
