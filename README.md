@@ -401,9 +401,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `Result` is what `Cmd.Run` and `SessionControl.Dispatch` return. It carries a
   notice (`NoticeResult`) for the human, or typed data (`DataResult`) for a caller
   that renders it itself, such as `--json`. `DataResult(nil)` equals `Result{}`:
-  it carries neither. When `Dispatch` returns an error, its `Result` is ignored. `Cmd.Help`, `Param.Help` and the help
-  of a `Builder` are catalog keys: the module that declares the command renders
-  them, in its own catalog.
+  it carries neither. When `Dispatch` returns an error, its `Result` is ignored.
+  `Cmd.Help`, `Param.Help` and the help of a `Builder` are catalog keys: the
+  module that declares the command renders them, in its own catalog.
 - `NoticeSink` is the optional port of a gateway that renders a notice itself,
   in the language it receives, with its own markup. A message missing from that
   language renders in English. Without it, `Degrade` renders the notice as plain
