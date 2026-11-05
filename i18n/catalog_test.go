@@ -213,6 +213,15 @@ func TestMessageRefusesUnsupportedCountType(t *testing.T) {
 	}
 }
 
+func TestMessageLeavesCallerCountUntouched(t *testing.T) {
+	catalog := newCatalog(t, discardLogger(), "complete")
+	params := map[string]any{"Count": uint(3)}
+	assertMessage(t, catalog, i18n.English, "session.count", params, "3 sessions")
+	if got, ok := params["Count"].(uint); !ok || got != 3 {
+		t.Fatalf("caller Count = %v (%T), want uint(3)", params["Count"], params["Count"])
+	}
+}
+
 func TestMessageAcceptsUnsignedCount(t *testing.T) {
 	catalog := newCatalog(t, discardLogger(), "complete")
 	assertMessage(t, catalog, i18n.English, "session.count", map[string]any{"Count": uint(3)}, "3 sessions")
