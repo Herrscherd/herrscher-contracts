@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"math"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -96,20 +97,41 @@ func TestRenderRefusesArgKindMismatchAtRender(t *testing.T) {
 }
 
 func TestEveryCodeConstantIsListed(t *testing.T) {
-	file, err := parser.ParseFile(token.NewFileSet(), "notice.go", nil, parser.SkipObjectResolution)
-	if err != nil {
-		t.Fatal(err)
+	var declared, listed []string
+	for _, file := range parsePackageFiles(t) {
+		declared = append(declared, codeConstantNames(file)...)
+		listed = append(listed, codesListNames(file)...)
 	}
-	declared := codeConstantNames(file)
 	if len(declared) == 0 {
-		t.Fatal("no constant of type Code declared in notice.go")
+		t.Fatal("no constant of type Code declared in the package")
 	}
-	listed := codesListNames(file)
 	for _, name := range declared {
 		if !slices.Contains(listed, name) {
 			t.Errorf("constant %s has type Code but is missing from Codes()", name)
 		}
 	}
+}
+
+func parsePackageFiles(t *testing.T) []*ast.File {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fset := token.NewFileSet()
+	var files []*ast.File
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, name, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, file)
+	}
+	return files
 }
 
 func codeConstantNames(file *ast.File) []string {
