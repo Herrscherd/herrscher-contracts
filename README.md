@@ -353,7 +353,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `Code` is a closed `uint16` enum: `CodeSessionNotFound`, `CodeSessionExists`,
   `CodeUnknownAgent`, `CodeSessionCreated`, `CodeSessionClosed`, `CodeUnexpected`,
   `CodeSettingInvalid`, `CodeSettingMissing`, `CodeNodeMerged`, `CodeCompactUnavailable`,
-  `CodeCompacted`, `CodeAddressPlaintextRefused`.
+  `CodeCompacted`, `CodeAddressPlaintextRefused`, and the compaction reasons
+  `CodeCompactTimeoutInvalid`, `CodeCompactInstructionRefused` and `CodeCompactNoThread`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -362,7 +363,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   codes, `Detail` for `CodeUnexpected`, `Setting` and `Value` for
   `CodeSettingInvalid`, `Settings` for `CodeSettingMissing`, `Reason` for
   `CodeCompactUnavailable`, `Address` for `CodeAddressPlaintextRefused`, and none
-  for `CodeNodeMerged` and `CodeCompacted`. Each parameter declares its kind, and
+  for `CodeNodeMerged`, `CodeCompacted` and the codes added in v0.20.0, which
+  carry no argument. Each parameter declares its kind, and
   every one is a `Text`. `Settings` is a text the caller composes, for instance the
   names of the missing settings joined with `, `: it is not a list, and the text is
   shown as it is.
@@ -399,9 +401,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `Result` is what `Cmd.Run` and `SessionControl.Dispatch` return. It carries a
   notice (`NoticeResult`) for the human, or typed data (`DataResult`) for a caller
   that renders it itself, such as `--json`. `DataResult(nil)` equals `Result{}`:
-  it carries neither. When `Dispatch` returns an error, its `Result` is ignored. `Cmd.Help`, `Param.Help` and the help
-  of a `Builder` are catalog keys: the module that declares the command renders
-  them, in its own catalog.
+  it carries neither. When `Dispatch` returns an error, its `Result` is ignored.
+  `Cmd.Help`, `Param.Help` and the help of a `Builder` are catalog keys: the
+  module that declares the command renders them, in its own catalog.
 - `NoticeSink` is the optional port of a gateway that renders a notice itself,
   in the language it receives, with its own markup. A message missing from that
   language renders in English. Without it, `Degrade` renders the notice as plain
@@ -427,18 +429,19 @@ The next release is one breaking release: every change below lands together.
 - `Builder.Help`, `Builder.Param`, `Builder.ValueParam` and `Cmd.Help` take a
   catalog key, not a sentence. The module that declares the command renders the
   key in its own catalog. The Go compiler does not tell a key from a sentence:
-  both are strings, so a sentence left in place compiles. The CLI guard of PR 8
-  catches it.
+  both are strings, so a sentence left in place compiles. The CLI guard catches
+  it.
 - `NoticeSink` is additive and optional. A gateway that implements
   `Notify(ctx, conv, lang, notice)` receives the notice and its language. Without
   it, `Degrade` renders the notice as text.
 
 Messages that have no code yet, successes included, get codes from the shared
-catalog in PRs 4 to 6. Until a message has its code, its text is not in the shared
-catalog. A success is never `CodeUnexpected`: it has its own code, such as
-`CodeSessionCreated` or `CodeSessionClosed`. Texts specific to one module (Discord,
-the terminal UI, the CLI) stay out of the shared catalog: the module builds its own
-catalog with `i18n.NewCatalog`, and checks it with `i18ntest`.
+catalog as their module migrates to codes. Until a message has its code, its text
+is not in the shared catalog. A success is never `CodeUnexpected`: it has its own
+code, such as `CodeSessionCreated` or `CodeSessionClosed`. Texts specific to one
+module (Discord, the terminal UI, the CLI) stay out of the shared catalog: the
+module builds its own catalog with `i18n.NewCatalog`, and checks it with
+`i18ntest`.
 
 ## Further reading
 

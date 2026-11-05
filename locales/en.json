@@ -58,5 +58,20 @@
     "id": "address.plaintext_refused",
     "description": "A plaintext connection to a non-loopback address was refused",
     "other": "plaintext connection to {{.Address}} refused: TLS is required outside loopback"
+  },
+  {
+    "id": "compact.timeout_invalid",
+    "description": "The compaction timeout is not a positive duration",
+    "other": "context compaction unavailable: the compaction timeout must be a positive duration"
+  },
+  {
+    "id": "compact.instruction_refused",
+    "description": "The backend cannot take an instruction for a compaction",
+    "other": "context compaction unavailable: this backend cannot take an instruction for a compaction"
+  },
+  {
+    "id": "compact.no_thread",
+    "description": "No turn has run yet, so there is no context to compact",
+    "other": "context compaction unavailable: no turn has run yet, so there is nothing to compact"
   }
 ]

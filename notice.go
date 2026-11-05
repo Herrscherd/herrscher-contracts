@@ -46,6 +46,12 @@ const (
 	// CodeAddressPlaintextRefused reports that a plaintext connection to Address
 	// was refused, because Address is not a loopback address and TLS is not set.
 	CodeAddressPlaintextRefused
+	// CodeCompactTimeoutInvalid reports that the compaction timeout is not a positive duration.
+	CodeCompactTimeoutInvalid
+	// CodeCompactInstructionRefused reports that the backend cannot take an instruction for a compaction.
+	CodeCompactInstructionRefused
+	// CodeCompactNoThread reports that no turn has run yet, so there is no context to compact.
+	CodeCompactNoThread
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -56,6 +62,7 @@ func Codes() []Code {
 		CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed, CodeUnexpected,
 		CodeSettingInvalid, CodeSettingMissing, CodeNodeMerged, CodeCompactUnavailable, CodeCompacted,
 		CodeAddressPlaintextRefused,
+		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread,
 	}
 }
 
@@ -87,6 +94,12 @@ func (c Code) Key() string {
 		return "compaction.done"
 	case CodeAddressPlaintextRefused:
 		return "address.plaintext_refused"
+	case CodeCompactTimeoutInvalid:
+		return "compact.timeout_invalid"
+	case CodeCompactInstructionRefused:
+		return "compact.instruction_refused"
+	case CodeCompactNoThread:
+		return "compact.no_thread"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -105,7 +118,8 @@ func (c Code) params() (map[string]ArgKind, bool) {
 		return map[string]ArgKind{"Reason": ArgText}, true
 	case CodeAddressPlaintextRefused:
 		return map[string]ArgKind{"Address": ArgText}, true
-	case CodeNodeMerged, CodeCompacted:
+	case CodeNodeMerged, CodeCompacted,
+		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread:
 		return nil, true
 	}
 	return nil, false

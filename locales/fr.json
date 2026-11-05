@@ -41,8 +41,8 @@
   },
   {
     "id": "node.merged",
-    "description": "Un nœud est replié dans un umbrella et ne peut pas être restauré avant d'être détaché",
-    "other": "ce nœud est replié dans un umbrella ; restaure-le avec l'option force pour le détacher"
+    "description": "Un nœud est replié dans un regroupement et ne peut pas être restauré avant d'être détaché",
+    "other": "ce nœud est replié dans un regroupement ; pour le détacher, restaure-le en forçant l'opération"
   },
   {
     "id": "compact.unavailable",
@@ -58,5 +58,20 @@
     "id": "address.plaintext_refused",
     "description": "Une connexion en clair vers une adresse hors boucle locale a été refusée",
     "other": "connexion en clair vers {{.Address}} refusée : le TLS est requis hors boucle locale"
+  },
+  {
+    "id": "compact.timeout_invalid",
+    "description": "Le délai de compaction n'est pas une durée positive",
+    "other": "compaction du contexte indisponible : le délai de compaction doit être une durée positive"
+  },
+  {
+    "id": "compact.instruction_refused",
+    "description": "Le fournisseur ne peut pas recevoir d'instruction pour une compaction",
+    "other": "compaction du contexte indisponible : ce fournisseur ne peut pas recevoir d'instruction de compaction"
+  },
+  {
+    "id": "compact.no_thread",
+    "description": "Aucun tour n'a encore été joué, donc il n'y a rien à compacter",
+    "other": "compaction du contexte indisponible : aucun tour n'a encore été joué, il n'y a rien à compacter"
   }
 ]
