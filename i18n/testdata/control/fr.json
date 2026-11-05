@@ -1,0 +1,6 @@
+[
+  {
+    "id": "session.name",
+    "other": "Session {{if .Name}}{{.Name}}{{end}}"
+  }
+]

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "session.archived",
+    "other": "Session archivée"
+  },
+  {
+    "id": "session.name",
+    "other": "Session {{.Name}}"
+  },
+  {
+    "id": "session.count",
+    "one": "{{.Count}} session",
+    "other": "{{.Count}} sessions"
+  }
+]
