@@ -369,6 +369,11 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"limite de sessions atteinte : 1 session autorisée ; ferme-en une avant d'en créer une autre",
 		},
 		{
+			Notice{Code: CodeSessionLimit, Args: []Arg{Count(0)}},
+			"session limit reached: 0 sessions allowed; close one before creating another",
+			"limite de sessions atteinte : 0 session autorisée ; ferme-en une avant d'en créer une autre",
+		},
+		{
 			Notice{Code: CodeSessionLimit, Args: []Arg{Count(4)}},
 			"session limit reached: 4 sessions allowed; close one before creating another",
 			"limite de sessions atteinte : 4 sessions autorisées ; ferme-en une avant d'en créer une autre",
