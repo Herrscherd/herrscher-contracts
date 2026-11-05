@@ -41,7 +41,7 @@ it is absent.
 | `EventSink` | `event.go` | optional | `Emit(Event)`: the gateway renders the live turn stream itself |
 | `RoutedEventSink` | `event.go` | optional | `EmitTo(Conversation, Event)`, the multi-session variant, preferred over `EventSink` |
 | `Foreground` | `foreground.go` | optional | `RunForeground`: the gateway owns the main thread (a TUI). At most one |
-| `NoticeSink` | `gateway.go` | optional | `Notify(ctx, conv, lang, Notice)`: the gateway renders a notice itself, in the given language. Without it, `Degrade` renders the text |
+| `NoticeSink` | `gateway.go` | optional | `Notify(ctx, conv, lang, Notice)`: the gateway renders a notice itself, in the given language, with English as the fallback. Without it, `Degrade` renders the text |
 | `SessionControlReceiver` | `session_control.go` | optional | `BindSessionControl` receives the host's session-control handle |
 
 ### Memory
@@ -306,6 +306,8 @@ contracts.
   its value is not a supported language, `FromEnv` reports false without looking
   at the variables after it. `Resolve` returns the first supported candidate, or
   English when none is.
+- French messages use the straight apostrophe (') and the « » guillemets, as the
+  French texts of the herrscher repositories do.
 - A catalog is a set of JSON files, one per language, named after it
   (`en.json`, `fr.json`), in the go-i18n v2 format:
   `{"id": "session.archived", "other": "Session archived"}`. A placeholder is
@@ -349,33 +351,46 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 `Notice{Code, Args}` and the front end renders it.
 
 - `Code` is a closed `uint16` enum: `CodeSessionNotFound`, `CodeSessionExists`,
-  `CodeUnknownAgent`, `CodeUnexpected`. `Code.Key()` returns its catalog key
-  (`session.not_found`, ...) through an exhaustive switch; a value outside the
-  list returns its raw number, `code.N`. `Codes()` lists every code.
-- `Code` declares its parameters, which are `Name` for the three session and
-  agent codes and `Detail` for `CodeUnexpected`. `Detail` holds the technical text
-  of a failure with no code of its own: it is shown as it is, never translated.
+  `CodeUnknownAgent`, `CodeSessionCreated`, `CodeSessionClosed`, `CodeUnexpected`.
+  `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
+  exhaustive switch; a value outside the list returns its raw number, `code.N`.
+  `Codes()` lists every code, and a test scans the whole `uint16` range, so a
+  constant named in `Key` or `params` but missing from `Codes()` fails the suite.
+- `Code` declares its parameters, which are `Name` for the session and agent
+  codes and `Detail` for `CodeUnexpected`. `Detail` holds the technical text of a
+  failure with no code of its own. It is never translated: a gateway renders it in
+  a code block, and `Degrade` renders it as plain text.
+- A code of success, such as `CodeSessionCreated`, is a notice like any other: it
+  is never `CodeUnexpected`.
 - `Arg` is built only by `Text(name, value)`, `Count(n)` (named `Count`, it selects
   the plural form) and `Ref(name, id)` (the identifier of a platform object, which
   a gateway renders as a mention). Its zero value is malformed. `Arg` has no
-  float constructor, so a decimal number is never rendered in Go format.
+  float constructor, so a decimal number is never rendered in Go format. `Render`
+  checks that the name matches the kind: `Count` must be an `ArgCount`, and an
+  `ArgCount` must be named `Count`.
 - `Renderer` turns a `Notice` into text in a language, through the shared catalog
   `locales/en.json` and `locales/fr.json`, embedded in the module. `NewRenderer()`
   builds the catalog on first use. `Render` refuses a notice whose code is
-  unknown, or whose arguments are not exactly the names its code declares, with
-  `ErrUnknownCode` or `ErrNoticeArgs`.
+  unknown, whose arguments are not exactly the names its code declares, or whose
+  code has no message in any language. The last one returns `ErrMissingMessage`:
+  a raw key is never returned to a human. The other two return `ErrUnknownCode`
+  and `ErrNoticeArgs`.
 - `NoticeError` is an error that reaches a human: it implements `Notice() Notice`.
   `NoticeOf(err)` returns the notice of the first `NoticeError` in the chain, or
   `CodeUnexpected` with the error text as `Detail`. `errors.Is` and
   `errors.AsType` keep matching the sentinels and types, not the text.
 - `Result` is what `Cmd.Run` and `SessionControl.Dispatch` return. It carries a
   notice (`NoticeResult`) for the human, or typed data (`DataResult`) for a caller
-  that renders it itself, such as `--json`. `Cmd.Help`, `Param.Help` and the help
+  that renders it itself, such as `--json`. `DataResult(nil)` equals `Result{}`:
+  it carries neither. When `Dispatch` returns an error, its `Result` is ignored. `Cmd.Help`, `Param.Help` and the help
   of a `Builder` are catalog keys: the module that declares the command renders
   them, in its own catalog.
 - `NoticeSink` is the optional port of a gateway that renders a notice itself, in
-  the language it receives. Without it, `Degrade` renders the notice as plain text
-  and posts it, so no emoji or markup is added on that path.
+  the language it receives, with its own markup. A message missing from that
+  language renders in English. Without it, `Degrade` renders the notice as plain
+  text in the language and posts it, with the same English fallback, so no emoji
+  or markup is added on that path. A gateway that renders `CodeUnexpected` puts its
+  `Detail` in a code block, untranslated; `Degrade` keeps the plain text.
 
 Log lines, CLI syntax and flags, protocol markers and the prompts sent to agents
 are not translated. They stay in English.

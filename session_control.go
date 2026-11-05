@@ -15,6 +15,7 @@ type SessionControl interface {
 	// lifecycle changes, brings the affected sessions live (or tears them down) in
 	// the running hub. It returns a Result: a Notice for the operator, or data for
 	// a caller that renders it, and an error whose Notice tells the operator why.
+	// When err is not nil, the Result is ignored.
 	Dispatch(ctx context.Context, args []string) (Result, error)
 	// Create starts a session from a typed spec, the structured counterpart to a
 	// "session create" Dispatch. Programmatic callers (a gateway bootstrapping its

@@ -25,9 +25,13 @@ type GatewayCloser interface {
 }
 
 // NoticeSink is the optional port of a gateway that renders a Notice itself, in
-// the language it is given, with its own markup and emojis. A gateway without it
-// receives the notice as plain text, rendered by Degrade, so it never shows a
-// notice in a language it was not asked for.
+// the language it is given, with its own markup and emojis. Notify receives lang
+// as the recipient's language: a message the shared catalog lacks in lang renders
+// in English, as the catalog does. A gateway without NoticeSink receives the
+// notice as plain text, rendered by Degrade in lang with the same English fallback.
+// A CodeUnexpected notice carries its Detail, the technical text of a failure: a
+// gateway renders it in a code block, never translated, and Degrade renders it as
+// plain text.
 type NoticeSink interface {
 	Notify(ctx context.Context, conv Conversation, lang i18n.Language, notice Notice) (MessageID, error)
 }

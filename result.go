@@ -14,6 +14,7 @@ func NoticeResult(notice Notice) Result {
 }
 
 // DataResult returns a result that carries data for the caller to render.
+// DataResult(nil) equals the zero Result: it carries neither a notice nor data.
 func DataResult(data any) Result {
 	return Result{data: data}
 }
