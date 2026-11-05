@@ -359,7 +359,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeNoHostRegistered`, `CodeServiceControlUnavailable`, `CodeModelRequired`,
   `CodeExplicitCmdRefused`, `CodeInvalidValue`, `CodeSharedAgent`,
   `CodeUnknownApprovalMode`, `CodeAgentExists`, `CodeAgentInvalidName`,
-  `CodeAgentNotFound` and `CodeUnsupportedHomeType`.
+  `CodeAgentNotFound`, `CodeUnsupportedHomeType`, the generic `CodeEntityNotFound` and
+  `CodeEntityUnknown`, `CodeScheduleNotFound`, `CodeChannelKindUnder`,
+  `CodeChannelKindHome` and `CodeInvalidValueHint`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -374,7 +376,12 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   a `Count` argument that selects the plural form. `CodeInvalidValue` takes `Field`
   and `Value`, `CodeSharedAgent` takes `Agent`, `CodeUnknownApprovalMode` takes
   `Mode`, `CodeAgentExists`, `CodeAgentInvalidName` and `CodeAgentNotFound` take
-  `Name`, and `CodeUnsupportedHomeType` takes `Type`. Each parameter declares its
+  `Name`, and `CodeUnsupportedHomeType` takes `Type`. `CodeEntityNotFound` and
+  `CodeEntityUnknown` take `Kind` and `Name`, where `Kind` is shown as it is, so the
+  French text reads `« Name » introuvable` after it. `CodeScheduleNotFound` takes
+  `Name`, `CodeChannelKindUnder` and `CodeChannelKindHome` take `Channel`, a `Ref`,
+  and `Kind`, and `CodeInvalidValueHint` takes `Field`, `Value` and `Hint`; `Hint` is
+  a text the caller composes and is shown as it is, so it is not translated. Each parameter declares its
   kind, and every one is a `Text` except `Count`. `Settings` is a text the caller composes, for instance the
   names of the missing settings joined with `, `: it is not a list, and the text is
   shown as it is.

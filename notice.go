@@ -78,6 +78,19 @@ const (
 	CodeAgentNotFound
 	// CodeUnsupportedHomeType reports that the home channel kind Type cannot host sessions.
 	CodeUnsupportedHomeType
+	// CodeEntityNotFound reports that no Kind named Name exists. Kind is shown as it is.
+	CodeEntityNotFound
+	// CodeEntityUnknown reports that Name is not a known Kind. Kind is shown as it is.
+	CodeEntityUnknown
+	// CodeScheduleNotFound reports that no schedule is named Name.
+	CodeScheduleNotFound
+	// CodeChannelKindUnder reports that the channel Channel has the kind Kind, which cannot hold an under placement.
+	CodeChannelKindUnder
+	// CodeChannelKindHome reports that the channel Channel has the kind Kind, which cannot be the home.
+	CodeChannelKindHome
+	// CodeInvalidValueHint reports that the value Value is malformed or out of range for the field Field,
+	// and that Hint says why. Hint is a text the caller composes, and it is shown as it is.
+	CodeInvalidValueHint
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -93,6 +106,8 @@ func Codes() []Code {
 		CodeModelRequired, CodeExplicitCmdRefused, CodeInvalidValue, CodeSharedAgent,
 		CodeUnknownApprovalMode, CodeAgentExists, CodeAgentInvalidName, CodeAgentNotFound,
 		CodeUnsupportedHomeType,
+		CodeEntityNotFound, CodeEntityUnknown, CodeScheduleNotFound,
+		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint,
 	}
 }
 
@@ -156,6 +171,18 @@ func (c Code) Key() string {
 		return "agent.not_found"
 	case CodeUnsupportedHomeType:
 		return "home.type_unsupported"
+	case CodeEntityNotFound:
+		return "entity.not_found"
+	case CodeEntityUnknown:
+		return "entity.unknown"
+	case CodeScheduleNotFound:
+		return "schedule.not_found"
+	case CodeChannelKindUnder:
+		return "channel.kind_under"
+	case CodeChannelKindHome:
+		return "channel.kind_home"
+	case CodeInvalidValueHint:
+		return "value.invalid_hint"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -163,11 +190,11 @@ func (c Code) Key() string {
 func (c Code) params() (map[string]ArgKind, bool) {
 	switch c {
 	case CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed:
-		return map[string]ArgKind{"Name": ArgText}, true
+		return map[string]ArgKind{nameParam: ArgText}, true
 	case CodeUnexpected:
 		return map[string]ArgKind{"Detail": ArgText}, true
 	case CodeSettingInvalid:
-		return map[string]ArgKind{"Setting": ArgText, "Value": ArgText}, true
+		return map[string]ArgKind{"Setting": ArgText, valueParam: ArgText}, true
 	case CodeSettingMissing:
 		return map[string]ArgKind{"Settings": ArgText}, true
 	case CodeCompactUnavailable:
@@ -183,15 +210,23 @@ func (c Code) params() (map[string]ArgKind, bool) {
 		CodeModelRequired, CodeExplicitCmdRefused:
 		return nil, true
 	case CodeInvalidValue:
-		return map[string]ArgKind{"Field": ArgText, "Value": ArgText}, true
+		return map[string]ArgKind{"Field": ArgText, valueParam: ArgText}, true
 	case CodeSharedAgent:
 		return map[string]ArgKind{"Agent": ArgText}, true
 	case CodeUnknownApprovalMode:
 		return map[string]ArgKind{"Mode": ArgText}, true
 	case CodeAgentExists, CodeAgentInvalidName, CodeAgentNotFound:
-		return map[string]ArgKind{"Name": ArgText}, true
+		return map[string]ArgKind{nameParam: ArgText}, true
 	case CodeUnsupportedHomeType:
 		return map[string]ArgKind{"Type": ArgText}, true
+	case CodeEntityNotFound, CodeEntityUnknown:
+		return map[string]ArgKind{"Kind": ArgText, nameParam: ArgText}, true
+	case CodeScheduleNotFound:
+		return map[string]ArgKind{nameParam: ArgText}, true
+	case CodeChannelKindUnder, CodeChannelKindHome:
+		return map[string]ArgKind{"Channel": ArgRef, "Kind": ArgText}, true
+	case CodeInvalidValueHint:
+		return map[string]ArgKind{"Field": ArgText, valueParam: ArgText, "Hint": ArgText}, true
 	}
 	return nil, false
 }
@@ -218,6 +253,11 @@ const (
 )
 
 const countName = "Count"
+
+const (
+	nameParam  = "Name"
+	valueParam = "Value"
+)
 
 // Arg is one named argument of a Notice. Its zero value is malformed, and a
 // Notice that carries it is refused by Renderer.Render.

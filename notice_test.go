@@ -109,10 +109,15 @@ func argsWithRefUnder(declared map[string]ArgKind, ref string) []Arg {
 }
 
 func argOfKind(name string, kind ArgKind) Arg {
-	if kind == ArgCount {
+	switch kind {
+	case ArgCount:
 		return Count(2)
+	case ArgRef:
+		return Ref(name, "123")
+	case ArgText:
+		return Text(name, "x")
 	}
-	return Text(name, "x")
+	return Arg{}
 }
 
 func TestRenderRefusesRefForEveryDeclaredTextParam(t *testing.T) {
@@ -316,7 +321,7 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 		{
 			Notice{Code: CodeSessionNotFound, Args: []Arg{Text("Name", "x")}},
 			"no session named x",
-			"aucune session nommée « x »",
+			"session « x » introuvable",
 		},
 		{
 			Notice{Code: CodeSessionExists, Args: []Arg{Text("Name", "x")}},
@@ -384,9 +389,39 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"la session ne peut pas être créée avec l'agent « x » en partage : un agent a besoin d'un espace à lui, et shared:true la lance dans le dépôt principal",
 		},
 		{
+			Notice{Code: CodeEntityNotFound, Args: []Arg{Text("Kind", "lead"), Text("Name", "x")}},
+			"no lead named x",
+			"lead « x » introuvable",
+		},
+		{
+			Notice{Code: CodeEntityUnknown, Args: []Arg{Text("Kind", "backend"), Text("Name", "x")}},
+			"unknown backend x",
+			"valeur inconnue pour backend : « x »",
+		},
+		{
+			Notice{Code: CodeScheduleNotFound, Args: []Arg{Text("Name", "x")}},
+			"no schedule named x",
+			"planification « x » introuvable",
+		},
+		{
+			Notice{Code: CodeChannelKindUnder, Args: []Arg{Ref("Channel", "123"), Text("Kind", "voice")}},
+			"channel 123 is voice: under must be a category or forum (to run in an existing conversation, pass channel_id)",
+			"le salon 123 est de type voice : « under » doit être une catégorie ou un forum (pour lancer une session dans une conversation existante, passe channel_id)",
+		},
+		{
+			Notice{Code: CodeChannelKindHome, Args: []Arg{Ref("Channel", "123"), Text("Kind", "voice")}},
+			"channel 123 is voice: home must be a category or forum",
+			"le salon 123 est de type voice : l'accueil doit être une catégorie ou un forum",
+		},
+		{
+			Notice{Code: CodeInvalidValueHint, Args: []Arg{Text("Field", "terminal_only"), Text("Value", "maybe"), Text("Hint", "use true or false")}},
+			"invalid value maybe for terminal_only: use true or false",
+			"valeur invalide maybe pour terminal_only : use true or false",
+		},
+		{
 			Notice{Code: CodeAgentNotFound, Args: []Arg{Text("Name", "x")}},
 			"no agent x",
-			"aucun agent nommé « x »",
+			"agent « x » introuvable",
 		},
 		{
 			Notice{Code: CodeCompactInstructionRefused},
@@ -520,6 +555,12 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeAgentInvalidName:          26,
 		CodeAgentNotFound:             27,
 		CodeUnsupportedHomeType:       28,
+		CodeEntityNotFound:            29,
+		CodeEntityUnknown:             30,
+		CodeScheduleNotFound:          31,
+		CodeChannelKindUnder:          32,
+		CodeChannelKindHome:           33,
+		CodeInvalidValueHint:          34,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))
