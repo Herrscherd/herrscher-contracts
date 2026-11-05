@@ -129,11 +129,22 @@ type CompactRequest struct {
 // nothing: it is never read as "no tokens left". Note is one short line for the
 // operator, empty when there is nothing to say. Done stops the stack after this
 // stage, for a stage that judges the context compacted enough.
+//
+// The host reads Note alone today: the herrscher compaction frame carries Note and
+// nothing else, so Note is the text the operator sees. Notice is the message built
+// from a code, which the host does not read yet. Until the host carries it, a
+// producer sets both, with Note in English, so that no note is lost when the host
+// moves to Notice.
 type CompactResult struct {
 	TokensAfter    int
 	TokensMeasured bool
-	Note           string
-	Done           bool
+	// Note is the English text the host shows today. It is the only note the host
+	// reads.
+	Note string
+	Done bool
+	// Notice is the coded message the host will read once its compaction frame
+	// carries a code.
+	Notice Notice
 }
 
 // ErrAutoCompactPercentOutOfRange is returned by [ValidateAutoCompactPercent] for a

@@ -77,7 +77,7 @@ it is absent.
 | `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | the model catalog a backend declares, its route, and the policy that bounds it, plus `ValidateModels`, `FilterModels`, `GatewayCreds` and `NewGatewayCreds` |
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
-| `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports |
+| `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. the host reads `Note` alone today, so producers set `Note` (English) and `Notice` (the code) until the host carries the code |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
 
 ## Registration and config
@@ -351,15 +351,27 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 `Notice{Code, Args}` and the front end renders it.
 
 - `Code` is a closed `uint16` enum: `CodeSessionNotFound`, `CodeSessionExists`,
-  `CodeUnknownAgent`, `CodeSessionCreated`, `CodeSessionClosed`, `CodeUnexpected`.
+  `CodeUnknownAgent`, `CodeSessionCreated`, `CodeSessionClosed`, `CodeUnexpected`,
+  `CodeSettingInvalid`, `CodeSettingMissing`, `CodeNodeMerged`, `CodeCompactUnavailable`,
+  `CodeCompacted`, `CodeAddressPlaintextRefused`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
   constant named in `Key` or `params` but missing from `Codes()` fails the suite.
 - `Code` declares its parameters, which are `Name` for the session and agent
-  codes and `Detail` for `CodeUnexpected`. `Detail` holds the technical text of a
-  failure with no code of its own. It is never translated: a gateway renders it in
-  a code block, and `Degrade` renders it as plain text.
+  codes, `Detail` for `CodeUnexpected`, `Setting` and `Value` for
+  `CodeSettingInvalid`, `Settings` for `CodeSettingMissing`, `Reason` for
+  `CodeCompactUnavailable`, `Address` for `CodeAddressPlaintextRefused`, and none
+  for `CodeNodeMerged` and `CodeCompacted`.
+  `Detail` holds the technical text of a failure with no code of its own. It is
+  never translated: a gateway renders it in a code block, and `Degrade` renders it
+  as plain text. `Reason` is an ordinary `Text` argument, the technical reason of a
+  compaction that cannot run. It sits inside a sentence, so a gateway must
+  neutralise it like every other `Text` argument. The Discord gateway does so from
+  v0.24.0 on, for each `Text` of a notice.
+- `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
+  fallback instead of the notice. The caller neither retries nor posts the notice
+  again through `Degrade`.
 - A code of success, such as `CodeSessionCreated`, is a notice like any other: it
   is never `CodeUnexpected`.
 - `Arg` is built only by `Text(name, value)`, `Count(n)` (named `Count`, it selects

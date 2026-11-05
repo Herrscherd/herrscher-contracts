@@ -28,5 +28,35 @@
     "id": "internal.unexpected",
     "description": "A failure without a code of its own, with its technical text",
     "other": "unexpected error: {{.Detail}}"
+  },
+  {
+    "id": "setting.invalid",
+    "description": "A setting holds a value it does not accept",
+    "other": "invalid value {{.Value}} for setting {{.Setting}}"
+  },
+  {
+    "id": "setting.missing",
+    "description": "Settings that must be set are absent",
+    "other": "these settings must be set: {{.Settings}}"
+  },
+  {
+    "id": "node.merged",
+    "description": "A node is folded into an umbrella and cannot be restored until it is detached",
+    "other": "this node is folded into an umbrella; restore it with force to detach it"
+  },
+  {
+    "id": "compact.unavailable",
+    "description": "A context compaction cannot run, with its technical reason",
+    "other": "context compaction unavailable: {{.Reason}}"
+  },
+  {
+    "id": "compaction.done",
+    "description": "A session context was compacted",
+    "other": "context compacted"
+  },
+  {
+    "id": "address.plaintext_refused",
+    "description": "A plaintext connection to a non-loopback address was refused",
+    "other": "plaintext connection to {{.Address}} refused: TLS is required outside loopback"
   }
 ]

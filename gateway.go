@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
@@ -32,9 +33,19 @@ type GatewayCloser interface {
 // A CodeUnexpected notice carries its Detail, the technical text of a failure: a
 // gateway renders it in a code block, never translated, and Degrade renders it as
 // plain text.
+//
+// When the gateway cannot render the notice, it may post a plain-text fallback in
+// its place and return an error matching ErrNoticeFallbackPosted. The fallback has
+// reached the conversation: the caller must not retry Notify, nor post the notice
+// again through Degrade, and must treat the notice as delivered.
 type NoticeSink interface {
 	Notify(ctx context.Context, conv Conversation, lang i18n.Language, notice Notice) (MessageID, error)
 }
+
+// ErrNoticeFallbackPosted reports that a NoticeSink could not render a notice and
+// posted a plain-text fallback instead. Match it with errors.Is: the fallback is
+// already in the conversation, so the notice must not be sent again.
+var ErrNoticeFallbackPosted = errors.New("notice posted as a fallback text")
 
 // Inbound is a message arriving from a gateway into the manager.
 type Inbound struct {

@@ -28,5 +28,35 @@
     "id": "internal.unexpected",
     "description": "Un échec sans code propre, avec son texte technique",
     "other": "erreur inattendue : {{.Detail}}"
+  },
+  {
+    "id": "setting.invalid",
+    "description": "Un réglage reçoit une valeur qu'il n'accepte pas",
+    "other": "valeur invalide {{.Value}} pour le réglage {{.Setting}}"
+  },
+  {
+    "id": "setting.missing",
+    "description": "Des réglages requis ne sont pas définis",
+    "other": "ces réglages doivent être définis : {{.Settings}}"
+  },
+  {
+    "id": "node.merged",
+    "description": "Un nœud est replié dans un umbrella et ne peut pas être restauré avant d'être détaché",
+    "other": "ce nœud est replié dans un umbrella ; restaure-le avec l'option force pour le détacher"
+  },
+  {
+    "id": "compact.unavailable",
+    "description": "Une compaction du contexte ne peut pas être lancée, avec sa raison technique",
+    "other": "compaction du contexte indisponible : {{.Reason}}"
+  },
+  {
+    "id": "compaction.done",
+    "description": "Le contexte d'une session a été compacté",
+    "other": "contexte compacté"
+  },
+  {
+    "id": "address.plaintext_refused",
+    "description": "Une connexion en clair vers une adresse hors boucle locale a été refusée",
+    "other": "connexion en clair vers {{.Address}} refusée : le TLS est requis hors boucle locale"
   }
 ]
