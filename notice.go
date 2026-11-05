@@ -28,13 +28,29 @@ const (
 	// CodeUnexpected reports a failure that has no code of its own. Detail holds
 	// its technical text, which is shown as is and never translated.
 	CodeUnexpected
+	// CodeSettingInvalid reports that the setting Setting holds the value Value,
+	// which it does not accept.
+	CodeSettingInvalid
+	// CodeSettingMissing reports that the setting Setting must be set.
+	CodeSettingMissing
+	// CodeNodeMerged reports that a node is folded into an umbrella and must be
+	// detached before it can be restored.
+	CodeNodeMerged
+	// CodeCompactUnavailable reports that a context compaction cannot run. Reason
+	// holds the technical reason, which is shown as is and never translated.
+	CodeCompactUnavailable
+	// CodeCompacted reports that the context of the session was compacted.
+	CodeCompacted
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
 // same constants: a constant added to one of them must be added here too, and
 // the test suite checks that no named constant is missing from this list.
 func Codes() []Code {
-	return []Code{CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed, CodeUnexpected}
+	return []Code{
+		CodeSessionNotFound, CodeSessionExists, CodeUnknownAgent, CodeSessionCreated, CodeSessionClosed, CodeUnexpected,
+		CodeSettingInvalid, CodeSettingMissing, CodeNodeMerged, CodeCompactUnavailable, CodeCompacted,
+	}
 }
 
 // Key returns the catalog key of the code. An out-of-set value returns its raw
@@ -53,6 +69,16 @@ func (c Code) Key() string {
 		return "session.closed"
 	case CodeUnexpected:
 		return "internal.unexpected"
+	case CodeSettingInvalid:
+		return "setting.invalid"
+	case CodeSettingMissing:
+		return "setting.missing"
+	case CodeNodeMerged:
+		return "node.merged"
+	case CodeCompactUnavailable:
+		return "compact.unavailable"
+	case CodeCompacted:
+		return "compaction.done"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -63,6 +89,14 @@ func (c Code) params() ([]string, bool) {
 		return []string{"Name"}, true
 	case CodeUnexpected:
 		return []string{"Detail"}, true
+	case CodeSettingInvalid:
+		return []string{"Setting", "Value"}, true
+	case CodeSettingMissing:
+		return []string{"Setting"}, true
+	case CodeCompactUnavailable:
+		return []string{"Reason"}, true
+	case CodeNodeMerged, CodeCompacted:
+		return nil, true
 	}
 	return nil, false
 }

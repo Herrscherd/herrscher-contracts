@@ -28,5 +28,30 @@
     "id": "internal.unexpected",
     "description": "A failure without a code of its own, with its technical text",
     "other": "unexpected error: {{.Detail}}"
+  },
+  {
+    "id": "setting.invalid",
+    "description": "A setting holds a value it does not accept",
+    "other": "invalid value {{.Value}} for setting {{.Setting}}"
+  },
+  {
+    "id": "setting.missing",
+    "description": "A setting that must be set is absent",
+    "other": "setting {{.Setting}} must be set"
+  },
+  {
+    "id": "node.merged",
+    "description": "A node is folded into an umbrella and cannot be restored until it is detached",
+    "other": "this node is folded into an umbrella; restore it with force to detach it"
+  },
+  {
+    "id": "compact.unavailable",
+    "description": "A context compaction cannot run, with its technical reason",
+    "other": "context compaction unavailable: {{.Reason}}"
+  },
+  {
+    "id": "compaction.done",
+    "description": "A session context was compacted",
+    "other": "context compacted"
   }
 ]

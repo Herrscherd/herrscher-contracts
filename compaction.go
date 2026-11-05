@@ -129,11 +129,17 @@ type CompactRequest struct {
 // nothing: it is never read as "no tokens left". Note is one short line for the
 // operator, empty when there is nothing to say. Done stops the stack after this
 // stage, for a stage that judges the context compacted enough.
+//
+// Notice is the message for the operator, built from a code. Note is the English
+// text of the older form and is deprecated: a stage sets Notice, and the host reads
+// Note only when Notice carries no code.
 type CompactResult struct {
 	TokensAfter    int
 	TokensMeasured bool
-	Note           string
-	Done           bool
+	Notice         Notice
+	// Deprecated: set Notice instead. Note is read only when Notice has no code.
+	Note string
+	Done bool
 }
 
 // ErrAutoCompactPercentOutOfRange is returned by [ValidateAutoCompactPercent] for a
