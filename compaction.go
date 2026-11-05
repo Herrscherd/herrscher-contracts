@@ -130,11 +130,11 @@ type CompactRequest struct {
 // operator, empty when there is nothing to say. Done stops the stack after this
 // stage, for a stage that judges the context compacted enough.
 //
-// The host reads Note alone today: the herrscher compaction frame carries Note and
-// nothing else, so Note is the text the operator sees. Notice is the message built
-// from a code, which the host does not read yet. Until the host carries it, a
-// producer sets both, with Note in English, so that no note is lost when the host
-// moves to Notice.
+// The host reads only Note as text: its compaction frame carries Note and the token
+// counts, and no Notice, so Note is the text the operator sees. Notice is the
+// message built from a code, which the host does not read yet. Until the host reads
+// it, a producer sets both, with Note in English, so that no note is lost when the
+// host moves to Notice.
 type CompactResult struct {
 	TokensAfter    int
 	TokensMeasured bool
@@ -142,8 +142,7 @@ type CompactResult struct {
 	// reads.
 	Note string
 	Done bool
-	// Notice is the coded message the host will read once its compaction frame
-	// carries a code.
+	// Notice is the coded message the host will read once it reads codes.
 	Notice Notice
 }
 

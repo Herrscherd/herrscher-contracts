@@ -11,6 +11,11 @@ import (
 // Degrade wraps a Gateway and falls back to a simpler action for each action the
 // plugin does not announce. The manager always calls the rich method; degradation
 // lives here, never in the domain.
+//
+// A gateway without NoticeSink receives a notice as plain text: Degrade renders it
+// and posts the text through the gateway's Post as it is, without escaping its Text
+// arguments. Escaping depends on the markup of the platform, which Degrade does not
+// know, so the gateway's Post must neutralise the text it receives.
 func Degrade(gateway Gateway) Gateway {
 	wrapped := degrading{g: gateway, renderer: NewRenderer()}
 	if isEventSink(gateway) {
