@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -21,8 +22,9 @@ import (
 // ErrDuplicateKey is returned by NewCatalog when a key is defined twice across the sources.
 var ErrDuplicateKey = catalogfile.ErrDuplicateKey
 
-// ErrNilParam is returned by Message when a param holds nil, which the template would render as "<no value>".
-var ErrNilParam = errors.New("nil param value")
+// ErrParamType is returned by Message when a param is not a scalar: a nil value, a pointer,
+// a slice, a map, a struct or a func would be rendered as text such as "<nil>" or "[]".
+var ErrParamType = errors.New("param type not supported")
 
 const (
 	countParam    = "Count"
@@ -101,14 +103,16 @@ func parseMessage(message *goi18n.Message) error {
 
 // Message renders the text of key in lang. Each params entry fills the {{.Name}}
 // field of that name, and an entry named Count also selects the CLDR plural form.
-// A field with no entry in params is an error, and so is an entry whose value is nil (ErrNilParam).
+// A field with no entry in params is an error. Every entry of params must be a scalar:
+// a string, a bool, an integer or a float, named types of those kinds included. Any other
+// value is refused with ErrParamType, even when the message does not use that field.
 // A key missing in lang renders in English and logs a warning once per key and
 // language. A key missing in every language returns the key itself and logs a
 // warning once. It returns an error for an unsupported language, or for a message
 // that cannot be rendered with params. Rendering does not check that a message
 // holds only plain fields: Check does, in the test suite.
 func (c *Catalog) Message(lang Language, key string, params map[string]any) (string, error) {
-	if err := refuseNilParams(params); err != nil {
+	if err := refuseNonScalarParams(params); err != nil {
 		return "", err
 	}
 	text, err := c.render(lang, key, params)
@@ -132,13 +136,25 @@ func (c *Catalog) Message(lang Language, key string, params map[string]any) (str
 	return key, nil
 }
 
-func refuseNilParams(params map[string]any) error {
+func refuseNonScalarParams(params map[string]any) error {
 	for _, name := range slices.Sorted(maps.Keys(params)) {
-		if params[name] == nil {
-			return fmt.Errorf("param %q: %w", name, ErrNilParam)
+		if !isScalar(params[name]) {
+			return fmt.Errorf("param %q of type %T: %w", name, params[name], ErrParamType)
 		}
 	}
 	return nil
+}
+
+func isScalar(value any) bool {
+	switch reflect.ValueOf(value).Kind() {
+	case reflect.String, reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *Catalog) render(lang Language, key string, params map[string]any) (string, error) {

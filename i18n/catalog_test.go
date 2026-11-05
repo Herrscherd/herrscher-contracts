@@ -221,30 +221,62 @@ func TestMessageRefusesMissingParam(t *testing.T) {
 	}
 }
 
-func TestMessageRefusesNilParamValue(t *testing.T) {
+type sessionLabel string
+
+type sessionRank int
+
+func TestMessageRefusesNonScalarParams(t *testing.T) {
 	catalog := newCatalog(t, discardLogger(), "complete")
+	name := "Atlas"
+	var nilPointer *string
+	var nilSlice []string
+	var nilMap map[string]string
 	cases := []struct {
 		name   string
 		lang   i18n.Language
 		key    string
 		params map[string]any
 		field  string
+		typ    string
 	}{
-		{"nil Name", i18n.English, "session.name", map[string]any{"Name": nil}, "Name"},
-		{"nil Count", i18n.English, "session.count", map[string]any{"Count": nil}, "Count"},
-		{"nil beside a value", i18n.French, "session.name", map[string]any{"Name": "Atlas", "Title": nil}, "Title"},
+		{"untyped nil", i18n.English, "session.name", map[string]any{"Name": nil}, "Name", "<nil>"},
+		{"nil pointer", i18n.English, "session.name", map[string]any{"Name": nilPointer}, "Name", "*string"},
+		{"non-nil pointer", i18n.English, "session.name", map[string]any{"Name": &name}, "Name", "*string"},
+		{"nil slice", i18n.English, "session.name", map[string]any{"Name": nilSlice}, "Name", "[]string"},
+		{"nil map", i18n.English, "session.name", map[string]any{"Name": nilMap}, "Name", "map[string]string"},
+		{"struct", i18n.English, "session.name", map[string]any{"Name": struct{ Label string }{Label: "Atlas"}}, "Name", "struct"},
+		{"func", i18n.English, "session.name", map[string]any{"Name": func() {}}, "Name", "func()"},
+		{"nil Count", i18n.English, "session.count", map[string]any{"Count": nil}, "Count", "<nil>"},
+		{"nil beside a value", i18n.French, "session.name", map[string]any{"Name": "Atlas", "Title": nil}, "Title", "<nil>"},
+		{"unused non-scalar", i18n.English, "session.name", map[string]any{"Name": "Atlas", "Title": []string{"x"}}, "Title", "[]string"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := catalog.Message(tc.lang, tc.key, tc.params)
-			if !errors.Is(err, i18n.ErrNilParam) {
-				t.Fatalf("Message(%v, %q) error = %v, want ErrNilParam", tc.lang, tc.key, err)
+			if !errors.Is(err, i18n.ErrParamType) {
+				t.Fatalf("Message(%v, %q) error = %v, want ErrParamType", tc.lang, tc.key, err)
 			}
-			if !strings.Contains(err.Error(), tc.field) {
-				t.Fatalf("error %q does not name the field %q", err, tc.field)
+			if !strings.Contains(err.Error(), tc.field) || !strings.Contains(err.Error(), tc.typ) {
+				t.Fatalf("error %q does not name the field %q and the type %q", err, tc.field, tc.typ)
 			}
 		})
 	}
+}
+
+func TestMessageAcceptsScalarParams(t *testing.T) {
+	catalog := newCatalog(t, discardLogger(), "complete")
+	scalars := []any{
+		"Atlas", true, 1, int8(1), int16(1), int32(1), int64(1),
+		uint(1), uint8(1), uint16(1), uint32(1), uint64(1), float32(1.5), 1.5,
+		sessionLabel("Atlas"), sessionRank(7),
+	}
+	for _, value := range scalars {
+		if _, err := catalog.Message(i18n.English, "session.name", map[string]any{"Name": value}); err != nil {
+			t.Fatalf("Message with Name %v (%T) returned error %v", value, value, err)
+		}
+	}
+	assertMessage(t, catalog, i18n.English, "session.name", map[string]any{"Name": sessionLabel("Atlas")}, "Session Atlas")
+	assertMessage(t, catalog, i18n.English, "session.name", map[string]any{"Name": sessionRank(7)}, "Session 7")
 }
 
 func TestMessageWarningsAreBounded(t *testing.T) {

@@ -314,8 +314,12 @@ only part of the module with dependencies beyond the standard library:
   refused with `ErrDuplicateKey`. A template that does not parse, including a
   call to a template function, is refused at construction.
 - `Catalog.Message(lang, key, params)` renders a message. A `{{.Name}}` field with
-  no entry in `params` is an error, and so is an entry whose value is `nil`
-  (`ErrNilParam`), which the template would render as `<no value>`. A key missing in a language renders in English, and a
+  no entry in `params` is an error. Every entry of `params` must be a scalar: a
+  string, a bool, an integer (`int`, `int8` to `int64`, `uint`, `uint8` to `uint64`) or
+  a float (`float32`, `float64`), named types of those kinds included. Any other value,
+  nil untyped or typed, pointer, slice, map, struct or func, is refused with
+  `ErrParamType` even when the message does not use that field, because the template
+  would render it as text such as `<nil>` or `[]`. A key missing in a language renders in English, and a
   key missing everywhere returns the key itself. Each of these cases logs one
   warning per key and language, for at most 1024 keys; past that, each further
   missing key is logged every time it is asked for. An unsupported language, or a
