@@ -52,6 +52,32 @@ const (
 	CodeCompactInstructionRefused
 	// CodeCompactNoThread reports that no turn has run yet, so there is no context to compact.
 	CodeCompactNoThread
+	// CodeSessionLimit reports that no session can be created because Count sessions already run.
+	CodeSessionLimit
+	// CodeNoHome reports that a session cannot be created before a home channel is set.
+	CodeNoHome
+	// CodeNoHostRegistered reports that a remote host is requested but none is registered.
+	CodeNoHostRegistered
+	// CodeServiceControlUnavailable reports that the host cannot control its own service.
+	CodeServiceControlUnavailable
+	// CodeModelRequired reports that a session under the gateway-only route policy names no model.
+	CodeModelRequired
+	// CodeExplicitCmdRefused reports that a session names a cmd under the gateway-only route policy.
+	CodeExplicitCmdRefused
+	// CodeInvalidValue reports that the value Value is malformed or out of range for the field Field.
+	CodeInvalidValue
+	// CodeSharedAgent reports that the agent Agent cannot run in a session that shares the main checkout.
+	CodeSharedAgent
+	// CodeUnknownApprovalMode reports that the approval mode Mode is not one the host knows.
+	CodeUnknownApprovalMode
+	// CodeAgentExists reports that an agent named Name already exists.
+	CodeAgentExists
+	// CodeAgentInvalidName reports that Name is not a usable agent name.
+	CodeAgentInvalidName
+	// CodeAgentNotFound reports that no agent is named Name.
+	CodeAgentNotFound
+	// CodeUnsupportedHomeType reports that the home channel kind Type cannot host sessions.
+	CodeUnsupportedHomeType
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -63,6 +89,10 @@ func Codes() []Code {
 		CodeSettingInvalid, CodeSettingMissing, CodeNodeMerged, CodeCompactUnavailable, CodeCompacted,
 		CodeAddressPlaintextRefused,
 		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread,
+		CodeSessionLimit, CodeNoHome, CodeNoHostRegistered, CodeServiceControlUnavailable,
+		CodeModelRequired, CodeExplicitCmdRefused, CodeInvalidValue, CodeSharedAgent,
+		CodeUnknownApprovalMode, CodeAgentExists, CodeAgentInvalidName, CodeAgentNotFound,
+		CodeUnsupportedHomeType,
 	}
 }
 
@@ -100,6 +130,32 @@ func (c Code) Key() string {
 		return "compact.instruction_refused"
 	case CodeCompactNoThread:
 		return "compact.no_thread"
+	case CodeSessionLimit:
+		return "session.limit"
+	case CodeNoHome:
+		return "home.missing"
+	case CodeNoHostRegistered:
+		return "host.none_registered"
+	case CodeServiceControlUnavailable:
+		return "service.control_unavailable"
+	case CodeModelRequired:
+		return "model.required"
+	case CodeExplicitCmdRefused:
+		return "cmd.explicit_refused"
+	case CodeInvalidValue:
+		return "value.invalid"
+	case CodeSharedAgent:
+		return "agent.shared_refused"
+	case CodeUnknownApprovalMode:
+		return "approval.mode_unknown"
+	case CodeAgentExists:
+		return "agent.exists"
+	case CodeAgentInvalidName:
+		return "agent.invalid_name"
+	case CodeAgentNotFound:
+		return "agent.not_found"
+	case CodeUnsupportedHomeType:
+		return "home.type_unsupported"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -121,6 +177,21 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	case CodeNodeMerged, CodeCompacted,
 		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread:
 		return nil, true
+	case CodeSessionLimit:
+		return map[string]ArgKind{countName: ArgCount}, true
+	case CodeNoHome, CodeNoHostRegistered, CodeServiceControlUnavailable,
+		CodeModelRequired, CodeExplicitCmdRefused:
+		return nil, true
+	case CodeInvalidValue:
+		return map[string]ArgKind{"Field": ArgText, "Value": ArgText}, true
+	case CodeSharedAgent:
+		return map[string]ArgKind{"Agent": ArgText}, true
+	case CodeUnknownApprovalMode:
+		return map[string]ArgKind{"Mode": ArgText}, true
+	case CodeAgentExists, CodeAgentInvalidName, CodeAgentNotFound:
+		return map[string]ArgKind{"Name": ArgText}, true
+	case CodeUnsupportedHomeType:
+		return map[string]ArgKind{"Type": ArgText}, true
 	}
 	return nil, false
 }

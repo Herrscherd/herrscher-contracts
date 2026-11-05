@@ -102,10 +102,17 @@ func argsWithRefUnder(declared map[string]ArgKind, ref string) []Arg {
 		if name == ref {
 			args = append(args, Ref(name, "123"))
 		} else {
-			args = append(args, Text(name, "x"))
+			args = append(args, argOfKind(name, declared[name]))
 		}
 	}
 	return args
+}
+
+func argOfKind(name string, kind ArgKind) Arg {
+	if kind == ArgCount {
+		return Count(2)
+	}
+	return Text(name, "x")
 }
 
 func TestRenderRefusesRefForEveryDeclaredTextParam(t *testing.T) {
@@ -129,8 +136,8 @@ func TestRenderAcceptsTextForEveryDeclaredParam(t *testing.T) {
 	for _, code := range Codes() {
 		declared, _ := code.params()
 		var args []Arg
-		for name := range declared {
-			args = append(args, Text(name, "x"))
+		for name, kind := range declared {
+			args = append(args, argOfKind(name, kind))
 		}
 		for _, lang := range i18n.Languages() {
 			if _, err := renderer.Render(lang, Notice{Code: code, Args: args}); err != nil {
@@ -352,6 +359,36 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"compaction du contexte indisponible : le délai de compaction doit être une durée positive",
 		},
 		{
+			Notice{Code: CodeSessionLimit, Args: []Arg{Count(1)}},
+			"session limit reached: 1 session allowed; close one before creating another",
+			"limite de sessions atteinte : 1 session autorisée ; ferme-en une avant d'en créer une autre",
+		},
+		{
+			Notice{Code: CodeSessionLimit, Args: []Arg{Count(4)}},
+			"session limit reached: 4 sessions allowed; close one before creating another",
+			"limite de sessions atteinte : 4 sessions autorisées ; ferme-en une avant d'en créer une autre",
+		},
+		{
+			Notice{Code: CodeNoHome},
+			"no home set; run `set home` first",
+			"aucun accueil défini ; lance d'abord `set home`",
+		},
+		{
+			Notice{Code: CodeInvalidValue, Args: []Arg{Text("Field", "terminal_only"), Text("Value", "maybe")}},
+			"invalid value maybe for terminal_only",
+			"valeur invalide maybe pour terminal_only",
+		},
+		{
+			Notice{Code: CodeSharedAgent, Args: []Arg{Text("Agent", "x")}},
+			"session create with agent x cannot be shared: an agent needs a place of its own, and shared:true runs in the main checkout",
+			"la session ne peut pas être créée avec l'agent « x » en partage : un agent a besoin d'un espace à lui, et shared:true la lance dans le dépôt principal",
+		},
+		{
+			Notice{Code: CodeAgentNotFound, Args: []Arg{Text("Name", "x")}},
+			"no agent x",
+			"aucun agent nommé « x »",
+		},
+		{
 			Notice{Code: CodeCompactInstructionRefused},
 			"context compaction unavailable: this backend cannot take an instruction for a compaction",
 			"compaction du contexte indisponible : ce fournisseur ne peut pas recevoir d'instruction de compaction",
@@ -470,6 +507,19 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeCompactTimeoutInvalid:     13,
 		CodeCompactInstructionRefused: 14,
 		CodeCompactNoThread:           15,
+		CodeSessionLimit:              16,
+		CodeNoHome:                    17,
+		CodeNoHostRegistered:          18,
+		CodeServiceControlUnavailable: 19,
+		CodeModelRequired:             20,
+		CodeExplicitCmdRefused:        21,
+		CodeInvalidValue:              22,
+		CodeSharedAgent:               23,
+		CodeUnknownApprovalMode:       24,
+		CodeAgentExists:               25,
+		CodeAgentInvalidName:          26,
+		CodeAgentNotFound:             27,
+		CodeUnsupportedHomeType:       28,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))
