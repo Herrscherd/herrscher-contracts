@@ -187,8 +187,11 @@ but is empty on both sides, so it is never a half-pair.
 
 A backend that can list its models on the current machine sets
 `Plugin.Discover`, a `ModelDiscoverer`. It receives a `DiscoveryAccess` (the
-gateway pair the host holds, and a `Getenv` for the vendor's own key or
-settings) and returns what the vendor serves now. A vendor with no listing on
+gateway pair the host holds, the route `Policy` the host enforces, and a
+`Getenv` for the vendor's own key or settings) and returns what the vendor
+serves now. A backend must honour `Policy`: under `PolicyGatewayOnly` it
+neither runs a native listing (CLI or vendor API) nor returns native models,
+and under `PolicyAll` it lists its native models next to the gateway ones. A vendor with no listing on
 this machine returns no models and no error, and the static catalog stands
 alone. An error is a failed attempt: the host logs it and keeps its last list.
 

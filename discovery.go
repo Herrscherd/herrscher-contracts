@@ -5,9 +5,10 @@ import (
 	"fmt"
 )
 
-// DiscoveryAccess is what the host hands a discovery function: the gateway pair it holds and the environment reader.
+// DiscoveryAccess is what the host hands a discovery function: the gateway pair it holds, the route policy it enforces and the environment reader.
 type DiscoveryAccess struct {
 	Gateway GatewayCreds
+	Policy  RoutePolicy
 	Getenv  func(string) string
 }
 
