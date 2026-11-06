@@ -43,6 +43,7 @@ it is absent.
 | `Foreground` | `foreground.go` | optional | `RunForeground`: the gateway owns the main thread (a TUI). At most one |
 | `NoticeSink` | `gateway.go` | optional | `Notify(ctx, conv, lang, Notice)`: the gateway renders a notice itself, in the given language, with English as the fallback. Without it, `Degrade` renders the text |
 | `SessionControlReceiver` | `session_control.go` | optional | `BindSessionControl` receives the host's session-control handle |
+| `CatalogSource` | `catalog_source.go` | optional | `Catalog() fs.FS`: the plugin's translated texts, one go-i18n file per language, merged into the host's catalog |
 
 ### Memory
 
@@ -349,6 +350,10 @@ contracts.
   each supported language with its plural forms, each language must use the same
   fields as English, and a key defined in a non-English language but absent from
   English is refused.
+- `CatalogSource` is the optional port of a plugin that contributes translated
+  texts: `Catalog() fs.FS` returns its sources, in the format above. The host
+  builds its catalog from its own sources and those of the plugins, so a key
+  defined in both is refused with `ErrDuplicateKey`.
 - `i18ntest.CheckDeclared(t, declared, sources...)` ties a catalog to the codes
   that use it. `declared` maps each key to the names of its fields. Each declared
   key must exist in every language with exactly those fields, and a key the
