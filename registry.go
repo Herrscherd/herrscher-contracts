@@ -74,6 +74,7 @@ type Plugin struct {
 	// Discover lists the models the vendor serves now, when it can. Nil when
 	// the backend has no listing: its static Manifest.Models stands alone.
 	Discover ModelDiscoverer
+	Catalog  fs.FS
 }
 
 // CommandSource is an optional capability of a live plugin instance: the verbs
