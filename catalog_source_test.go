@@ -11,14 +11,6 @@ import (
 	"github.com/Herrscherd/herrscher-contracts/i18n/i18ntest"
 )
 
-type catalogPlugin struct {
-	catalog fs.FS
-}
-
-func (p catalogPlugin) Catalog() fs.FS { return p.catalog }
-
-var _ contracts.CatalogSource = catalogPlugin{}
-
 func helloCatalog(french string) fs.FS {
 	return fstest.MapFS{
 		"en.json": &fstest.MapFile{Data: []byte(`[{"id": "gateway.hello", "other": "hello {{.Name}}"}]`)},
@@ -26,11 +18,25 @@ func helloCatalog(french string) fs.FS {
 	}
 }
 
-func TestCatalogSourceFeedsTheCatalog(t *testing.T) {
+func catalogsOf(t *testing.T, plugins ...contracts.Plugin) []fs.FS {
+	t.Helper()
+	var registry contracts.Registry
+	for idx := range plugins {
+		registry.Register(plugins[idx])
+	}
+	var catalogs []fs.FS
+	registered := registry.Plugins()
+	for idx := range registered {
+		catalogs = append(catalogs, registered[idx].Catalog)
+	}
+	return catalogs
+}
+
+func TestPluginCatalogIsReadWithoutAnInstance(t *testing.T) {
 	t.Parallel()
-	var source contracts.CatalogSource = catalogPlugin{catalog: helloCatalog("bonjour {{.Name}}")}
-	i18ntest.Check(t, source.Catalog())
-	catalog, err := i18n.NewCatalog(nil, source.Catalog())
+	catalogs := catalogsOf(t, contracts.Plugin{Catalog: helloCatalog("bonjour {{.Name}}")})
+	i18ntest.Check(t, catalogs[0])
+	catalog, err := i18n.NewCatalog(nil, catalogs...)
 	if err != nil {
 		t.Fatalf("NewCatalog: %v", err)
 	}
@@ -43,10 +49,10 @@ func TestCatalogSourceFeedsTheCatalog(t *testing.T) {
 	}
 }
 
-func TestCatalogSourceReturningNilIsIgnored(t *testing.T) {
+func TestPluginWithoutCatalogIsIgnored(t *testing.T) {
 	t.Parallel()
-	var source contracts.CatalogSource = catalogPlugin{}
-	catalog, err := i18n.NewCatalog(nil, source.Catalog(), helloCatalog("bonjour {{.Name}}"))
+	catalogs := catalogsOf(t, contracts.Plugin{}, contracts.Plugin{Catalog: helloCatalog("bonjour {{.Name}}")})
+	catalog, err := i18n.NewCatalog(nil, catalogs...)
 	if err != nil {
 		t.Fatalf("NewCatalog: %v", err)
 	}
@@ -59,11 +65,13 @@ func TestCatalogSourceReturningNilIsIgnored(t *testing.T) {
 	}
 }
 
-func TestCatalogSourcesDefiningTheSameKeyAreRefused(t *testing.T) {
+func TestPluginCatalogsDefiningTheSameKeyAreRefused(t *testing.T) {
 	t.Parallel()
-	first := catalogPlugin{catalog: helloCatalog("bonjour {{.Name}}")}
-	second := catalogPlugin{catalog: helloCatalog("salut {{.Name}}")}
-	_, err := i18n.NewCatalog(nil, first.Catalog(), second.Catalog())
+	catalogs := catalogsOf(t,
+		contracts.Plugin{Catalog: helloCatalog("bonjour {{.Name}}")},
+		contracts.Plugin{Catalog: helloCatalog("salut {{.Name}}")},
+	)
+	_, err := i18n.NewCatalog(nil, catalogs...)
 	if !errors.Is(err, i18n.ErrDuplicateKey) {
 		t.Fatalf("NewCatalog error = %v, want i18n.ErrDuplicateKey", err)
 	}
