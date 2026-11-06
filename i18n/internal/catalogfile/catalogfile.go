@@ -18,6 +18,9 @@ var ErrDuplicateKey = errors.New("message key defined twice")
 func Read[L comparable](sources []fs.FS, languageOf func(name string) (L, error)) (map[L]map[string]*goi18n.Message, error) {
 	byLanguage := make(map[L]map[string]*goi18n.Message)
 	for _, source := range sources {
+		if source == nil {
+			continue
+		}
 		if err := addSource(byLanguage, source, languageOf); err != nil {
 			return nil, err
 		}

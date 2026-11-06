@@ -328,7 +328,7 @@ contracts.
   `math.MaxInt64`. Any other type, a float included, is refused with `ErrParamType`.
 - `NewCatalog(logger, sources...)` builds a catalog from several `fs.FS`, usually
   one embedded directory per package. A key defined twice across the sources is
-  refused with `ErrDuplicateKey`. A template that does not parse, including a
+  refused with `i18n.ErrDuplicateKey`. A template that does not parse, including a
   call to a template function, is refused at construction.
 - `Catalog.Message(lang, key, params)` renders a message. A `{{.Name}}` field with
   no entry in `params` is an error. Every entry of `params` must be a scalar: a
@@ -353,7 +353,7 @@ contracts.
 - `CatalogSource` is the optional port of a plugin that contributes translated
   texts: `Catalog() fs.FS` returns its sources, in the format above. The host
   builds its catalog from its own sources and those of the plugins, so a key
-  defined in both is refused with `ErrDuplicateKey`.
+  defined in both is refused with `i18n.ErrDuplicateKey`.
 - `i18ntest.CheckDeclared(t, declared, sources...)` ties a catalog to the codes
   that use it. `declared` maps each key to the names of its fields. Each declared
   key must exist in every language with exactly those fields, and a key the
