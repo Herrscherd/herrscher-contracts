@@ -111,6 +111,10 @@ const (
 	CodeHealthRemedyRun
 	// CodeHealthRemedyEnvRestart tells the operator to add the variable Name to the service environment and restart the service.
 	CodeHealthRemedyEnvRestart
+	// CodeAccountFallback reports that a new session starts on To instead of From, whose quota is spent. From and To are account names.
+	CodeAccountFallback
+	// CodeAccountNoQuota reports that no account of Vendor has quota left, so the session keeps Account.
+	CodeAccountNoQuota
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -130,6 +134,7 @@ func Codes() []Code {
 		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint, CodeSessionCloseDirty,
 		CodeHealthConnected, CodeHealthSignedInAs, CodeHealthNotLoggedIn, CodeHealthRateLimited, CodeHealthCredentialsRefused,
 		CodeHealthUnreachable, CodeHealthEnvMissing, CodeHealthRemedyRun, CodeHealthRemedyEnvRestart,
+		CodeAccountFallback, CodeAccountNoQuota,
 	}
 }
 
@@ -225,6 +230,10 @@ func (c Code) Key() string {
 		return "health.remedy_run"
 	case CodeHealthRemedyEnvRestart:
 		return "health.remedy_env_restart"
+	case CodeAccountFallback:
+		return "account.fallback"
+	case CodeAccountNoQuota:
+		return "account.no_quota"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -279,6 +288,10 @@ func (c Code) params() (map[string]ArgKind, bool) {
 		return map[string]ArgKind{"Reason": ArgText}, true
 	case CodeHealthRemedyRun:
 		return map[string]ArgKind{"Command": ArgText}, true
+	case CodeAccountFallback:
+		return map[string]ArgKind{"From": ArgText, "To": ArgText}, true
+	case CodeAccountNoQuota:
+		return map[string]ArgKind{"Vendor": ArgText, "Account": ArgText}, true
 	}
 	return nil, false
 }
