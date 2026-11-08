@@ -115,3 +115,21 @@ func TestAGatewayMayAlsoCarrySkills(t *testing.T) {
 		t.Fatalf("a gateway carrying skills is still a gateway that carries skills: %+v", gws)
 	}
 }
+
+func TestRegistryIsolatesCompactors(t *testing.T) {
+	var r Registry
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "claude", Category: CategoryBackend, Capabilities: Capabilities{Compactor: true}},
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
+	})
+	r.Register(Plugin{
+		Manifest:  Manifest{Kind: "jev", Category: CategoryCompactor, Capabilities: Capabilities{Compactor: true}},
+		Compactor: func(context.Context, PluginConfig) (Compactor, error) { return nil, errStubFactory },
+	})
+	if got := r.Compactors(); len(got) != 1 || got[0].Manifest.Kind != "jev" {
+		t.Fatalf("Compactors() = %+v, want only the jev stage", got)
+	}
+	if got := r.Backends(); len(got) != 1 || got[0].Manifest.Kind != "claude" {
+		t.Fatalf("Backends() = %+v, want the stage left out of the vendors", got)
+	}
+}

@@ -120,6 +120,11 @@ type CompactRequest struct {
 	// Instruction is the free text the operator gave, as in "/compact <instruction>".
 	// It is empty when none was given, and a stage may ignore it.
 	Instruction string
+	// History edits the conversation of the session, nil when its backend does not
+	// implement [HistoryEditor]. The host fills it for the stages it runs itself; it
+	// never crosses a wire, and a backend running its own stage reaches its history
+	// directly. It is valid only for the duration of the Compact call.
+	History HistoryEditor
 }
 
 // CompactResult is what a stage reports once it has run.

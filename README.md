@@ -27,6 +27,7 @@ it is absent.
 | `ChoiceInjector` | `backend.go` | optional | `InjectChoice` answers that pick out of band |
 | `SkillNative` | `skill.go` | optional | `NativeSkills()`: the backend loads skills itself, so the host skips injection |
 | `Compactor` | `compaction.go` | optional | `Compact(ctx, CompactRequest, onEvent)` shortens a session's context. A backend's is its default, a plugin's is a custom stage |
+| `HistoryEditor` | `history.go` | optional | `ReadHistory(ctx)` returns the conversation the model sees, `PruneHistory(ctx, edits)` prunes tool calls from it in place, all or nothing |
 
 ### Channel edge
 
@@ -80,17 +81,19 @@ it is absent.
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
+| `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 
 ## Registration and config
 
 A plugin declares a `Plugin{Manifest, <one factory>}` in `init()` and calls
 `Register`.
 
-Exactly one of `GatewayFactory`, `BackendFactory`, `MemoryFactory` or
-`OrchestratorFactory` is set, matching `Manifest.Category`. The exception is
-`CategorySkills`, which has no port to build and so declares no port factory. A
-gateway factory returns a `GatewaySet{Gateway, Reader, Admin, Prober}`: one
-channel, with the optional ports left nil.
+Exactly one of `GatewayFactory`, `BackendFactory`, `MemoryFactory`,
+`OrchestratorFactory` or `CompactorFactory` is set, matching
+`Manifest.Category`. The exception is `CategorySkills`, which has no port to
+build and so declares no port factory. A gateway factory returns a
+`GatewaySet{Gateway, Reader, Admin, Prober}`: one channel, with the optional
+ports left nil.
 
 `Manifest.Config []Setting` declares each env-bound setting. `Resolve` builds a
 validated `PluginConfig` and fails startup naming every missing required key.
@@ -117,9 +120,11 @@ the tool its playbook describes.
 ## Compaction
 
 A backend that implements `Compactor` compacts its own sessions: for Claude that
-is `/compact`. A plugin may also implement it, to offer a custom step. The
-manifest declares it with `Capabilities.Compactor`, so a stack can be checked
-before any plugin is instantiated.
+is `/compact`. A plugin of `CategoryCompactor` offers a custom stage: its
+`CompactorFactory` builds the `Compactor`, it answers no prompt and is never a
+session vendor, and `Registry.Compactors` lists it. The manifest declares a
+compactor with `Capabilities.Compactor`, so a stack can be checked before any
+plugin is instantiated.
 
 A session's compaction is a stack of `CompactStage`s that the host runs in its
 configured order with `RunCompactStack`:
@@ -142,6 +147,22 @@ The host calls `Compact` only while it holds the turn of the session, under the
 same exclusion as `Respond`. The host renders the outcome (the note, the tokens
 before and after) to the gateways, not the stage. Progress goes through the
 `onEvent` callback, as for `Respond`.
+
+### History edited in place
+
+A backend that implements `HistoryEditor`, and declares it with
+`Capabilities.HistoryEditor`, lets a stage shorten the conversation without a
+summary. The host passes it to the stages it runs as `CompactRequest.History`,
+nil when the backend has none, so a stage that needs it skips or fails on its own
+terms. `ReadHistory` returns the messages the model sees on its next turn, oldest
+first, each assistant message with its tool calls and their results.
+`PruneHistory` takes `HistoryEdit`s naming calls by `HistoryCall.ID`:
+`PruneResult` keeps the call and the first `KeepChars` runes of its result,
+`PruneCall` keeps only a trace of the call. Text the operator or the agent wrote
+is never an edit target. The edits apply all or none, after
+`ValidateHistoryEdits`, and an edit naming no call of the history fails with
+`ErrUnknownHistoryCall`. `PruneOutcome` counts the runes of tool inputs and
+results before and after, so a stage can judge the saving without a tokenizer.
 
 `CompactTrigger` marshals to its text form (`"manual"`, `"automatic"`), and
 refuses to marshal a value that names no trigger.
