@@ -82,6 +82,8 @@ it is absent.
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
+| `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
+| `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 
 ## Registration and config
 
@@ -278,6 +280,35 @@ every platform, so `ProfileHomeEnv` refuses it with `ErrNoProfileHome`.
 `ParseProfileName` is the only way to a `ProfileName`. It refuses the reserved
 name `native`, which means no override at all, so the zero value of a profile
 field is the native login.
+
+### Health and limits
+
+`Plugin.Probe` is a `HealthProber` and `Plugin.Limits` a `LimitReader`. Like
+`Discover`, they are plugin level functions: the host calls them on its own,
+without a live instance, so a backend that is not logged in can still say so.
+Each is nil when the plugin offers none. Any category may set `Probe`; only a
+backend sets `Limits`.
+
+Both receive a `ProbeAccess`: the `Getenv` of the account checked (its profile
+environment merged over the host's), the `Account` (empty for the native login)
+and `Deep`, which asks for a real, minimal round trip instead of a cheap check.
+
+A probe reports a `ProbeReport` rather than an error: its `State`, the
+`Latency` it measured (zero when it did not), and a `Detail` and a `Remedy`
+that are `Notice` values, codes the client renders, never sentences. `Remedy`
+is the zero `Notice` when there is nothing to do. `HealthOff` means not set up
+or not logged in: it never fails a check on its own. `WorstHealth` ranks the
+states `down`, then `degraded`, then `ok`, then `off`, and returns `off` for an
+empty list.
+
+A `LimitReader` returns each window the vendor reports for the account, scoped
+to the whole account (`Scope` empty) or to one model family. It never spends a
+turn to read them: a vendor that exposes none returns `ErrLimitsUnavailable`.
+
+`Event.Models` and `BackendEvent.Models` split the usage of a turn by model,
+each a `ModelUsage`, so a ledger can tell the main model from the one that ran
+the subagents. They are empty when the backend gives no breakdown, and the
+totals stand alone.
 
 ## Who is asking
 

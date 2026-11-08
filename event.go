@@ -49,6 +49,10 @@ type Event struct {
 	TokensIn    int `json:"tokens_in,omitempty"`
 	CacheRead   int `json:"cache_read,omitempty"`
 	CacheCreate int `json:"cache_create,omitempty"`
+	// Models splits the usage of the turn by model, carried on the terminal reply
+	// (Done) like Cost. Empty when the backend gives no breakdown: the totals
+	// above then stand alone.
+	Models []ModelUsage `json:"models,omitempty"`
 	// Resume carries the backend's opaque resume token, piggybacked on the
 	// terminal reply{done} so the daemon can persist it for cross-restart
 	// --resume. Empty when the backend is not ResumeAware or has no id yet.
