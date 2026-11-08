@@ -47,8 +47,8 @@ type HistoryMessage struct {
 }
 
 // HistoryCall is one tool call and its result. ID is the backend's identifier of
-// the call, unique in the history, the one a [HistoryEdit] names. Input is the call's input as JSON text.
-// Result is empty when the call has no result yet.
+// the call, unique in the history, the one a [HistoryEdit] names. Input is the
+// call's input as JSON text. Result is empty when the call has no result yet.
 type HistoryCall struct {
 	ID            string
 	Tool          string
@@ -233,7 +233,7 @@ func ValidateHistoryEdits(edits []HistoryEdit) error {
 		case seen[edit.CallID]:
 			return fmt.Errorf("%w: call %q edited twice", ErrInvalidHistoryEdit, edit.CallID)
 		case edit.KeepChars < 0:
-			return fmt.Errorf("%w: call %q keeps %d characters", ErrInvalidHistoryEdit, edit.CallID, edit.KeepChars)
+			return fmt.Errorf("%w: call %q keeps %d runes", ErrInvalidHistoryEdit, edit.CallID, edit.KeepChars)
 		}
 		if !edit.Action.isKnown() {
 			return fmt.Errorf("%w: call %q: %w: %d", ErrInvalidHistoryEdit, edit.CallID, ErrUnknownPruneAction, int(edit.Action))
