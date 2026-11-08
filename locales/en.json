@@ -174,5 +174,50 @@
     "id": "session.close_dirty",
     "description": "A session cannot be closed because its worktree holds uncommitted changes",
     "other": "session {{.Name}} has uncommitted changes: commit them, or close it with force:true to discard them"
+  },
+  {
+    "id": "health.connected",
+    "description": "The account is logged in",
+    "other": "connected"
+  },
+  {
+    "id": "health.signed_in_as",
+    "description": "The service answered as an identity",
+    "other": "signed in as {{.Name}}"
+  },
+  {
+    "id": "health.not_logged_in",
+    "description": "The account is not logged in",
+    "other": "not logged in"
+  },
+  {
+    "id": "health.rate_limited",
+    "description": "The vendor answered with a rate limit",
+    "other": "rate limited"
+  },
+  {
+    "id": "health.credentials_refused",
+    "description": "The service refused its credentials",
+    "other": "credentials refused"
+  },
+  {
+    "id": "health.unreachable",
+    "description": "The service could not be reached",
+    "other": "unreachable: {{.Reason}}"
+  },
+  {
+    "id": "health.env_missing",
+    "description": "An environment variable the service needs is not set",
+    "other": "{{.Name}} is not set"
+  },
+  {
+    "id": "health.remedy_run",
+    "description": "Remedy: run a command",
+    "other": "run {{.Command}}"
+  },
+  {
+    "id": "health.remedy_env_restart",
+    "description": "Remedy: set an environment variable and restart the service",
+    "other": "add {{.Name}} to the service environment, then run `herrscher service restart`"
   }
 ]

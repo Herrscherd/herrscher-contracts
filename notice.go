@@ -93,6 +93,24 @@ const (
 	CodeInvalidValueHint
 	// CodeSessionCloseDirty reports that the session Name was not closed, because its worktree holds uncommitted changes.
 	CodeSessionCloseDirty
+	// CodeHealthConnected reports that the account is logged in and answered the check.
+	CodeHealthConnected
+	// CodeHealthSignedInAs reports that the service answered as the identity Name, such as a bot name.
+	CodeHealthSignedInAs
+	// CodeHealthNotLoggedIn reports that the account is not logged in.
+	CodeHealthNotLoggedIn
+	// CodeHealthRateLimited reports that the vendor answered with a rate limit.
+	CodeHealthRateLimited
+	// CodeHealthCredentialsRefused reports that the service refused the credentials it was given.
+	CodeHealthCredentialsRefused
+	// CodeHealthUnreachable reports that the service could not be reached. Reason holds the technical reason, shown as it is.
+	CodeHealthUnreachable
+	// CodeHealthEnvMissing reports that the environment variable Name is not set.
+	CodeHealthEnvMissing
+	// CodeHealthRemedyRun tells the operator to run the command Command, shown as it is.
+	CodeHealthRemedyRun
+	// CodeHealthRemedyEnvRestart tells the operator to add the variable Name to the service environment and restart the service.
+	CodeHealthRemedyEnvRestart
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -110,6 +128,8 @@ func Codes() []Code {
 		CodeUnsupportedHomeType,
 		CodeEntityNotFound, CodeEntityUnknown, CodeScheduleNotFound,
 		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint, CodeSessionCloseDirty,
+		CodeHealthConnected, CodeHealthSignedInAs, CodeHealthNotLoggedIn, CodeHealthRateLimited, CodeHealthCredentialsRefused,
+		CodeHealthUnreachable, CodeHealthEnvMissing, CodeHealthRemedyRun, CodeHealthRemedyEnvRestart,
 	}
 }
 
@@ -187,6 +207,24 @@ func (c Code) Key() string {
 		return "value.invalid_hint"
 	case CodeSessionCloseDirty:
 		return "session.close_dirty"
+	case CodeHealthConnected:
+		return "health.connected"
+	case CodeHealthSignedInAs:
+		return "health.signed_in_as"
+	case CodeHealthNotLoggedIn:
+		return "health.not_logged_in"
+	case CodeHealthRateLimited:
+		return "health.rate_limited"
+	case CodeHealthCredentialsRefused:
+		return "health.credentials_refused"
+	case CodeHealthUnreachable:
+		return "health.unreachable"
+	case CodeHealthEnvMissing:
+		return "health.env_missing"
+	case CodeHealthRemedyRun:
+		return "health.remedy_run"
+	case CodeHealthRemedyEnvRestart:
+		return "health.remedy_env_restart"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -233,6 +271,14 @@ func (c Code) params() (map[string]ArgKind, bool) {
 		return map[string]ArgKind{"Field": ArgText, valueParam: ArgText, "Hint": ArgText}, true
 	case CodeSessionCloseDirty:
 		return map[string]ArgKind{nameParam: ArgText}, true
+	case CodeHealthConnected, CodeHealthNotLoggedIn, CodeHealthRateLimited, CodeHealthCredentialsRefused:
+		return nil, true
+	case CodeHealthSignedInAs, CodeHealthEnvMissing, CodeHealthRemedyEnvRestart:
+		return map[string]ArgKind{nameParam: ArgText}, true
+	case CodeHealthUnreachable:
+		return map[string]ArgKind{"Reason": ArgText}, true
+	case CodeHealthRemedyRun:
+		return map[string]ArgKind{"Command": ArgText}, true
 	}
 	return nil, false
 }

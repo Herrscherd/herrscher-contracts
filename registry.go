@@ -79,7 +79,15 @@ type Plugin struct {
 	// Discover lists the models the vendor serves now, when it can. Nil when
 	// the backend has no listing: its static Manifest.Models stands alone.
 	Discover ModelDiscoverer
-	Catalog  fs.FS
+	// Probe checks the health of the service the plugin fronts, for one account.
+	// The host calls it on its own, without a live instance. Nil when the plugin
+	// offers no check. Any category may set it.
+	Probe HealthProber
+	// Limits reads the vendor usage limits of one account. The host calls it on
+	// its own, without a live instance. Nil when the backend offers no reading.
+	// Only a backend sets it.
+	Limits  LimitReader
+	Catalog fs.FS
 }
 
 // CommandSource is an optional capability of a live plugin instance: the verbs

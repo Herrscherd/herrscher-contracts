@@ -41,7 +41,8 @@ type Prompt struct {
 
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
 // progress consumer: a tool invocation, streamed assistant text, or the terminal
-// result carrying cost.
+// result carrying cost. Models splits the usage of the terminal result by model,
+// empty when the backend gives no breakdown.
 type BackendEvent struct {
 	Kind        string
 	Tool        string
@@ -52,6 +53,7 @@ type BackendEvent struct {
 	OutTokens   int
 	CacheRead   int
 	CacheCreate int
+	Models      []ModelUsage
 	Todos       []TodoItem
 	Subagent    *Subagent
 }

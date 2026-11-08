@@ -364,6 +364,31 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"compaction du contexte indisponible : le délai de compaction doit être une durée positive",
 		},
 		{
+			Notice{Code: CodeHealthSignedInAs, Args: []Arg{Text("Name", "bot")}},
+			"signed in as bot",
+			"connecté en tant que bot",
+		},
+		{
+			Notice{Code: CodeHealthUnreachable, Args: []Arg{Text("Reason", "timeout")}},
+			"unreachable: timeout",
+			"injoignable : timeout",
+		},
+		{
+			Notice{Code: CodeHealthEnvMissing, Args: []Arg{Text("Name", "TYPESAFE_API_KEY")}},
+			"TYPESAFE_API_KEY is not set",
+			"TYPESAFE_API_KEY absente de l'environnement",
+		},
+		{
+			Notice{Code: CodeHealthRemedyRun, Args: []Arg{Text("Command", "claude login")}},
+			"run claude login",
+			"lance claude login",
+		},
+		{
+			Notice{Code: CodeHealthRemedyEnvRestart, Args: []Arg{Text("Name", "TYPESAFE_API_KEY")}},
+			"add TYPESAFE_API_KEY to the service environment, then run `herrscher service restart`",
+			"ajoute TYPESAFE_API_KEY à l'environnement du service, puis lance `herrscher service restart`",
+		},
+		{
 			Notice{Code: CodeSessionLimit, Args: []Arg{Count(1)}},
 			"session limit reached: 1 session allowed; close one before creating another",
 			"limite de sessions atteinte : 1 session autorisée ; ferme-en une avant d'en créer une autre",
@@ -572,6 +597,15 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeChannelKindHome:           33,
 		CodeInvalidValueHint:          34,
 		CodeSessionCloseDirty:         35,
+		CodeHealthConnected:           36,
+		CodeHealthSignedInAs:          37,
+		CodeHealthNotLoggedIn:         38,
+		CodeHealthRateLimited:         39,
+		CodeHealthCredentialsRefused:  40,
+		CodeHealthUnreachable:         41,
+		CodeHealthEnvMissing:          42,
+		CodeHealthRemedyRun:           43,
+		CodeHealthRemedyEnvRestart:    44,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))
