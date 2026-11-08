@@ -174,5 +174,50 @@
     "id": "session.close_dirty",
     "description": "Une session ne peut pas être fermée, car son arbre de travail contient des changements non validés",
     "other": "la session « {{.Name}} » a des changements non validés : valide-les, ou ferme-la avec force:true pour les abandonner"
+  },
+  {
+    "id": "health.connected",
+    "description": "Le compte est connecté",
+    "other": "connecté"
+  },
+  {
+    "id": "health.signed_in_as",
+    "description": "Le service a répondu sous une identité",
+    "other": "connecté en tant que {{.Name}}"
+  },
+  {
+    "id": "health.not_logged_in",
+    "description": "Le compte n'est pas connecté",
+    "other": "non connecté"
+  },
+  {
+    "id": "health.rate_limited",
+    "description": "Le fournisseur a répondu par une limite de débit",
+    "other": "limite de débit atteinte"
+  },
+  {
+    "id": "health.credentials_refused",
+    "description": "Le service a refusé ses identifiants",
+    "other": "identifiants refusés"
+  },
+  {
+    "id": "health.unreachable",
+    "description": "Le service est injoignable",
+    "other": "injoignable : {{.Reason}}"
+  },
+  {
+    "id": "health.env_missing",
+    "description": "Une variable d'environnement dont le service a besoin manque",
+    "other": "{{.Name}} absente de l'environnement"
+  },
+  {
+    "id": "health.remedy_run",
+    "description": "Remède : lancer une commande",
+    "other": "lancer {{.Command}}"
+  },
+  {
+    "id": "health.remedy_env_restart",
+    "description": "Remède : ajouter une variable d'environnement et redémarrer le service",
+    "other": "ajoute {{.Name}} à l'environnement du service, puis lance herrscher service restart"
   }
 ]

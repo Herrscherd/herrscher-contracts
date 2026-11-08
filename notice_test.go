@@ -572,6 +572,15 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeChannelKindHome:           33,
 		CodeInvalidValueHint:          34,
 		CodeSessionCloseDirty:         35,
+		CodeHealthConnected:           36,
+		CodeHealthSignedInAs:          37,
+		CodeHealthNotLoggedIn:         38,
+		CodeHealthRateLimited:         39,
+		CodeHealthCredentialsRefused:  40,
+		CodeHealthUnreachable:         41,
+		CodeHealthEnvMissing:          42,
+		CodeHealthRemedyRun:           43,
+		CodeHealthRemedyEnvRestart:    44,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 )
 
@@ -68,7 +67,7 @@ func ParseHealthState(text string) (HealthState, error) {
 // returns an error matching [ErrUnknownHealthState], so it never reaches the
 // wire.
 func (s HealthState) MarshalText() ([]byte, error) {
-	if s.severity() == 0 {
+	if !s.isKnown() {
 		return nil, fmt.Errorf("%w: %d", ErrUnknownHealthState, int(s))
 	}
 	return []byte(s.String()), nil
@@ -97,8 +96,34 @@ func WorstHealth(states ...HealthState) HealthState {
 	return worst
 }
 
+func (s HealthState) isKnown() bool {
+	for _, state := range HealthStates() {
+		if state == s {
+			return true
+		}
+	}
+	return false
+}
+
+const (
+	severityOff = iota + 1
+	severityOK
+	severityDegraded
+	severityDown
+)
+
 func (s HealthState) severity() int {
-	return slices.Index([]HealthState{HealthOff, HealthOK, HealthDegraded, HealthDown}, s) + 1
+	switch s {
+	case HealthOff:
+		return severityOff
+	case HealthOK:
+		return severityOK
+	case HealthDegraded:
+		return severityDegraded
+	case HealthDown:
+		return severityDown
+	}
+	return 0
 }
 
 // ProbeAccess is what the host hands a [HealthProber] or a [LimitReader]: the
@@ -109,6 +134,9 @@ type ProbeAccess struct {
 	Getenv func(string) string
 	// Account is the profile probed, empty for the vendor's native account.
 	Account ProfileName
+	// Config holds the plugin's own settings, as its factory would receive them,
+	// so a probe reads a token or a key the way the live plugin does.
+	Config PluginConfig
 	// Deep asks for a real, minimal round trip instead of a cheap check.
 	Deep bool
 }
@@ -120,7 +148,7 @@ type ProbeReport struct {
 	// Latency is the time the check took, zero when it was not measured.
 	Latency time.Duration
 	// Detail is one line for the operator, a code and its arguments the client
-	// renders.
+	// renders. The CodeHealth codes cover the usual findings.
 	Detail Notice
 	// Remedy is what the operator can do about the state, the zero Notice when
 	// there is nothing to do.

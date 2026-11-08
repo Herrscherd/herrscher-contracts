@@ -291,18 +291,22 @@ backend sets `Limits`.
 
 Both receive a `ProbeAccess`: the `Getenv` of the account checked (its profile
 environment merged over the host's), the `Account` (empty for the native login)
-and `Deep`, which asks for a real, minimal round trip instead of a cheap check.
+the plugin's own `Config`, as its factory would receive it, and `Deep`, which
+asks for a real, minimal round trip instead of a cheap check.
 
 A probe reports a `ProbeReport` rather than an error: its `State`, the
 `Latency` it measured (zero when it did not), and a `Detail` and a `Remedy`
-that are `Notice` values, codes the client renders, never sentences. `Remedy`
+that are `Notice` values, codes the client renders, never sentences. The
+`CodeHealth` codes cover the usual findings (not logged in, rate limited,
+credentials refused, unreachable, a missing variable) and remedies. `Remedy`
 is the zero `Notice` when there is nothing to do. `HealthOff` means not set up
 or not logged in: it never fails a check on its own. `WorstHealth` ranks the
 states `down`, then `degraded`, then `ok`, then `off`, and returns `off` for an
 empty list.
 
 A `LimitReader` returns each window the vendor reports for the account, scoped
-to the whole account (`Scope` empty) or to one model family. It never spends a
+to the whole account (`Scope` empty) or to a sub-scope the vendor names, such
+as a model family. `ResetsAt` and `Span` are zero when the vendor gives none. It never spends a
 turn to read them: a vendor that exposes none returns `ErrLimitsUnavailable`.
 
 `Event.Models` and `BackendEvent.Models` split the usage of a turn by model,
@@ -428,7 +432,10 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeUnknownApprovalMode`, `CodeAgentExists`, `CodeAgentInvalidName`,
   `CodeAgentNotFound`, `CodeUnsupportedHomeType`, the generic `CodeEntityNotFound` and
   `CodeEntityUnknown`, `CodeScheduleNotFound`, `CodeChannelKindUnder`,
-  `CodeChannelKindHome`, `CodeInvalidValueHint` and `CodeSessionCloseDirty`.
+  `CodeChannelKindHome`, `CodeInvalidValueHint`, `CodeSessionCloseDirty`, and the
+  health codes `CodeHealthConnected`, `CodeHealthSignedInAs`, `CodeHealthNotLoggedIn`,
+  `CodeHealthRateLimited`, `CodeHealthCredentialsRefused`, `CodeHealthUnreachable`,
+  `CodeHealthEnvMissing`, `CodeHealthRemedyRun` and `CodeHealthRemedyEnvRestart`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -450,6 +457,10 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeChannelKindUnder` and `CodeChannelKindHome` take `Channel`, a `Ref`, and
   `Kind`, and `CodeInvalidValueHint` takes `Field`, `Value` and `Hint`; `Hint` is a
   text the caller composes and is shown as it is, so it is not translated.
+  Among the health codes, `CodeHealthSignedInAs` takes `Name`,
+  `CodeHealthUnreachable` takes `Reason`, `CodeHealthEnvMissing` and
+  `CodeHealthRemedyEnvRestart` take `Name`, `CodeHealthRemedyRun` takes `Command`,
+  shown as it is, and the others carry no argument.
   `CodeSessionCloseDirty` takes `Name`, the session whose worktree holds
   uncommitted changes: a close refused for that reason is a normal outcome, not
   `CodeUnexpected`, and its text tells the operator to commit or to close with

@@ -88,14 +88,16 @@ func (w LimitWindow) isKnown() bool {
 // Limit is one vendor usage limit of an account, as the vendor reports it now.
 type Limit struct {
 	Window LimitWindow
-	// Scope is empty for a limit on the whole account, else the model family the
-	// limit counts, such as "opus" or "sonnet".
+	// Scope is empty for a limit on the whole account, else a sub-scope the vendor
+	// names, such as a model family ("opus", "sonnet").
 	Scope string
 	// UsedPercent is the share of the limit already used, from 0 to 100.
 	UsedPercent float64
-	// ResetsAt is when the window starts over.
+	// ResetsAt is when the window starts over, the zero time when the vendor
+	// gives none.
 	ResetsAt time.Time
-	// Span is the length of the window, so a client can place the pace marker.
+	// Span is the length of the window, so a client can place the pace marker,
+	// zero when unknown.
 	Span time.Duration
 }
 
@@ -110,8 +112,8 @@ type LimitReader func(ctx context.Context, access ProbeAccess) ([]Limit, error)
 var ErrLimitsUnavailable = errors.New("limits unavailable")
 
 // ModelUsage is the usage of one model within a turn, so a ledger can split a
-// turn whose backend ran several models. The token counts follow the fields of
-// the same name on [Event].
+// turn whose backend ran several models. In, Out, CacheRead and CacheCreate have
+// the meaning of TokensIn, Tokens, CacheRead and CacheCreate on [Event].
 type ModelUsage struct {
 	Model       string `json:"model"`
 	In          int    `json:"in,omitempty"`
