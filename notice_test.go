@@ -606,6 +606,8 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeHealthEnvMissing:          42,
 		CodeHealthRemedyRun:           43,
 		CodeHealthRemedyEnvRestart:    44,
+		CodeAccountFallback:           45,
+		CodeAccountNoQuota:            46,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))

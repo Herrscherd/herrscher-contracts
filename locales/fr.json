@@ -219,5 +219,15 @@
     "id": "health.remedy_env_restart",
     "description": "Remède : ajouter une variable d'environnement et redémarrer le service",
     "other": "ajoute {{.Name}} à l'environnement du service, puis lance `herrscher service restart`"
+  },
+  {
+    "id": "account.fallback",
+    "description": "Account fallback notice",
+    "other": "la nouvelle session démarre sur {{.To}} : {{.From}} n'a plus de quota"
+  },
+  {
+    "id": "account.no_quota",
+    "description": "Account fallback notice",
+    "other": "aucun compte {{.Vendor}} n'a de quota disponible, la session garde {{.Account}}"
   }
 ]
