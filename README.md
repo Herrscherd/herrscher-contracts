@@ -290,7 +290,7 @@ Each is nil when the plugin offers none. Any category may set `Probe`; only a
 backend sets `Limits`.
 
 Both receive a `ProbeAccess`: the `Getenv` of the account checked (its profile
-environment merged over the host's), the `Account` (empty for the native login)
+environment merged over the host's), the `Account` (empty for the native login),
 the plugin's own `Config`, as its factory would receive it, and `Deep`, which
 asks for a real, minimal round trip instead of a cheap check.
 
@@ -306,8 +306,8 @@ empty list.
 
 A `LimitReader` returns each window the vendor reports for the account, scoped
 to the whole account (`Scope` empty) or to a sub-scope the vendor names, such
-as a model family. `ResetsAt` and `Span` are zero when the vendor gives none. It never spends a
-turn to read them: a vendor that exposes none returns `ErrLimitsUnavailable`.
+as a model family. `ResetsAt` and `Span` are zero when the vendor gives none.
+It never spends a turn to read them: a vendor that exposes none returns `ErrLimitsUnavailable`.
 
 `Event.Models` and `BackendEvent.Models` split the usage of a turn by model,
 each a `ModelUsage`, so a ledger can tell the main model from the one that ran

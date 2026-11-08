@@ -213,11 +213,11 @@
   {
     "id": "health.remedy_run",
     "description": "Remède : lancer une commande",
-    "other": "lancer {{.Command}}"
+    "other": "lance {{.Command}}"
   },
   {
     "id": "health.remedy_env_restart",
     "description": "Remède : ajouter une variable d'environnement et redémarrer le service",
-    "other": "ajoute {{.Name}} à l'environnement du service, puis lance herrscher service restart"
+    "other": "ajoute {{.Name}} à l'environnement du service, puis lance `herrscher service restart`"
   }
 ]

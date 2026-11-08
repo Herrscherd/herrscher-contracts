@@ -218,6 +218,6 @@
   {
     "id": "health.remedy_env_restart",
     "description": "Remedy: set an environment variable and restart the service",
-    "other": "add {{.Name}} to the service environment, then run herrscher service restart"
+    "other": "add {{.Name}} to the service environment, then run `herrscher service restart`"
   }
 ]
