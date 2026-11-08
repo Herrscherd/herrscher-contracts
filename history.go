@@ -47,7 +47,7 @@ type HistoryMessage struct {
 }
 
 // HistoryCall is one tool call and its result. ID is the backend's identifier of
-// the call, the one a [HistoryEdit] names. Input is the call's input as JSON text.
+// the call, unique in the history, the one a [HistoryEdit] names. Input is the call's input as JSON text.
 // Result is empty when the call has no result yet.
 type HistoryCall struct {
 	ID            string
@@ -86,6 +86,10 @@ func (r HistoryRole) String() string {
 	return fmt.Sprintf("HistoryRole(%d)", int(r))
 }
 
+func (r HistoryRole) isKnown() bool {
+	return r == RoleUser || r == RoleAssistant
+}
+
 // ErrUnknownHistoryRole is returned for text, or a value, that names no role. Match
 // it with errors.Is.
 var ErrUnknownHistoryRole = errors.New("unknown history role")
@@ -104,7 +108,7 @@ func ParseHistoryRole(text string) (HistoryRole, error) {
 // MarshalText writes the text form of the role. A value that names no role returns
 // an error matching [ErrUnknownHistoryRole].
 func (r HistoryRole) MarshalText() ([]byte, error) {
-	if _, err := ParseHistoryRole(r.String()); err != nil {
+	if !r.isKnown() {
 		return nil, fmt.Errorf("%w: %d", ErrUnknownHistoryRole, int(r))
 	}
 	return []byte(r.String()), nil
@@ -125,7 +129,7 @@ func (r *HistoryRole) UnmarshalText(text []byte) error {
 type PruneAction int
 
 const (
-	// PruneResult keeps the call and the first KeepChars characters of its result,
+	// PruneResult keeps the call and the first KeepChars runes of its result,
 	// followed by a note that the rest was pruned.
 	PruneResult PruneAction = iota + 1
 	// PruneCall keeps only a trace of the call: its result becomes a note, and the
@@ -150,6 +154,10 @@ func (a PruneAction) String() string {
 	return fmt.Sprintf("PruneAction(%d)", int(a))
 }
 
+func (a PruneAction) isKnown() bool {
+	return a == PruneResult || a == PruneCall
+}
+
 // ErrUnknownPruneAction is returned for text, or a value, that names no action.
 // Match it with errors.Is.
 var ErrUnknownPruneAction = errors.New("unknown prune action")
@@ -168,7 +176,7 @@ func ParsePruneAction(text string) (PruneAction, error) {
 // MarshalText writes the text form of the action. A value that names no action
 // returns an error matching [ErrUnknownPruneAction].
 func (a PruneAction) MarshalText() ([]byte, error) {
-	if _, err := ParsePruneAction(a.String()); err != nil {
+	if !a.isKnown() {
 		return nil, fmt.Errorf("%w: %d", ErrUnknownPruneAction, int(a))
 	}
 	return []byte(a.String()), nil
@@ -184,8 +192,9 @@ func (a *PruneAction) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// HistoryEdit is one pruning of one tool call. KeepChars is read only for
-// PruneResult, and is the number of characters of the result kept verbatim.
+// HistoryEdit is one pruning of one tool call. KeepChars is the number of runes
+// (Unicode code points) of the result kept verbatim: PruneResult reads it,
+// PruneCall ignores it, and it is never negative.
 type HistoryEdit struct {
 	CallID    string
 	Action    PruneAction
@@ -193,7 +202,7 @@ type HistoryEdit struct {
 }
 
 // PruneOutcome is what [HistoryEditor.PruneHistory] reports. Edited counts the
-// calls it changed. CharsBefore and CharsAfter count the characters of tool
+// calls it changed. CharsBefore and CharsAfter count the runes of tool
 // inputs and results in the whole history, before and after the edits, so a
 // stage can judge what the pruning saved without a tokenizer.
 type PruneOutcome struct {
@@ -226,8 +235,8 @@ func ValidateHistoryEdits(edits []HistoryEdit) error {
 		case edit.KeepChars < 0:
 			return fmt.Errorf("%w: call %q keeps %d characters", ErrInvalidHistoryEdit, edit.CallID, edit.KeepChars)
 		}
-		if _, err := ParsePruneAction(edit.Action.String()); err != nil {
-			return fmt.Errorf("%w: call %q: %w", ErrInvalidHistoryEdit, edit.CallID, err)
+		if !edit.Action.isKnown() {
+			return fmt.Errorf("%w: call %q: %w: %d", ErrInvalidHistoryEdit, edit.CallID, ErrUnknownPruneAction, int(edit.Action))
 		}
 		seen[edit.CallID] = true
 	}

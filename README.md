@@ -89,10 +89,11 @@ A plugin declares a `Plugin{Manifest, <one factory>}` in `init()` and calls
 `Register`.
 
 Exactly one of `GatewayFactory`, `BackendFactory`, `MemoryFactory`,
-`OrchestratorFactory` or `CompactorFactory` is set, matching `Manifest.Category`. The exception is
-`CategorySkills`, which has no port to build and so declares no port factory. A
-gateway factory returns a `GatewaySet{Gateway, Reader, Admin, Prober}`: one
-channel, with the optional ports left nil.
+`OrchestratorFactory` or `CompactorFactory` is set, matching
+`Manifest.Category`. The exception is `CategorySkills`, which has no port to
+build and so declares no port factory. A gateway factory returns a
+`GatewaySet{Gateway, Reader, Admin, Prober}`: one channel, with the optional
+ports left nil.
 
 `Manifest.Config []Setting` declares each env-bound setting. `Resolve` builds a
 validated `PluginConfig` and fails startup naming every missing required key.
@@ -156,11 +157,11 @@ nil when the backend has none, so a stage that needs it skips or fails on its ow
 terms. `ReadHistory` returns the messages the model sees on its next turn, oldest
 first, each assistant message with its tool calls and their results.
 `PruneHistory` takes `HistoryEdit`s naming calls by `HistoryCall.ID`:
-`PruneResult` keeps the call and the first `KeepChars` characters of its result,
+`PruneResult` keeps the call and the first `KeepChars` runes of its result,
 `PruneCall` keeps only a trace of the call. Text the operator or the agent wrote
 is never an edit target. The edits apply all or none, after
 `ValidateHistoryEdits`, and an edit naming no call of the history fails with
-`ErrUnknownHistoryCall`. `PruneOutcome` counts the characters of tool inputs and
+`ErrUnknownHistoryCall`. `PruneOutcome` counts the runes of tool inputs and
 results before and after, so a stage can judge the saving without a tokenizer.
 
 `CompactTrigger` marshals to its text form (`"manual"`, `"automatic"`), and
