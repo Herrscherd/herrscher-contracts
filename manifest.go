@@ -17,6 +17,10 @@ const (
 	// the agent is told it can do, which is worth being a plugin like the others:
 	// installed, listed, versioned and removable by the same commands.
 	CategorySkills Category = "skills"
+	// CategoryCompactor is a plugin that offers a compaction stage, built by a
+	// [CompactorFactory] and run by the host in the order its configuration lists
+	// it. It is not a backend: it answers no prompt and is never a session vendor.
+	CategoryCompactor Category = "compactor"
 )
 
 // GateGrain is how finely a backend can enforce an approval policy on its own
@@ -59,6 +63,11 @@ type Capabilities struct {
 	// backend to ask. The host must report a plugin that declares it without
 	// implementing Compactor, never ignore the mismatch silently.
 	Compactor bool
+	// HistoryEditor is true when the live instance implements [HistoryEditor], and
+	// it must match that implementation, as Compactor does. The host reads it to
+	// hand a compaction stage the session's history, and to know ahead of time that
+	// a stage which edits the history has nothing to work on for this backend.
+	HistoryEditor bool
 }
 
 // Status is a plugin's own claim about its maturity. It exists so maturity is

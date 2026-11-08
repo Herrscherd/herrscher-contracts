@@ -52,6 +52,10 @@ type (
 	// and only the plugin knows whether the tool is there. Returning an error
 	// installs nothing and is reported, never fatal.
 	SkillsFactory func(ctx context.Context, cfg PluginConfig) (fs.FS, error)
+	// CompactorFactory builds a compaction stage from runtime config, registered the
+	// same way as a GatewayFactory. The host calls it once, when a configuration
+	// names the plugin's Kind in its stack, and shares the stage across sessions.
+	CompactorFactory func(ctx context.Context, cfg PluginConfig) (Compactor, error)
 )
 
 // Plugin is what a plugin declares about itself. Exactly one *port* factory is
@@ -64,6 +68,7 @@ type Plugin struct {
 	Backend      BackendFactory
 	Memory       MemoryFactory
 	Orchestrator OrchestratorFactory
+	Compactor    CompactorFactory
 	// Skills builds the playbooks teaching an agent to use what this plugin
 	// contributes, installed by the host only when the plugin is in the build,
 	// so a Discord playbook never sits in the context of a machine that has no
@@ -125,6 +130,9 @@ func (r *Registry) Orchestrators() []Plugin { return r.byCategory(CategoryOrches
 // and the host installs from every plugin carrying a non-nil Skills whatever its
 // category.
 func (r *Registry) Skills() []Plugin { return r.byCategory(CategorySkills) }
+
+// Compactors returns the registered plugins of the compactor category.
+func (r *Registry) Compactors() []Plugin { return r.byCategory(CategoryCompactor) }
 
 // Default is the global registry plugins self-register into via init(). Precedent
 // in the stdlib: image.RegisterFormat, database/sql.Register. A blank import of a
