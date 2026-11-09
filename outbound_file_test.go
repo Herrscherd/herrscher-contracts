@@ -82,11 +82,13 @@ func TestDegradeSendFilesListsTheFilesForAPlainGateway(t *testing.T) {
 	const listed = "voilà\na.png: /w/out/a.png\nb.png: /w/out/b.png"
 	cases := map[string]struct {
 		capabilities Capabilities
+		text         string
 		wantReplies  []string
 		wantPosts    []string
 	}{
-		"a gateway with replies gets a reply":   {full(), []string{listed}, nil},
-		"a gateway without replies gets a post": {Capabilities{}, nil, []string{listed}},
+		"a gateway with replies gets a reply":   {full(), "voilà", []string{listed}, nil},
+		"a gateway without replies gets a post": {Capabilities{}, "voilà", nil, []string{listed}},
+		"an empty text lists only the files":    {full(), "", []string{"a.png: /w/out/a.png\nb.png: /w/out/b.png"}, nil},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -95,7 +97,7 @@ func TestDegradeSendFilesListsTheFilesForAPlainGateway(t *testing.T) {
 			if !ok {
 				t.Fatal("Degrade(gateway) does not implement FileSender")
 			}
-			if _, err := sender.SendFiles(context.Background(), Conversation{Gateway: "g", ID: "c"}, "m", "voilà", degradeFiles()); err != nil {
+			if _, err := sender.SendFiles(context.Background(), Conversation{Gateway: "g", ID: "c"}, "m", tc.text, degradeFiles()); err != nil {
 				t.Fatal(err)
 			}
 			if !slices.Equal(gateway.replies, tc.wantReplies) || !slices.Equal(gateway.posts, tc.wantPosts) {

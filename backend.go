@@ -35,7 +35,8 @@ type ResumeAware interface {
 // language of the session the turn belongs to, and the zero value when the host
 // does not know it: the backend then keeps its own default. Outbox is the absolute
 // directory the host made for this turn, where a [FileProducer] writes the files it
-// renders, and is empty when the host takes no file from this backend.
+// renders, never the filesystem root, and is empty when the host takes no file from
+// this backend.
 type Prompt struct {
 	Content     string        `json:"Content"`
 	Context     string        `json:"Context"`
@@ -96,7 +97,7 @@ type OutboundFile struct {
 
 // ErrInvalidOutboundFile is returned by [ValidateOutboundFile] for a file whose path
 // is not a clean path inside the outbox, whose name is empty, a dot entry or holds a
-// path separator, or whose content type does not parse. Match it with errors.Is.
+// path separator or a NUL, or whose content type does not parse. Match it with errors.Is.
 var ErrInvalidOutboundFile = errors.New("invalid outbound file")
 
 // ValidateOutboundFile checks a file before the host hands it to a gateway: Path is
@@ -110,10 +111,10 @@ func ValidateOutboundFile(file OutboundFile, outbox string) error {
 		return err
 	}
 	switch {
-	case file.Name == "", file.Name == ".", file.Name == "..":
+	case strings.TrimSpace(file.Name) == "", file.Name == ".", file.Name == "..":
 		return fmt.Errorf("%w: file %q has no usable name", ErrInvalidOutboundFile, file.Path)
-	case strings.ContainsAny(file.Name, `/\`):
-		return fmt.Errorf("%w: name %q holds a path separator", ErrInvalidOutboundFile, file.Name)
+	case strings.ContainsAny(file.Name, "/\\\x00"):
+		return fmt.Errorf("%w: name %q holds a path separator or a NUL", ErrInvalidOutboundFile, file.Name)
 	}
 	if file.ContentType == "" {
 		return nil
@@ -126,8 +127,8 @@ func ValidateOutboundFile(file OutboundFile, outbox string) error {
 
 func validateOutboundPath(path, outbox string) error {
 	switch {
-	case !filepath.IsAbs(outbox) || filepath.Clean(outbox) != outbox:
-		return fmt.Errorf("%w: outbox %q is not a clean absolute path", ErrInvalidOutboundFile, outbox)
+	case !filepath.IsAbs(outbox) || filepath.Clean(outbox) != outbox || filepath.Dir(outbox) == outbox:
+		return fmt.Errorf("%w: outbox %q is not a clean absolute directory below the root", ErrInvalidOutboundFile, outbox)
 	case !filepath.IsAbs(path) || filepath.Clean(path) != path:
 		return fmt.Errorf("%w: path %q is not a clean absolute path", ErrInvalidOutboundFile, path)
 	}

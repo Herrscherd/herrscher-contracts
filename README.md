@@ -134,14 +134,15 @@ after each `Respond`, and a file taken is not returned by a later call.
 
 The host checks each file with `ValidateOutboundFile(file, outbox)`, which
 matches `ErrInvalidOutboundFile` for a path that is not clean or lies outside the
-outbox, a name that is empty, `.`, `..` or holds a path separator, or a content
+outbox (or an outbox that is the root), a name that is blank, `.`, `..` or holds
+a path separator or a NUL, or a content
 type that does not parse. The check reads no file, so the host also resolves
 symbolic links, sends only a regular file and bounds its size: a backend can then
 never make a gateway send a file of the daemon it did not render.
 
 A gateway that implements `FileSender` posts the text with the files attached, in
-reply to the message. Through `Degrade`, a gateway without it receives a reply
-whose text lists the name and path of each file, so no file is dropped silently.
+reply to the message. Through `Degrade`, a gateway without it receives a reply,
+or a post when the platform has no replies, whose text lists the name and path of each file, so no file is dropped silently.
 
 ## Compaction
 

@@ -89,12 +89,14 @@ func (d degrading) SendFiles(ctx context.Context, conv Conversation, replyTo Mes
 }
 
 func filesAsText(text string, files []OutboundFile) string {
-	var body strings.Builder
-	_, _ = body.WriteString(text)
-	for _, file := range files {
-		fmt.Fprintf(&body, "\n%s: %s", file.Name, file.Path)
+	lines := make([]string, 0, len(files)+1)
+	if text != "" {
+		lines = append(lines, text)
 	}
-	return body.String()
+	for _, file := range files {
+		lines = append(lines, file.Name+": "+file.Path)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (d degrading) BindSessionControl(control SessionControl) {
