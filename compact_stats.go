@@ -132,16 +132,45 @@ type CompactStats struct {
 	Duration time.Duration `json:"Duration"`
 }
 
-// ErrNegativeStateTokens is returned by [CompactStats.Validate] when StateTokens is
-// negative. Match it with errors.Is.
-var ErrNegativeStateTokens = errors.New("negative compaction state tokens")
+// ErrNegativeCompactCount is returned by [CompactStats.Validate] when one of the
+// counts of the stats is negative. Match it with errors.Is.
+var ErrNegativeCompactCount = errors.New("negative compaction count")
 
-// Validate checks the stats before the host writes them: StateTokens is a count of
-// tokens, so a negative one returns an error matching [ErrNegativeStateTokens]. JSON
-// encoding does not validate the value.
+// Validate checks the stats before the host writes them. An Outcome that names no
+// outcome returns an error matching [ErrUnknownCompactOutcome], and a negative count
+// (calls, characters, tokens, requests or Duration) returns an error matching
+// [ErrNegativeCompactCount] that names the field. JSON encoding does not validate
+// the values.
 func (s CompactStats) Validate() error {
-	if s.StateTokens < 0 {
-		return fmt.Errorf("%w: %d", ErrNegativeStateTokens, s.StateTokens)
+	if !s.Outcome.isKnown() {
+		return fmt.Errorf("%w: %d", ErrUnknownCompactOutcome, int(s.Outcome))
+	}
+	for _, count := range s.counts() {
+		if count.value < 0 {
+			return fmt.Errorf("%w: %s is %d", ErrNegativeCompactCount, count.name, count.value)
+		}
 	}
 	return nil
+}
+
+type namedCount struct {
+	name  string
+	value int64
+}
+
+func (s CompactStats) counts() []namedCount {
+	return []namedCount{
+		{"Calls", int64(s.Calls)},
+		{"Kept", int64(s.Kept)},
+		{"Truncated", int64(s.Truncated)},
+		{"Pruned", int64(s.Pruned)},
+		{"Pinned", int64(s.Pinned)},
+		{"CharsBefore", int64(s.CharsBefore)},
+		{"CharsAfter", int64(s.CharsAfter)},
+		{"TokensRemoved", int64(s.TokensRemoved)},
+		{"Requests", int64(s.Requests)},
+		{"RequestTokens", int64(s.RequestTokens)},
+		{"StateTokens", int64(s.StateTokens)},
+		{"Duration", int64(s.Duration)},
+	}
 }

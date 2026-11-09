@@ -30,10 +30,12 @@ type Compactor interface {
 // AutoCompactPercent of the session. TriggerPercent is the share of the context
 // window, in percent, from which the stage wants to run. Zero means the host's
 // threshold. A value above the host's threshold does not delay the stage, which
-// then runs at the host's threshold. A value outside 0 to 100 is refused by the
-// host: it checks the value with [ValidateStageTriggerPercent] and does not run the
-// stage at that value. A Compactor that does not implement StageTrigger runs at the
-// host's threshold, as before.
+// then runs at the host's threshold. When the host's threshold is zero, the
+// operator turned automatic compaction off and the stage does not turn it back on:
+// it then runs only on a manual compaction. A value outside 0 to 100 is refused by
+// the host: it checks the value with [ValidateStageTriggerPercent] and does not run
+// the stage at that value. A Compactor that does not implement StageTrigger runs at
+// the host's threshold, as before.
 type StageTrigger interface {
 	TriggerPercent() int
 }

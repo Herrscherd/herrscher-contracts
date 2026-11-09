@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestCompactOutcomeTextForms(t *testing.T) {
@@ -109,27 +110,36 @@ func TestCompactStatsOldJSONReadsBackIdentically(t *testing.T) {
 	}
 }
 
-func TestCompactStatsValidateRefusesNegativeStateTokens(t *testing.T) {
+func TestCompactStatsValidate(t *testing.T) {
+	valid := CompactStats{Stage: "jev", Outcome: CompactDone, Calls: 3, Kept: 1, Pruned: 2, StateTokens: 812, Duration: time.Second}
 	cases := []struct {
 		name    string
-		tokens  int
-		wantErr bool
+		edit    func(*CompactStats)
+		wantErr error
 	}{
-		{name: "no state sent", tokens: 0},
-		{name: "state sent", tokens: 812},
-		{name: "negative", tokens: -1, wantErr: true},
+		{name: "valid stats", edit: func(*CompactStats) {}},
+		{name: "no state sent", edit: func(s *CompactStats) { s.StateTokens = 0 }},
+		{name: "outcome unset", edit: func(s *CompactStats) { s.Outcome = 0 }, wantErr: ErrUnknownCompactOutcome},
+		{name: "outcome out of the set", edit: func(s *CompactStats) { s.Outcome = CompactSkipped + 1 }, wantErr: ErrUnknownCompactOutcome},
+		{name: "negative calls", edit: func(s *CompactStats) { s.Calls = -1 }, wantErr: ErrNegativeCompactCount},
+		{name: "negative chars after", edit: func(s *CompactStats) { s.CharsAfter = -1 }, wantErr: ErrNegativeCompactCount},
+		{name: "negative request tokens", edit: func(s *CompactStats) { s.RequestTokens = -1 }, wantErr: ErrNegativeCompactCount},
+		{name: "negative state tokens", edit: func(s *CompactStats) { s.StateTokens = -1 }, wantErr: ErrNegativeCompactCount},
+		{name: "negative duration", edit: func(s *CompactStats) { s.Duration = -time.Second }, wantErr: ErrNegativeCompactCount},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := CompactStats{Stage: "jev", Outcome: CompactDone, StateTokens: tc.tokens}.Validate()
-			if !tc.wantErr {
+			stats := valid
+			tc.edit(&stats)
+			err := stats.Validate()
+			if tc.wantErr == nil {
 				if err != nil {
-					t.Fatalf("Validate() with %d tokens error = %v, want nil", tc.tokens, err)
+					t.Fatalf("Validate() error = %v, want nil", err)
 				}
 				return
 			}
-			if !errors.Is(err, ErrNegativeStateTokens) {
-				t.Fatalf("Validate() with %d tokens error = %v, want ErrNegativeStateTokens", tc.tokens, err)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Validate() error = %v, want %v", err, tc.wantErr)
 			}
 		})
 	}
