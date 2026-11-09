@@ -121,6 +121,27 @@ type CompactStats struct {
 	// tokens it sent in them.
 	Requests      int `json:"Requests"`
 	RequestTokens int `json:"RequestTokens"`
+	// StateTokens is the estimated size, in tokens, of the state the stage sent to its
+	// judging model, zero when it sent none. It is omitted from the JSON when zero.
+	StateTokens int `json:"StateTokens,omitempty"`
+	// StateReduction is the short text the stage gives to the reduction it applied to
+	// that state, such as "texts abridged", empty when it applied none. It is omitted
+	// from the JSON when empty.
+	StateReduction string `json:"StateReduction,omitempty"`
 	// Duration is the time the stage took.
 	Duration time.Duration `json:"Duration"`
+}
+
+// ErrNegativeStateTokens is returned by [CompactStats.Validate] when StateTokens is
+// negative. Match it with errors.Is.
+var ErrNegativeStateTokens = errors.New("negative compaction state tokens")
+
+// Validate checks the stats before the host writes them: StateTokens is a count of
+// tokens, so a negative one returns an error matching [ErrNegativeStateTokens]. JSON
+// encoding does not validate the value.
+func (s CompactStats) Validate() error {
+	if s.StateTokens < 0 {
+		return fmt.Errorf("%w: %d", ErrNegativeStateTokens, s.StateTokens)
+	}
+	return nil
 }

@@ -25,6 +25,19 @@ type Compactor interface {
 	Compact(ctx context.Context, req CompactRequest, onEvent func(BackendEvent)) (CompactResult, error)
 }
 
+// StageTrigger is an OPTIONAL capability of a [Compactor]: it asks the host to run
+// the stage before the session reaches the host's own threshold, the
+// AutoCompactPercent of the session. TriggerPercent is the share of the context
+// window, in percent, from which the stage wants to run. Zero means the host's
+// threshold. A value above the host's threshold does not delay the stage, which
+// then runs at the host's threshold. A value outside 0 to 100 is refused by the
+// host: it checks the value with [ValidateStageTriggerPercent] and does not run the
+// stage at that value. A Compactor that does not implement StageTrigger runs at the
+// host's threshold, as before.
+type StageTrigger interface {
+	TriggerPercent() int
+}
+
 // CompactTrigger says why a compaction runs. It is a closed set whose zero value
 // is not a trigger: [ParseCompactTrigger] never returns it, and the zero value
 // does not marshal.
@@ -168,8 +181,27 @@ var ErrAutoCompactPercentOutOfRange = errors.New("auto compact percent out of ra
 // host calls it where it produces the value, before it emits the session. JSON
 // decoding does not validate the value.
 func ValidateAutoCompactPercent(percent int) error {
-	if percent < 0 || percent > 100 {
+	if !percentInRange(percent) {
 		return fmt.Errorf("%w: %d", ErrAutoCompactPercentOutOfRange, percent)
 	}
 	return nil
+}
+
+// ErrStageTriggerPercentOutOfRange is returned by [ValidateStageTriggerPercent] for a
+// percentage outside 0 to 100. Match it with errors.Is.
+var ErrStageTriggerPercentOutOfRange = errors.New("stage trigger percent out of range")
+
+// ValidateStageTriggerPercent checks the value of [StageTrigger.TriggerPercent]: zero
+// means the host's threshold, and 1 to 100 is the share of the window at which the
+// stage runs. Any other value returns an error matching
+// [ErrStageTriggerPercentOutOfRange]. The host calls it before it uses the value.
+func ValidateStageTriggerPercent(percent int) error {
+	if !percentInRange(percent) {
+		return fmt.Errorf("%w: %d", ErrStageTriggerPercentOutOfRange, percent)
+	}
+	return nil
+}
+
+func percentInRange(percent int) bool {
+	return percent >= 0 && percent <= 100
 }

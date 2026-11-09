@@ -27,6 +27,7 @@ it is absent.
 | `ChoiceInjector` | `backend.go` | optional | `InjectChoice` answers that pick out of band |
 | `SkillNative` | `skill.go` | optional | `NativeSkills()`: the backend loads skills itself, so the host skips injection |
 | `Compactor` | `compaction.go` | optional | `Compact(ctx, CompactRequest, onEvent)` shortens a session's context. A backend's is its default, a plugin's is a custom stage |
+| `StageTrigger` | `compaction.go` | optional, on a `Compactor` | `TriggerPercent()` is the share of the window from which a custom stage wants to run, before the host's `AutoCompactPercent`. Zero means the host's threshold |
 | `HistoryEditor` | `history.go` | optional | `ReadHistory(ctx)` returns the conversation the model sees, `PruneHistory(ctx, edits)` prunes tool calls from it in place, all or nothing |
 | `FileProducer` | `backend.go` | optional | `TakeFiles()` hands over the files the last `Respond` rendered, once |
 
@@ -82,12 +83,13 @@ it is absent.
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
+| `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold of a custom stage, below the host's, and the check the host runs on it |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
-| `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, and its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`) |
+| `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome`, `ErrNegativeStateTokens` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`), and the check `CompactStats.Validate` runs on the state tokens |
 
 ## Registration and config
 
@@ -180,6 +182,14 @@ A stage reports what it did in `CompactResult.Stats` (`CompactStats`): its
 characters and the estimated tokens it removed, and the model requests it made.
 `Outcome` must be set: its zero value refuses to marshal. The host reads the stats for `herrscher usage`.
 
+A stage that judges the context with a model also reports the size of the state it
+sent in `StateTokens` (estimated tokens) and the reduction it applied to that
+state in `StateReduction`, a short English text the plugin defines, such as
+`texts abridged`. Both are omitted from the JSON when zero or empty, so stats
+written before they existed read back unchanged. `CompactStats.Validate` refuses
+a negative `StateTokens` with `ErrNegativeStateTokens`; JSON encoding does not
+validate it.
+
 The host calls `Compact` only while it holds the turn of the session, under the
 same exclusion as `Respond`. The host renders the outcome (the note, the tokens
 before and after) to the gateways, not the stage. Progress goes through the
@@ -209,6 +219,16 @@ refuses to marshal a value that names no trigger.
 at which the session compacts itself without being asked. Zero means it never
 does, and 1 to 100 is the threshold. The host checks it with
 `ValidateAutoCompactPercent` where it produces the value; JSON decoding does not.
+
+A custom stage may run before that threshold. A `Compactor` that also implements
+`StageTrigger` returns from `TriggerPercent()` the share of the window, in
+percent, from which it wants to run: for instance a pruning stage that loses no
+text can run from 50 while the backend's summary waits for 80. Zero means the
+host's `AutoCompactPercent`, and so does a `Compactor` that does not implement
+`StageTrigger`. A value above the host's threshold does not delay the stage,
+which then runs at the host's threshold. The host checks the value with
+`ValidateStageTriggerPercent` and refuses any value outside 0 to 100 (`ErrStageTriggerPercentOutOfRange`), without
+running the stage at that value.
 
 `SessionInfo.ContextWindow` is the context window size, in tokens, that the host
 resolved for the session's vendor. Zero means the host did not resolve it, as an
