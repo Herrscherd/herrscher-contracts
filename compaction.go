@@ -149,6 +149,13 @@ type CompactResult struct {
 	Done bool
 	// Notice is the coded message the host will read once it reads codes.
 	Notice Notice
+	// Stats is what the stage measured for the usage report, nil when it measured
+	// nothing.
+	Stats *CompactStats
+	// StageStats is set by RunCompactStack on the result it returns: the Stats of
+	// every stage that ran and reported some, in order. A stage's own result leaves
+	// it nil.
+	StageStats []CompactStats
 }
 
 // ErrAutoCompactPercentOutOfRange is returned by [ValidateAutoCompactPercent] for a

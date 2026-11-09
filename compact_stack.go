@@ -42,6 +42,12 @@ var ErrNilCompactor = errors.New("nil compactor")
 // the stage's Name, so errors.Is still matches the cause. The stages before it
 // have already run, and their effect on the conversation is not undone. An empty
 // stack returns [ErrNoCompactStage].
+//
+// The returned result carries in StageStats the Stats of every stage that ran and
+// reported some, in order, so a stage's measures survive the stages after it. A
+// Stats that leaves Stage empty is named after its stage. On a failure the result
+// holds only StageStats, the failed stage's included when it reported stats along
+// with its error.
 func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequest, onEvent func(BackendEvent)) (CompactResult, error) {
 	if len(stages) == 0 {
 		return CompactResult{}, ErrNoCompactStage
@@ -51,20 +57,23 @@ func RunCompactStack(ctx context.Context, stages []CompactStage, req CompactRequ
 	}
 	req.UsageMeasured = req.UsageMeasured && req.TokenLimit > 0
 	var result CompactResult
+	var stats []CompactStats
 	for _, stage := range stages {
 		var err error
 		result, err = runCompactStage(ctx, stage, req, onEvent)
+		stats = appendStats(stats, result.Stats)
 		if err != nil {
-			return CompactResult{}, fmt.Errorf("compaction stage %q: %w", stage.Name, err)
+			return CompactResult{StageStats: stats}, fmt.Errorf("compaction stage %q: %w", stage.Name, err)
 		}
 		if result.Done {
-			return result, nil
+			break
 		}
 		if result.TokensMeasured {
 			req.TokensUsed = result.TokensAfter
 			req.UsageMeasured = req.TokenLimit > 0
 		}
 	}
+	result.StageStats = stats
 	return result, nil
 }
 
@@ -77,5 +86,23 @@ func runCompactStage(ctx context.Context, stage CompactStage, req CompactRequest
 	if stage.Compactor == nil {
 		return CompactResult{}, ErrNilCompactor
 	}
-	return stage.Compactor.Compact(ctx, req, onEvent)
+	result, err := stage.Compactor.Compact(ctx, req, onEvent)
+	result.Stats = namedStats(result.Stats, stage.Name)
+	return result, err
+}
+
+func namedStats(stats *CompactStats, name string) *CompactStats {
+	if stats == nil || stats.Stage != "" {
+		return stats
+	}
+	named := *stats
+	named.Stage = name
+	return &named
+}
+
+func appendStats(stats []CompactStats, measured *CompactStats) []CompactStats {
+	if measured == nil {
+		return stats
+	}
+	return append(stats, *measured)
 }

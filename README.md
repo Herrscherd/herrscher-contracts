@@ -28,6 +28,7 @@ it is absent.
 | `SkillNative` | `skill.go` | optional | `NativeSkills()`: the backend loads skills itself, so the host skips injection |
 | `Compactor` | `compaction.go` | optional | `Compact(ctx, CompactRequest, onEvent)` shortens a session's context. A backend's is its default, a plugin's is a custom stage |
 | `HistoryEditor` | `history.go` | optional | `ReadHistory(ctx)` returns the conversation the model sees, `PruneHistory(ctx, edits)` prunes tool calls from it in place, all or nothing |
+| `FileProducer` | `backend.go` | optional | `TakeFiles()` hands over the files the last `Respond` rendered, once |
 
 ### Channel edge
 
@@ -43,6 +44,7 @@ it is absent.
 | `RoutedEventSink` | `event.go` | optional | `EmitTo(Conversation, Event)`, the multi-session variant, preferred over `EventSink` |
 | `Foreground` | `foreground.go` | optional | `RunForeground`: the gateway owns the main thread (a TUI). At most one |
 | `NoticeSink` | `gateway.go` | optional | `Notify(ctx, conv, lang, Notice)`: the gateway renders a notice itself, in the given language, with English as the fallback. Without it, `Degrade` renders the text |
+| `FileSender` | `gateway.go` | optional | `SendFiles(ctx, conv, replyTo, text, files)` posts text with files attached. Without it, `Degrade` replies with a text that lists the names and paths |
 | `SessionControlReceiver` | `session_control.go` | optional | `BindSessionControl` receives the host's session-control handle |
 | `CatalogSource` | `catalog_source.go` | optional, deprecated | `Catalog() fs.FS` on a live instance; use the descriptor field `Plugin.Catalog` instead |
 
@@ -84,6 +86,8 @@ it is absent.
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
+| `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
+| `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, and its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`) |
 
 ## Registration and config
 
@@ -119,6 +123,27 @@ instantiates for want of a token still ships its playbook. A factory that return
 an error installs nothing, which is how a plugin declines on a machine that lacks
 the tool its playbook describes.
 
+## Files a backend renders
+
+A backend that implements `FileProducer` hands over the files it wrote to disk
+while it answered, such as a generated image. The host gives each turn an
+`Outbox`, an absolute directory in `Prompt.Outbox`, and the backend writes its
+files there. Each `OutboundFile` carries the absolute `Path` of the file, the
+`Name` a gateway shows, and its `ContentType`. The host reads `TakeFiles` once
+after each `Respond`, and a file taken is not returned by a later call.
+
+The host checks each file with `ValidateOutboundFile(file, outbox)`, which
+matches `ErrInvalidOutboundFile` for a path that is not clean or lies outside the
+outbox (or an outbox that is the root), a name that is blank, `.`, `..` or holds
+a path separator or a NUL, or a content
+type that does not parse. The check reads no file, so the host also resolves
+symbolic links, sends only a regular file and bounds its size: a backend can then
+never make a gateway send a file of the daemon it did not render.
+
+A gateway that implements `FileSender` posts the text with the files attached, in
+reply to the message. Through `Degrade`, a gateway without it receives a reply,
+or a post when the platform has no replies, whose text lists the name and path of each file, so no file is dropped silently.
+
 ## Compaction
 
 A backend that implements `Compactor` compacts its own sessions: for Claude that
@@ -141,9 +166,19 @@ configured order with `RunCompactStack`:
 - a stage whose result is `Done` stops the stack, and its result is returned;
 - a failing stage, or one whose `Compactor` is nil (`ErrNilCompactor`), stops the
   stack, and its error is returned wrapped with the stage's name, so `errors.Is`
-  still matches the cause. The stages before it keep their effect;
+  still matches the cause. The stages before it keep their effect, and the result
+  they leave in `StageStats`;
 - the stage named `CompactStageBackend` is the session's own backend compaction;
-- a nil `onEvent` is replaced by one that drops the events.
+- a nil `onEvent` is replaced by one that drops the events;
+- the stats of each stage are kept: the returned result carries in `StageStats`
+  the `Stats` of every stage that ran and reported some, in order, with `Stage`
+  set to the stage's name when the stage left it empty.
+
+A stage reports what it did in `CompactResult.Stats` (`CompactStats`): its
+`Outcome` (`CompactOutcome`, which marshals as `done`, `short`, `failed`,
+`dry_run` or `skipped`), the calls it kept, truncated, pruned or pinned, the
+characters and the estimated tokens it removed, and the model requests it made.
+`Outcome` must be set: its zero value refuses to marshal. The host reads the stats for `herrscher usage`.
 
 The host calls `Compact` only while it holds the turn of the session, under the
 same exclusion as `Respond`. The host renders the outcome (the note, the tokens
@@ -159,8 +194,9 @@ nil when the backend has none, so a stage that needs it skips or fails on its ow
 terms. `ReadHistory` returns the messages the model sees on its next turn, oldest
 first, each assistant message with its tool calls and their results.
 `PruneHistory` takes `HistoryEdit`s naming calls by `HistoryCall.ID`:
-`PruneResult` keeps the call and the first `KeepChars` runes of its result,
-`PruneCall` keeps only a trace of the call. Text the operator or the agent wrote
+`PruneResult` keeps the call, the first `KeepChars` runes of its result and the
+last `KeepTail` runes, with a note in place of the runes between them. `PruneCall`
+keeps only a trace of the call, and refuses a `KeepTail`. Text the operator or the agent wrote
 is never an edit target. The edits apply all or none, after
 `ValidateHistoryEdits`, and an edit naming no call of the history fails with
 `ErrUnknownHistoryCall`. `PruneOutcome` counts the runes of tool inputs and
@@ -336,8 +372,9 @@ all.
 
 `Degrade(Gateway)` wraps a gateway so callers always invoke the rich method:
 `Reply` falls back to `Post`, `Menu` to a numbered-list `Post`, `React` to a
-no-op, `Notify` to a `Post` of the notice rendered as text, and
-`BindSessionControl` still forwards.
+no-op, `Notify` to a `Post` of the notice rendered as text, `SendFiles` to a `Reply`
+whose text lists each file's name and path, and `BindSessionControl` still
+forwards.
 
 `MemoryScope{Project, Agent}` plus `RecordShared`, `RecordPrivate`,
 `RecallScoped` and `RecallRelevant` implement shared-versus-private memory as a

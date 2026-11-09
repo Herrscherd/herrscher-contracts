@@ -3,6 +3,7 @@ package contracts
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
@@ -67,8 +68,8 @@ func TestSessionInfoWithoutLanguageDecodesToUnknown(t *testing.T) {
 }
 
 func TestPromptJSONKeepsLanguageAsItsNumber(t *testing.T) {
-	want := Prompt{Content: "bonjour", Author: "shan", ChannelID: "chan-9", Language: i18n.French}
-	const wantJSON = `{"Content":"bonjour","Context":"","Author":"shan","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2}`
+	want := Prompt{Content: "bonjour", Author: "shan", ChannelID: "chan-9", Language: i18n.French, Outbox: "/w/out"}
+	const wantJSON = `{"Content":"bonjour","Context":"","Author":"shan","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2,"Outbox":"/w/out"}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got Prompt
 		err := json.Unmarshal(raw, &got)
@@ -111,6 +112,46 @@ func TestLocationJSONKeepsGoFieldNames(t *testing.T) {
 		err := json.Unmarshal(raw, &got)
 		if err == nil && got != want {
 			t.Fatalf("Location decoded to %+v, want %+v", got, want)
+		}
+		return got, err
+	})
+}
+
+func TestOutboundFileJSONKeepsGoFieldNames(t *testing.T) {
+	want := OutboundFile{Path: "/w/out/pixel.png", Name: "pixel.png", ContentType: "image/png"}
+	const wantJSON = `{"Path":"/w/out/pixel.png","Name":"pixel.png","ContentType":"image/png"}`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got OutboundFile
+		err := json.Unmarshal(raw, &got)
+		if err == nil && got != want {
+			t.Fatalf("OutboundFile decoded to %+v, want %+v", got, want)
+		}
+		return got, err
+	})
+}
+
+func TestCompactStatsJSONKeepsGoFieldNames(t *testing.T) {
+	want := CompactStats{
+		Stage:         "prune",
+		Outcome:       CompactShort,
+		Calls:         4,
+		Kept:          2,
+		Truncated:     1,
+		Pruned:        1,
+		Pinned:        0,
+		CharsBefore:   900,
+		CharsAfter:    300,
+		TokensRemoved: 150,
+		Requests:      0,
+		RequestTokens: 0,
+		Duration:      2 * time.Second,
+	}
+	const wantJSON = `{"Stage":"prune","Outcome":"short","Calls":4,"Kept":2,"Truncated":1,"Pruned":1,"Pinned":0,"CharsBefore":900,"CharsAfter":300,"TokensRemoved":150,"Requests":0,"RequestTokens":0,"Duration":2000000000}`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got CompactStats
+		err := json.Unmarshal(raw, &got)
+		if err == nil && got != want {
+			t.Fatalf("CompactStats decoded to %+v, want %+v", got, want)
 		}
 		return got, err
 	})
