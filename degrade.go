@@ -81,6 +81,22 @@ func (d degrading) Notify(ctx context.Context, conv Conversation, lang i18n.Lang
 	return d.g.Post(ctx, conv, text)
 }
 
+func (d degrading) SendFiles(ctx context.Context, conv Conversation, replyTo MessageID, text string, files []OutboundFile) (MessageID, error) {
+	if s, ok := d.g.(FileSender); ok {
+		return s.SendFiles(ctx, conv, replyTo, text, files)
+	}
+	return d.Reply(ctx, conv, replyTo, filesAsText(text, files))
+}
+
+func filesAsText(text string, files []OutboundFile) string {
+	var body strings.Builder
+	_, _ = body.WriteString(text)
+	for _, file := range files {
+		fmt.Fprintf(&body, "\n%s: %s", file.Name, file.Path)
+	}
+	return body.String()
+}
+
 func (d degrading) BindSessionControl(control SessionControl) {
 	if r, ok := d.g.(SessionControlReceiver); ok {
 		r.BindSessionControl(control)

@@ -260,35 +260,38 @@ func TestRunCompactStackDropsAnInitialUsageMeasuredWithoutATokenLimit(t *testing
 func TestRunCompactStackCollectsTheStatsOfEachStage(t *testing.T) {
 	cases := map[string]struct {
 		results []CompactResult
-		want    []string
+		want    []CompactStats
 	}{
 		"every stage reports": {
 			results: []CompactResult{
-				{Stats: &CompactStats{Outcome: CompactShort, Calls: 3}},
-				{Stats: &CompactStats{Outcome: CompactShort, Calls: 5}},
+				{Stats: &CompactStats{Outcome: CompactShort, Calls: 3, Pruned: 1}},
+				{Stats: &CompactStats{Outcome: CompactDryRun, Calls: 5, Requests: 2}},
 			},
-			want: []string{"first", "second"},
+			want: []CompactStats{
+				{Stage: "first", Outcome: CompactShort, Calls: 3, Pruned: 1},
+				{Stage: "second", Outcome: CompactDryRun, Calls: 5, Requests: 2},
+			},
 		},
 		"a silent stage adds nothing": {
 			results: []CompactResult{
-				{Stats: &CompactStats{Outcome: CompactShort}},
+				{Stats: &CompactStats{Outcome: CompactShort, Kept: 4}},
 				{},
 			},
-			want: []string{"first"},
+			want: []CompactStats{{Stage: "first", Outcome: CompactShort, Kept: 4}},
 		},
 		"a stage's own name is kept": {
 			results: []CompactResult{
-				{Stats: &CompactStats{Stage: "custom", Outcome: CompactShort}},
+				{Stats: &CompactStats{Stage: "custom", Outcome: CompactSkipped}},
 				{},
 			},
-			want: []string{"custom"},
+			want: []CompactStats{{Stage: "custom", Outcome: CompactSkipped}},
 		},
 		"a done stage ends the collection": {
 			results: []CompactResult{
-				{Stats: &CompactStats{Outcome: CompactDone}, Done: true},
+				{Stats: &CompactStats{Outcome: CompactDone, Truncated: 2}, Done: true},
 				{Stats: &CompactStats{Outcome: CompactShort}},
 			},
-			want: []string{"first"},
+			want: []CompactStats{{Stage: "first", Outcome: CompactDone, Truncated: 2}},
 		},
 	}
 	for name, tc := range cases {
@@ -303,12 +306,8 @@ func TestRunCompactStackCollectsTheStatsOfEachStage(t *testing.T) {
 			if err != nil {
 				t.Fatalf("RunCompactStack() error = %v", err)
 			}
-			var got []string
-			for _, stats := range result.StageStats {
-				got = append(got, stats.Stage)
-			}
-			if !slices.Equal(got, tc.want) {
-				t.Fatalf("StageStats named %v, want %v", got, tc.want)
+			if !slices.Equal(result.StageStats, tc.want) {
+				t.Fatalf("StageStats = %+v, want %+v", result.StageStats, tc.want)
 			}
 		})
 	}

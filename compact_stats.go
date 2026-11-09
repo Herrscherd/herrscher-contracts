@@ -96,7 +96,10 @@ func (o *CompactOutcome) UnmarshalText(text []byte) error {
 // stage left it empty. The counts are of tool calls unless another unit is named, and
 // TokensRemoved is an estimate.
 type CompactStats struct {
-	Stage   string         `json:"Stage"`
+	// Stage names the stage, filled by RunCompactStack when left empty.
+	Stage string `json:"Stage"`
+	// Outcome is how the stage ended. It must be set: the zero value is not an
+	// outcome and refuses to marshal, which fails the whole usage report.
 	Outcome CompactOutcome `json:"Outcome"`
 	// Calls is the number of tool calls the stage examined.
 	Calls int `json:"Calls"`

@@ -55,3 +55,10 @@ func TestCompactOutcomeRefusesUnknownText(t *testing.T) {
 		t.Fatalf("MarshalText(zero outcome) error = %v, want ErrUnknownCompactOutcome", err)
 	}
 }
+
+func TestCompactStatsWithoutOutcomeRefusesToMarshal(t *testing.T) {
+	_, err := json.Marshal(CompactStats{Stage: "jev", Calls: 3})
+	if !errors.Is(err, ErrUnknownCompactOutcome) {
+		t.Fatalf("json.Marshal(stats without outcome) error = %v, want ErrUnknownCompactOutcome", err)
+	}
+}

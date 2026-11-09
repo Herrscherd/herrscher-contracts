@@ -44,7 +44,7 @@ it is absent.
 | `RoutedEventSink` | `event.go` | optional | `EmitTo(Conversation, Event)`, the multi-session variant, preferred over `EventSink` |
 | `Foreground` | `foreground.go` | optional | `RunForeground`: the gateway owns the main thread (a TUI). At most one |
 | `NoticeSink` | `gateway.go` | optional | `Notify(ctx, conv, lang, Notice)`: the gateway renders a notice itself, in the given language, with English as the fallback. Without it, `Degrade` renders the text |
-| `FileSender` | `gateway.go` | optional | `SendFiles(ctx, conv, replyTo, text, files)` posts text with files attached. Without it, `Degrade` sends a text that lists the paths |
+| `FileSender` | `gateway.go` | optional | `SendFiles(ctx, conv, replyTo, text, files)` posts text with files attached. Without it, `Degrade` replies with a text that lists the names and paths |
 | `SessionControlReceiver` | `session_control.go` | optional | `BindSessionControl` receives the host's session-control handle |
 | `CatalogSource` | `catalog_source.go` | optional, deprecated | `Catalog() fs.FS` on a live instance; use the descriptor field `Plugin.Catalog` instead |
 
@@ -86,8 +86,8 @@ it is absent.
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
-| `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (absolute `Path`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
-| `CompactStats`, `CompactOutcome`, `ParseCompactOutcome` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, and its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`) |
+| `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
+| `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, and its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`) |
 
 ## Registration and config
 
@@ -126,16 +126,22 @@ the tool its playbook describes.
 ## Files a backend renders
 
 A backend that implements `FileProducer` hands over the files it wrote to disk
-while it answered, such as a generated image. Each `OutboundFile` carries the
-absolute `Path` of the file, the `Name` a gateway shows, and its `ContentType`.
-The host reads `TakeFiles` once after each `Respond`, and a file taken is not
-returned by a later call. The host checks each file with `ValidateOutboundFile`,
-which matches `ErrInvalidOutboundFile` for a relative path, or a name that is
-empty or holds a path separator.
+while it answered, such as a generated image. The host gives each turn an
+`Outbox`, an absolute directory in `Prompt.Outbox`, and the backend writes its
+files there. Each `OutboundFile` carries the absolute `Path` of the file, the
+`Name` a gateway shows, and its `ContentType`. The host reads `TakeFiles` once
+after each `Respond`, and a file taken is not returned by a later call.
+
+The host checks each file with `ValidateOutboundFile(file, outbox)`, which
+matches `ErrInvalidOutboundFile` for a path that is not clean or lies outside the
+outbox, a name that is empty, `.`, `..` or holds a path separator, or a content
+type that does not parse. The check reads no file, so the host also resolves
+symbolic links, sends only a regular file and bounds its size: a backend can then
+never make a gateway send a file of the daemon it did not render.
 
 A gateway that implements `FileSender` posts the text with the files attached, in
-reply to the message. A gateway without it receives a text that lists the paths of
-the files, so no file is dropped.
+reply to the message. Through `Degrade`, a gateway without it receives a reply
+whose text lists the name and path of each file, so no file is dropped silently.
 
 ## Compaction
 
@@ -171,7 +177,7 @@ A stage reports what it did in `CompactResult.Stats` (`CompactStats`): its
 `Outcome` (`CompactOutcome`, which marshals as `done`, `short`, `failed`,
 `dry_run` or `skipped`), the calls it kept, truncated, pruned or pinned, the
 characters and the estimated tokens it removed, and the model requests it made.
-The host reads the stats for `herrscher usage`.
+`Outcome` must be set: its zero value refuses to marshal. The host reads the stats for `herrscher usage`.
 
 The host calls `Compact` only while it holds the turn of the session, under the
 same exclusion as `Respond`. The host renders the outcome (the note, the tokens
@@ -365,8 +371,9 @@ all.
 
 `Degrade(Gateway)` wraps a gateway so callers always invoke the rich method:
 `Reply` falls back to `Post`, `Menu` to a numbered-list `Post`, `React` to a
-no-op, `Notify` to a `Post` of the notice rendered as text, and
-`BindSessionControl` still forwards.
+no-op, `Notify` to a `Post` of the notice rendered as text, `SendFiles` to a `Reply`
+whose text lists each file's name and path, and `BindSessionControl` still
+forwards.
 
 `MemoryScope{Project, Agent}` plus `RecordShared`, `RecordPrivate`,
 `RecallScoped` and `RecallRelevant` implement shared-versus-private memory as a

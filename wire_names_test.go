@@ -68,8 +68,8 @@ func TestSessionInfoWithoutLanguageDecodesToUnknown(t *testing.T) {
 }
 
 func TestPromptJSONKeepsLanguageAsItsNumber(t *testing.T) {
-	want := Prompt{Content: "bonjour", Author: "shan", ChannelID: "chan-9", Language: i18n.French}
-	const wantJSON = `{"Content":"bonjour","Context":"","Author":"shan","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2}`
+	want := Prompt{Content: "bonjour", Author: "shan", ChannelID: "chan-9", Language: i18n.French, Outbox: "/w/out"}
+	const wantJSON = `{"Content":"bonjour","Context":"","Author":"shan","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2,"Outbox":"/w/out"}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got Prompt
 		err := json.Unmarshal(raw, &got)

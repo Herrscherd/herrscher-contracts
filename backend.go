@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
 	"path/filepath"
 	"strings"
 
@@ -32,7 +33,9 @@ type ResumeAware interface {
 // background (empty when no Memory plugin is wired). Data the backend fences
 // into the turn for continuity, never the user's instructions. Language is the
 // language of the session the turn belongs to, and the zero value when the host
-// does not know it: the backend then keeps its own default.
+// does not know it: the backend then keeps its own default. Outbox is the absolute
+// directory the host made for this turn, where a [FileProducer] writes the files it
+// renders, and is empty when the host takes no file from this backend.
 type Prompt struct {
 	Content     string        `json:"Content"`
 	Context     string        `json:"Context"`
@@ -41,6 +44,7 @@ type Prompt struct {
 	ChannelID   string        `json:"ChannelID"`
 	Attachments []string      `json:"Attachments"`
 	Language    i18n.Language `json:"Language"`
+	Outbox      string        `json:"Outbox"`
 }
 
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
@@ -82,8 +86,8 @@ type ChoiceInjector interface {
 }
 
 // OutboundFile is a file a backend rendered to disk while it answered. Path is its
-// absolute local path, already written, Name is the name a gateway shows the human,
-// and ContentType is its MIME type.
+// absolute local path inside the turn's [Prompt.Outbox], already written, Name is
+// the name a gateway shows the human, and ContentType is its MIME type.
 type OutboundFile struct {
 	Path        string `json:"Path"`
 	Name        string `json:"Name"`
@@ -91,21 +95,45 @@ type OutboundFile struct {
 }
 
 // ErrInvalidOutboundFile is returned by [ValidateOutboundFile] for a file whose path
-// is not absolute, or whose name is empty or holds a path separator. Match it with
-// errors.Is.
+// is not a clean path inside the outbox, whose name is empty, a dot entry or holds a
+// path separator, or whose content type does not parse. Match it with errors.Is.
 var ErrInvalidOutboundFile = errors.New("invalid outbound file")
 
 // ValidateOutboundFile checks a file before the host hands it to a gateway: Path is
-// absolute, and Name is not empty and names no directory. Every failure matches
+// clean and lies strictly inside outbox, the absolute directory the host gave the
+// turn in [Prompt.Outbox], Name names a file and no directory, and ContentType, when
+// set, is a valid media type. It reads no file: the host still resolves symbolic
+// links, sends only a regular file and bounds its size. Every failure matches
 // [ErrInvalidOutboundFile].
-func ValidateOutboundFile(file OutboundFile) error {
+func ValidateOutboundFile(file OutboundFile, outbox string) error {
+	if err := validateOutboundPath(file.Path, outbox); err != nil {
+		return err
+	}
 	switch {
-	case !filepath.IsAbs(file.Path):
-		return fmt.Errorf("%w: path %q is not absolute", ErrInvalidOutboundFile, file.Path)
-	case file.Name == "":
-		return fmt.Errorf("%w: file %q has no name", ErrInvalidOutboundFile, file.Path)
+	case file.Name == "", file.Name == ".", file.Name == "..":
+		return fmt.Errorf("%w: file %q has no usable name", ErrInvalidOutboundFile, file.Path)
 	case strings.ContainsAny(file.Name, `/\`):
 		return fmt.Errorf("%w: name %q holds a path separator", ErrInvalidOutboundFile, file.Name)
+	}
+	if file.ContentType == "" {
+		return nil
+	}
+	if _, _, err := mime.ParseMediaType(file.ContentType); err != nil {
+		return fmt.Errorf("%w: content type %q: %w", ErrInvalidOutboundFile, file.ContentType, err)
+	}
+	return nil
+}
+
+func validateOutboundPath(path, outbox string) error {
+	switch {
+	case !filepath.IsAbs(outbox) || filepath.Clean(outbox) != outbox:
+		return fmt.Errorf("%w: outbox %q is not a clean absolute path", ErrInvalidOutboundFile, outbox)
+	case !filepath.IsAbs(path) || filepath.Clean(path) != path:
+		return fmt.Errorf("%w: path %q is not a clean absolute path", ErrInvalidOutboundFile, path)
+	}
+	rel, err := filepath.Rel(outbox, path)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%w: path %q is outside the outbox %q", ErrInvalidOutboundFile, path, outbox)
 	}
 	return nil
 }
