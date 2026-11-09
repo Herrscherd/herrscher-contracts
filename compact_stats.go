@@ -121,6 +121,56 @@ type CompactStats struct {
 	// tokens it sent in them.
 	Requests      int `json:"Requests"`
 	RequestTokens int `json:"RequestTokens"`
+	// StateTokens is the estimated size, in tokens, of the state the stage sent to its
+	// judging model, zero when it sent none. It is omitted from the JSON when zero.
+	StateTokens int `json:"StateTokens,omitempty"`
+	// StateReduction is the short text the stage gives to the reduction it applied to
+	// that state, such as "texts abridged", empty when it applied none. It is omitted
+	// from the JSON when empty.
+	StateReduction string `json:"StateReduction,omitempty"`
 	// Duration is the time the stage took.
 	Duration time.Duration `json:"Duration"`
+}
+
+// ErrNegativeCompactCount is returned by [CompactStats.Validate] when one of the
+// counts of the stats is negative. Match it with errors.Is.
+var ErrNegativeCompactCount = errors.New("negative compaction count")
+
+// Validate checks the stats before the host writes them. An Outcome that names no
+// outcome returns an error matching [ErrUnknownCompactOutcome], and a negative count
+// (calls, characters, tokens, requests or Duration) returns an error matching
+// [ErrNegativeCompactCount] that names the field. JSON encoding does not validate
+// the values.
+func (s CompactStats) Validate() error {
+	if !s.Outcome.isKnown() {
+		return fmt.Errorf("%w: %d", ErrUnknownCompactOutcome, int(s.Outcome))
+	}
+	for _, count := range s.counts() {
+		if count.value < 0 {
+			return fmt.Errorf("%w: %s is %d", ErrNegativeCompactCount, count.name, count.value)
+		}
+	}
+	return nil
+}
+
+type namedCount struct {
+	name  string
+	value int64
+}
+
+func (s CompactStats) counts() []namedCount {
+	return []namedCount{
+		{"Calls", int64(s.Calls)},
+		{"Kept", int64(s.Kept)},
+		{"Truncated", int64(s.Truncated)},
+		{"Pruned", int64(s.Pruned)},
+		{"Pinned", int64(s.Pinned)},
+		{"CharsBefore", int64(s.CharsBefore)},
+		{"CharsAfter", int64(s.CharsAfter)},
+		{"TokensRemoved", int64(s.TokensRemoved)},
+		{"Requests", int64(s.Requests)},
+		{"RequestTokens", int64(s.RequestTokens)},
+		{"StateTokens", int64(s.StateTokens)},
+		{"Duration", int64(s.Duration)},
+	}
 }
