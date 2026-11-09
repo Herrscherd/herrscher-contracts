@@ -129,8 +129,9 @@ func (r *HistoryRole) UnmarshalText(text []byte) error {
 type PruneAction int
 
 const (
-	// PruneResult keeps the call and the first KeepChars runes of its result,
-	// followed by a note that the rest was pruned.
+	// PruneResult keeps the call, the first KeepChars runes of its result and the last
+	// KeepTail runes, with a note in place of the runes between them. A result that
+	// the two kept parts cover whole is kept as it is.
 	PruneResult PruneAction = iota + 1
 	// PruneCall keeps only a trace of the call: its result becomes a note, and the
 	// backend may shorten its input. The model can still tell that the call was made.
@@ -193,12 +194,14 @@ func (a *PruneAction) UnmarshalText(text []byte) error {
 }
 
 // HistoryEdit is one pruning of one tool call. KeepChars is the number of runes
-// (Unicode code points) of the result kept verbatim: PruneResult reads it,
-// PruneCall ignores it, and it is never negative.
+// (Unicode code points) kept from the start of the result, and KeepTail the number
+// kept from its end. PruneResult reads both, PruneCall ignores KeepChars and refuses
+// a KeepTail, and neither is ever negative.
 type HistoryEdit struct {
 	CallID    string
 	Action    PruneAction
 	KeepChars int
+	KeepTail  int
 }
 
 // PruneOutcome is what [HistoryEditor.PruneHistory] reports. Edited counts the
@@ -212,8 +215,8 @@ type PruneOutcome struct {
 }
 
 // ErrInvalidHistoryEdit is returned by [ValidateHistoryEdits] for an edit that
-// names no call, names a call twice, has an unknown action or a negative
-// KeepChars. Match it with errors.Is.
+// names no call, names a call twice, has an unknown action, a negative KeepChars or
+// KeepTail, or a KeepTail on a PruneCall. Match it with errors.Is.
 var ErrInvalidHistoryEdit = errors.New("invalid history edit")
 
 // ErrUnknownHistoryCall is returned by a [HistoryEditor] for an edit whose CallID
@@ -221,9 +224,9 @@ var ErrInvalidHistoryEdit = errors.New("invalid history edit")
 var ErrUnknownHistoryCall = errors.New("unknown history call")
 
 // ValidateHistoryEdits checks edits before they are applied: each names a call
-// once, with a known action and a KeepChars that is not negative. A
-// [HistoryEditor] calls it before touching the history, and every failure matches
-// [ErrInvalidHistoryEdit].
+// once, with a known action, a KeepChars and a KeepTail that are not negative, and
+// no KeepTail on a PruneCall. A [HistoryEditor] calls it before touching the
+// history, and every failure matches [ErrInvalidHistoryEdit].
 func ValidateHistoryEdits(edits []HistoryEdit) error {
 	seen := make(map[string]bool, len(edits))
 	for _, edit := range edits {
@@ -234,6 +237,10 @@ func ValidateHistoryEdits(edits []HistoryEdit) error {
 			return fmt.Errorf("%w: call %q edited twice", ErrInvalidHistoryEdit, edit.CallID)
 		case edit.KeepChars < 0:
 			return fmt.Errorf("%w: call %q keeps %d runes", ErrInvalidHistoryEdit, edit.CallID, edit.KeepChars)
+		case edit.KeepTail < 0:
+			return fmt.Errorf("%w: call %q keeps %d runes from its end", ErrInvalidHistoryEdit, edit.CallID, edit.KeepTail)
+		case edit.Action == PruneCall && edit.KeepTail != 0:
+			return fmt.Errorf("%w: call %q keeps a tail of a pruned call", ErrInvalidHistoryEdit, edit.CallID)
 		}
 		if !edit.Action.isKnown() {
 			return fmt.Errorf("%w: call %q: %w: %d", ErrInvalidHistoryEdit, edit.CallID, ErrUnknownPruneAction, int(edit.Action))

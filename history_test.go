@@ -56,6 +56,7 @@ func TestValidateHistoryEditsAcceptsDistinctKnownEdits(t *testing.T) {
 	edits := []HistoryEdit{
 		{CallID: "t1", Action: PruneResult, KeepChars: 300},
 		{CallID: "t2", Action: PruneCall},
+		{CallID: "t3", Action: PruneResult, KeepChars: 200, KeepTail: 100},
 	}
 	if err := ValidateHistoryEdits(edits); err != nil {
 		t.Fatalf("ValidateHistoryEdits(%+v) = %v, want nil", edits, err)
@@ -71,6 +72,8 @@ func TestValidateHistoryEditsRefusesEachMalformedEdit(t *testing.T) {
 		"twice":          {{CallID: "t1", Action: PruneCall}, {CallID: "t1", Action: PruneResult}},
 		"unknown action": {{CallID: "t1"}},
 		"negative keep":  {{CallID: "t1", Action: PruneResult, KeepChars: -1}},
+		"negative tail":  {{CallID: "t1", Action: PruneResult, KeepTail: -1}},
+		"tail on a call": {{CallID: "t1", Action: PruneCall, KeepTail: 20}},
 	}
 	for name, edits := range cases {
 		if err := ValidateHistoryEdits(edits); !errors.Is(err, ErrInvalidHistoryEdit) {

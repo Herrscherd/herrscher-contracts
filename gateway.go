@@ -47,6 +47,14 @@ type NoticeSink interface {
 // already in the conversation, so the notice must not be sent again.
 var ErrNoticeFallbackPosted = errors.New("notice posted as a fallback text")
 
+// FileSender is the optional port of a gateway that posts files: SendFiles posts text
+// in reply to replyTo, with files attached. The host checks each file with
+// [ValidateOutboundFile] first. A gateway without FileSender receives a text that
+// lists the paths of the files, so no file is dropped.
+type FileSender interface {
+	SendFiles(ctx context.Context, conv Conversation, replyTo MessageID, text string, files []OutboundFile) (MessageID, error)
+}
+
 // Inbound is a message arriving from a gateway into the manager.
 type Inbound struct {
 	Conversation Conversation

@@ -256,3 +256,80 @@ func TestRunCompactStackDropsAnInitialUsageMeasuredWithoutATokenLimit(t *testing
 		t.Fatalf("second stage saw UsageMeasured = true with TokenLimit 0, want false: the request's flag is not trusted without a window")
 	}
 }
+
+func TestRunCompactStackCollectsTheStatsOfEachStage(t *testing.T) {
+	cases := map[string]struct {
+		results []CompactResult
+		want    []string
+	}{
+		"every stage reports": {
+			results: []CompactResult{
+				{Stats: &CompactStats{Outcome: CompactShort, Calls: 3}},
+				{Stats: &CompactStats{Outcome: CompactShort, Calls: 5}},
+			},
+			want: []string{"first", "second"},
+		},
+		"a silent stage adds nothing": {
+			results: []CompactResult{
+				{Stats: &CompactStats{Outcome: CompactShort}},
+				{},
+			},
+			want: []string{"first"},
+		},
+		"a stage's own name is kept": {
+			results: []CompactResult{
+				{Stats: &CompactStats{Stage: "custom", Outcome: CompactShort}},
+				{},
+			},
+			want: []string{"custom"},
+		},
+		"a done stage ends the collection": {
+			results: []CompactResult{
+				{Stats: &CompactStats{Outcome: CompactDone}, Done: true},
+				{Stats: &CompactStats{Outcome: CompactShort}},
+			},
+			want: []string{"first"},
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var seen []CompactRequest
+			var ran []string
+			stages := []CompactStage{
+				recordingStage("first", tc.results[0], nil, &seen, &ran),
+				recordingStage("second", tc.results[1], nil, &seen, &ran),
+			}
+			result, err := RunCompactStack(t.Context(), stages, CompactRequest{}, ignoreEvents)
+			if err != nil {
+				t.Fatalf("RunCompactStack() error = %v", err)
+			}
+			var got []string
+			for _, stats := range result.StageStats {
+				got = append(got, stats.Stage)
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("StageStats named %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRunCompactStackKeepsTheStatsOfTheStagesBeforeAFailure(t *testing.T) {
+	var seen []CompactRequest
+	var ran []string
+	stages := []CompactStage{
+		recordingStage("first", CompactResult{Stats: &CompactStats{Outcome: CompactShort, Calls: 2}}, nil, &seen, &ran),
+		recordingStage("broken", CompactResult{Stats: &CompactStats{Outcome: CompactFailed}}, errStageFailed, &seen, &ran),
+		recordingStage("never", CompactResult{Stats: &CompactStats{Outcome: CompactDone}}, nil, &seen, &ran),
+	}
+	result, err := RunCompactStack(t.Context(), stages, CompactRequest{}, ignoreEvents)
+	if !errors.Is(err, errStageFailed) {
+		t.Fatalf("RunCompactStack() error = %v, want the stage's cause", err)
+	}
+	if len(result.StageStats) != 2 || result.StageStats[0].Stage != "first" || result.StageStats[1].Stage != "broken" {
+		t.Fatalf("StageStats = %+v, want the stats of first and broken", result.StageStats)
+	}
+	if result.StageStats[0].Calls != 2 || result.StageStats[1].Outcome != CompactFailed {
+		t.Fatalf("StageStats = %+v, want first's calls and broken's failure", result.StageStats)
+	}
+}
