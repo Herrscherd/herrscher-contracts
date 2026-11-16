@@ -495,7 +495,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeChannelKindHome`, `CodeInvalidValueHint`, `CodeSessionCloseDirty`, and the
   health codes `CodeHealthConnected`, `CodeHealthSignedInAs`, `CodeHealthNotLoggedIn`,
   `CodeHealthRateLimited`, `CodeHealthCredentialsRefused`, `CodeHealthUnreachable`,
-  `CodeHealthEnvMissing`, `CodeHealthRemedyRun`, and `CodeHealthRemedyEnvRestart`.
+  `CodeHealthEnvMissing`, `CodeHealthRemedyRun` and `CodeHealthRemedyEnvRestart`, and
+  the account codes `CodeAccountFallback` and `CodeAccountNoQuota`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -536,22 +537,25 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `Notice` has no wire form of its own yet. `encoding/json` writes `Code` as its
   number and `Args` as a list, but `Arg` keeps its fields private and so encodes as
   `{}`: the arguments of a notice do not survive a JSON round trip. A notice without
-  arguments, such as `CodeTurnInterrupted`, comes back exact. Herrscher's own paths
-  carry notices through compactwire (lowercase keys `code`, `args`, `name`, `kind`,
-  `value`), not through `encoding/json`. The shared form, owned by contracts and
-  aligned on compactwire, is not defined here.
+  arguments, such as `CodeTurnInterrupted`, comes back exact. Compaction notices cross
+  herrscher through compactwire (lowercase keys `code`, `args`, `name`, `kind`,
+  `value`), but the `session scrollback` command still marshals the scrollback with
+  `encoding/json`. The shared form, owned by contracts and aligned on compactwire, is
+  not defined here.
 - `ScrollbackLine`, one entry of a session's scrollback as `SessionControl.Scrollback`
   returns it, carries a `Notice` when the entry is a notice rather than a reply, such
-  as `CodeTurnInterrupted` after a daemon stop. When `Notice` is set, it decides: the
-  gateway renders it with `Renderer` in the session language. `Role` does not tell a
-  notice from a reply, and `Text` is only the fallback for clients that predate the
-  field. `Notice` is omitted from the JSON when it is nil, so those clients read the
-  same format as before. Until the shared form lands, set `Notice` only on a notice
-  without arguments: any other notice would reach the gateway without them.
+  as `CodeTurnInterrupted` after a daemon stop. The gateway renders `Notice` with
+  `Renderer` in the session language. `Role` does not tell a notice from a reply.
+  `Text` is the fallback for clients that predate the field, and for a notice that
+  `Renderer` refuses. `Notice` is omitted from the JSON when it is nil, so those
+  clients read the same format as before. Until the shared form lands, set `Notice`
+  only on a notice without arguments: any other notice would reach the gateway, and
+  the `session scrollback` command, without them.
   The rule for the gateway: when `Notice` is set and `Renderer` renders it, the
   gateway shows that text; when `Notice` is nil, or `Renderer` refuses it with
   `ErrUnknownCode` (an unknown code), `ErrNoticeArgs` (malformed arguments) or
-  `ErrMissingMessage` (no English message), the gateway shows `Text`. No helper in
+  `ErrMissingMessage` (no English message), or with any other error of `Render`, for
+  instance a catalogue that does not load, the gateway shows `Text`. No helper in
   contracts makes this choice for a `ScrollbackLine`: each gateway applies the rule.
 - `CodeTurnInterrupted` is a transcript notice, not a health code. It reports that
   the last turn of the session was cut short by a daemon stop and that its reply may

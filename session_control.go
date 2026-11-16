@@ -75,7 +75,7 @@ type RepoRef struct {
 	Local       bool
 }
 
-// ScrollbackLine is one replayed transcript entry; when Notice is set and renders it decides, otherwise Text is shown.
+// ScrollbackLine is one replayed transcript entry: its Notice when Renderer renders it, otherwise Text.
 type ScrollbackLine struct {
 	Role   string  `json:"Role"`
 	Text   string  `json:"Text"`
