@@ -544,6 +544,11 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"valeur invalide loud pour le réglage log_level",
 		},
 		{
+			Notice{Code: CodeSettingMissing, Args: []Arg{Text("Settings", "a, b")}},
+			"these settings must be set: a, b",
+			"ces réglages doivent être définis : a, b",
+		},
+		{
 			Notice{Code: CodeTurnInterrupted},
 			"The last message got no reply, send it again if needed.",
 			"Le dernier message est resté sans réponse, renvoie-le si besoin.",
@@ -568,6 +573,35 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			t.Fatalf("fr %q = %q, %v; want %q", tc.notice.Code.Key(), got, err, tc.fr)
 		}
 	}
+	listed := make([]Code, 0, len(cases))
+	for _, tc := range cases {
+		listed = append(listed, tc.notice.Code)
+	}
+	assertSameCodes(t, Codes(), listed)
+}
+
+func assertSameCodes(t *testing.T, want, got []Code) {
+	t.Helper()
+	wantSet := codeSet(want)
+	gotSet := codeSet(got)
+	for code := range wantSet {
+		if !gotSet[code] {
+			t.Errorf("code %s has no rendering case", code.Key())
+		}
+	}
+	for code := range gotSet {
+		if !wantSet[code] {
+			t.Errorf("code %s has a rendering case but is not in Codes()", code.Key())
+		}
+	}
+}
+
+func codeSet(codes []Code) map[Code]bool {
+	set := make(map[Code]bool, len(codes))
+	for _, code := range codes {
+		set[code] = true
+	}
+	return set
 }
 
 func TestRenderRefusesMalformedNotices(t *testing.T) {
