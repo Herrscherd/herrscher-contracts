@@ -535,18 +535,21 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   compaction that cannot run. It sits inside a sentence, so a gateway must
   neutralise it like every other `Text` argument. The Discord gateway does so from
   v0.24.0 on, for each `Text` of a notice.
-- `Notice` crosses the wire as JSON: `Code` is its number, and `Args` is a list of
-  `{"Name", "Kind", "Value"}`, where `Kind` is the number of the `ArgKind`
-  (`ArgText` 1, `ArgCount` 2, `ArgRef` 3) and `Value` is a string, or an integer for
-  `ArgCount`. A decoder refuses an argument of a kind it does not know with
-  `ErrNoticeArgs`, and a round trip gives back the same notice.
+- `Notice` has no wire form of its own yet. `encoding/json` writes `Code` as its
+  number and `Args` as a list, but `Arg` keeps its fields private and so encodes as
+  `{}`: the arguments of a notice do not survive a JSON round trip. A notice without
+  arguments, such as `CodeTurnInterrupted`, comes back exact. Herrscher's own paths
+  carry notices through compactwire (lowercase keys `code`, `args`, `name`, `kind`,
+  `value`), not through `encoding/json`. The shared form, owned by contracts and
+  aligned on compactwire, is not defined here.
 - `ScrollbackLine`, one entry of a session's scrollback as `SessionControl.Scrollback`
   returns it, carries a `Notice` when the entry is a notice rather than a reply, such
   as `CodeTurnInterrupted` after a daemon stop. When `Notice` is set, it decides: the
   gateway renders it with `Renderer` in the session language. `Role` does not tell a
   notice from a reply, and `Text` is only the fallback for clients that predate the
   field. `Notice` is omitted from the JSON when it is nil, so those clients read the
-  same format as before.
+  same format as before. Until the shared form lands, set `Notice` only on a notice
+  without arguments: any other notice would reach the gateway without them.
 - `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
   fallback instead of the notice. The caller neither retries nor posts the notice
   again through `Degrade`.
