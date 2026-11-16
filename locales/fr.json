@@ -229,5 +229,10 @@
     "id": "account.no_quota",
     "description": "Account fallback notice",
     "other": "aucun compte {{.Vendor}} n'a de quota disponible, la session garde {{.Account}}"
+  },
+  {
+    "id": "turn.interrupted",
+    "description": "Scrollback notice: the last turn was cut short",
+    "other": "le dernier tour de la session a été interrompu par un arrêt du démon, sa réponse est peut-être incomplète"
   }
 ]

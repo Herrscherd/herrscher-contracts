@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -115,6 +116,8 @@ const (
 	CodeAccountFallback
 	// CodeAccountNoQuota reports that no account of Vendor has quota left, so the session keeps Account.
 	CodeAccountNoQuota
+	// CodeTurnInterrupted reports that the last turn of the session was cut short by a daemon stop and its reply may be incomplete.
+	CodeTurnInterrupted
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -134,7 +137,7 @@ func Codes() []Code {
 		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint, CodeSessionCloseDirty,
 		CodeHealthConnected, CodeHealthSignedInAs, CodeHealthNotLoggedIn, CodeHealthRateLimited, CodeHealthCredentialsRefused,
 		CodeHealthUnreachable, CodeHealthEnvMissing, CodeHealthRemedyRun, CodeHealthRemedyEnvRestart,
-		CodeAccountFallback, CodeAccountNoQuota,
+		CodeAccountFallback, CodeAccountNoQuota, CodeTurnInterrupted,
 	}
 }
 
@@ -234,6 +237,8 @@ func (c Code) Key() string {
 		return "account.fallback"
 	case CodeAccountNoQuota:
 		return "account.no_quota"
+	case CodeTurnInterrupted:
+		return "turn.interrupted"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -253,7 +258,7 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	case CodeAddressPlaintextRefused:
 		return map[string]ArgKind{"Address": ArgText}, true
 	case CodeNodeMerged, CodeCompacted,
-		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread:
+		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread, CodeTurnInterrupted:
 		return nil, true
 	case CodeSessionLimit:
 		return map[string]ArgKind{countName: ArgCount}, true
@@ -300,8 +305,8 @@ func (c Code) params() (map[string]ArgKind, bool) {
 // Arg is built only by Text, Count or Ref, so a notice cannot carry a value its
 // text cannot show.
 type Notice struct {
-	Code Code
-	Args []Arg
+	Code Code  `json:"Code"`
+	Args []Arg `json:"Args"`
 }
 
 // ArgKind is the closed set of argument kinds. The zero value is not a kind.
@@ -369,6 +374,53 @@ func (a Arg) param() (any, bool) {
 		return a.value, true
 	}
 	return nil, false
+}
+
+// MarshalJSON writes the argument as its name, its kind and its value.
+func (a Arg) MarshalJSON() ([]byte, error) {
+	value, err := json.Marshal(a.value)
+	if err != nil {
+		return nil, fmt.Errorf("argument %q: %w", a.name, err)
+	}
+	return json.Marshal(argWire{Name: a.name, Kind: a.kind, Value: value})
+}
+
+// UnmarshalJSON reads an argument written by MarshalJSON and refuses an unknown kind.
+func (a *Arg) UnmarshalJSON(raw []byte) error {
+	var wire argWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return fmt.Errorf("argument: %w", err)
+	}
+	value, err := wire.decodeValue()
+	if err != nil {
+		return err
+	}
+	*a = Arg{name: wire.Name, kind: wire.Kind, value: value}
+	return nil
+}
+
+type argWire struct {
+	Name  string          `json:"Name"`
+	Kind  ArgKind         `json:"Kind"`
+	Value json.RawMessage `json:"Value"`
+}
+
+func (w argWire) decodeValue() (any, error) {
+	switch w.Kind {
+	case ArgText, ArgRef:
+		var text string
+		if err := json.Unmarshal(w.Value, &text); err != nil {
+			return nil, fmt.Errorf("argument %q: %w", w.Name, err)
+		}
+		return text, nil
+	case ArgCount:
+		var count int
+		if err := json.Unmarshal(w.Value, &count); err != nil {
+			return nil, fmt.Errorf("argument %q: %w", w.Name, err)
+		}
+		return count, nil
+	}
+	return nil, fmt.Errorf("argument %q of kind %d: %w", w.Name, uint8(w.Kind), ErrNoticeArgs)
 }
 
 // NoticeError is an error that reaches a human. It gives the notice that stands

@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -102,6 +103,72 @@ func TestScrollbackLineJSONKeepsGoFieldNames(t *testing.T) {
 		}
 		return got, err
 	})
+}
+
+func TestScrollbackNoticeJSONKeepsCodeAndArgs(t *testing.T) {
+	cases := []struct {
+		name     string
+		want     ScrollbackLine
+		wantJSON string
+	}{
+		{
+			name:     "text argument",
+			want:     ScrollbackLine{Role: "notice", Text: "session lead not found", Notice: &Notice{Code: CodeSessionNotFound, Args: []Arg{Text(nameParam, "lead")}}},
+			wantJSON: `{"Role":"notice","Text":"session lead not found","Notice":{"Code":1,"Args":[{"Name":"Name","Kind":1,"Value":"lead"}]}}`,
+		},
+		{
+			name:     "count argument",
+			want:     ScrollbackLine{Role: "notice", Text: "2 sessions", Notice: &Notice{Code: CodeSessionLimit, Args: []Arg{Count(2)}}},
+			wantJSON: `{"Role":"notice","Text":"2 sessions","Notice":{"Code":16,"Args":[{"Name":"Count","Kind":2,"Value":2}]}}`,
+		},
+		{
+			name:     "no argument",
+			want:     ScrollbackLine{Role: "notice", Text: "the last turn was cut short", Notice: &Notice{Code: CodeTurnInterrupted}},
+			wantJSON: `{"Role":"notice","Text":"the last turn was cut short","Notice":{"Code":47,"Args":null}}`,
+		},
+	}
+	renderer := NewRenderer()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assertJSONRoundTrip(t, tc.want, tc.wantJSON, decodeNoticeLine(t, renderer, tc.want))
+		})
+	}
+}
+
+func decodeNoticeLine(t *testing.T, renderer *Renderer, want ScrollbackLine) func([]byte) (any, error) {
+	t.Helper()
+	return func(raw []byte) (any, error) {
+		var got ScrollbackLine
+		if err := json.Unmarshal(raw, &got); err != nil {
+			return got, err
+		}
+		if got.Notice == nil {
+			t.Fatal("the notice was lost in decoding")
+		}
+		assertSameRendering(t, renderer, *want.Notice, *got.Notice)
+		return got, nil
+	}
+}
+
+func assertSameRendering(t *testing.T, renderer *Renderer, want, got Notice) {
+	t.Helper()
+	wantText, err := renderer.Render(i18n.English, want)
+	if err != nil {
+		t.Fatalf("render of the wanted notice: %v", err)
+	}
+	gotText, err := renderer.Render(i18n.English, got)
+	if err != nil || gotText != wantText {
+		t.Fatalf("decoded notice renders %q, %v; want %q", gotText, err, wantText)
+	}
+}
+
+func TestNoticeArgRefusesUnknownKind(t *testing.T) {
+	const raw = `{"Code":1,"Args":[{"Name":"Name","Kind":9,"Value":"lead"}]}`
+	var got Notice
+	err := json.Unmarshal([]byte(raw), &got)
+	if !errors.Is(err, ErrNoticeArgs) {
+		t.Fatalf("unmarshal of an unknown argument kind = %v, want ErrNoticeArgs", err)
+	}
 }
 
 func TestLocationJSONKeepsGoFieldNames(t *testing.T) {

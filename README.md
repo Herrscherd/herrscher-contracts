@@ -495,7 +495,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeChannelKindHome`, `CodeInvalidValueHint`, `CodeSessionCloseDirty`, and the
   health codes `CodeHealthConnected`, `CodeHealthSignedInAs`, `CodeHealthNotLoggedIn`,
   `CodeHealthRateLimited`, `CodeHealthCredentialsRefused`, `CodeHealthUnreachable`,
-  `CodeHealthEnvMissing`, `CodeHealthRemedyRun` and `CodeHealthRemedyEnvRestart`.
+  `CodeHealthEnvMissing`, `CodeHealthRemedyRun`, `CodeHealthRemedyEnvRestart`, and
+  `CodeTurnInterrupted`, which reports that the last turn of the session was cut
+  short by a daemon stop and that its reply may be incomplete; it takes no argument.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -533,6 +535,18 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   compaction that cannot run. It sits inside a sentence, so a gateway must
   neutralise it like every other `Text` argument. The Discord gateway does so from
   v0.24.0 on, for each `Text` of a notice.
+- `Notice` crosses the wire as JSON: `Code` is its number, and `Args` is a list of
+  `{"Name", "Kind", "Value"}`, where `Kind` is the number of the `ArgKind`
+  (`ArgText` 1, `ArgCount` 2, `ArgRef` 3) and `Value` is a string, or an integer for
+  `ArgCount`. A decoder refuses an argument of a kind it does not know with
+  `ErrNoticeArgs`, and a round trip gives back the same notice.
+- `ScrollbackLine`, one entry of a session's scrollback as `SessionControl.Scrollback`
+  returns it, carries a `Notice` when the entry is a notice rather than a reply, such
+  as `CodeTurnInterrupted` after a daemon stop. When `Notice` is set, it decides: the
+  gateway renders it with `Renderer` in the session language. `Role` does not tell a
+  notice from a reply, and `Text` is only the fallback for clients that predate the
+  field. `Notice` is omitted from the JSON when it is nil, so those clients read the
+  same format as before.
 - `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
   fallback instead of the notice. The caller neither retries nor posts the notice
   again through `Degrade`.

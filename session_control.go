@@ -75,15 +75,12 @@ type RepoRef struct {
 	Local       bool
 }
 
-// ScrollbackLine is one replayed transcript entry: a reply when Kind is empty, a notice otherwise.
+// ScrollbackLine is one replayed transcript entry; when Notice is set, Notice decides, not Role: the gateway renders it with Renderer and Text is only the fallback of older clients.
 type ScrollbackLine struct {
-	Role string `json:"Role"`
-	Text string `json:"Text"`
-	Kind string `json:"Kind,omitempty"`
+	Role   string  `json:"Role"`
+	Text   string  `json:"Text"`
+	Notice *Notice `json:"Notice,omitempty"`
 }
-
-// ScrollbackKindTurnInterrupted is the Kind of a notice that a turn was cut short by a daemon stop.
-const ScrollbackKindTurnInterrupted = "turn_interrupted"
 
 // CreateSession is the typed spec for SessionControl.Create. The structured
 // equivalent of the "session create" flags. The zero value of each optional
