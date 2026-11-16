@@ -543,21 +543,22 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `value`), but the `session scrollback` command still marshals the scrollback with
   `encoding/json`. The shared form, owned by contracts and aligned on compactwire, is
   not defined here.
-- `ScrollbackLine`, one entry of a session's scrollback as `SessionControl.Scrollback`
-  returns it, carries a `Notice` when the entry is a notice rather than a reply, such
-  as `CodeTurnInterrupted` for a turn that ended without a reply. The gateway renders `Notice` with
-  `Renderer` in the session language. `Role` does not tell a notice from a reply.
-  `Text` is the fallback for clients that predate the field, and for a notice that
-  `Renderer` refuses. `Notice` is omitted from the JSON when it is nil, so those
-  clients read the same format as before. Until the shared form lands, set `Notice`
-  only on a notice without arguments: any other notice would reach the gateway, and
-  the `session scrollback` command, without them.
-  The rule for the gateway: when `Notice` is set and `Renderer` renders it, the
-  gateway shows that text; when `Notice` is nil, or `Renderer` refuses it with
-  `ErrUnknownCode` (an unknown code), `ErrNoticeArgs` (malformed arguments) or
-  `ErrMissingMessage` (no English message), or with any other error of `Render`, for
-  instance a catalogue that does not load, the gateway shows `Text`. No helper in
-  contracts makes this choice for a `ScrollbackLine`: each gateway applies the rule.
+- `ScrollbackLine`, one entry of a session's scrollback as
+  `SessionControl.Scrollback` returns it, carries a `Notice` when the entry is a
+  notice rather than a reply, such as `CodeTurnInterrupted` for a turn that ended
+  without a reply. The gateway renders `Notice` with `Renderer` in the session
+  language. `Role` does not tell a notice from a reply. `Text` is the fallback for
+  clients that predate the field, and for a notice that `Renderer` refuses. `Notice`
+  is omitted from the JSON when it is nil, so those clients read the same format as
+  before. Until the shared form lands, set `Notice` only on a notice without
+  arguments: any other notice would reach the gateway, and the `session scrollback`
+  command, without them. The rule for the gateway: when `Notice` is set and
+  `Renderer` renders it, the gateway shows that text; when `Notice` is nil, or
+  `Renderer` refuses it with `ErrUnknownCode` (an unknown code), `ErrNoticeArgs`
+  (malformed arguments) or `ErrMissingMessage` (no English message), or with any
+  other error of `Render`, for instance a catalogue that does not load, the gateway
+  shows `Text`. No helper in contracts makes this choice for a `ScrollbackLine`:
+  each gateway applies the rule.
 - `CodeTurnInterrupted` is a transcript notice, not a health code. It reports a
   session turn that ended without a reply, whatever the cause, and names no cause.
   It takes no argument.

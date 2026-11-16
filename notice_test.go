@@ -463,6 +463,101 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"context compaction unavailable: this backend cannot take an instruction for a compaction",
 			"compaction du contexte indisponible : ce fournisseur ne peut pas recevoir d'instruction de compaction",
 		},
+		{
+			Notice{Code: CodeAccountFallback, Args: []Arg{Text("From", "a"), Text("To", "b")}},
+			"the new session starts on b: a has no quota left",
+			"la nouvelle session démarre sur b : a n'a plus de quota",
+		},
+		{
+			Notice{Code: CodeAccountNoQuota, Args: []Arg{Text("Vendor", "claude"), Text("Account", "work")}},
+			"no claude account has quota left, the session keeps work",
+			"aucun compte claude n'a de quota disponible, la session garde work",
+		},
+		{
+			Notice{Code: CodeAddressPlaintextRefused, Args: []Arg{Text("Address", "10.0.0.1:80")}},
+			"plaintext connection to 10.0.0.1:80 refused: TLS is required outside loopback",
+			"connexion en clair vers 10.0.0.1:80 refusée : le TLS est requis hors boucle locale",
+		},
+		{
+			Notice{Code: CodeAgentExists, Args: []Arg{Text("Name", "x")}},
+			"agent x already exists",
+			"l'agent « x » existe déjà",
+		},
+		{
+			Notice{Code: CodeAgentInvalidName, Args: []Arg{Text("Name", "x y")}},
+			"invalid agent name x y",
+			"nom d'agent invalide : x y",
+		},
+		{
+			Notice{Code: CodeCompacted},
+			"context compacted",
+			"contexte compacté",
+		},
+		{
+			Notice{Code: CodeCompactUnavailable, Args: []Arg{Text("Reason", "timeout")}},
+			"context compaction unavailable: timeout",
+			"compaction du contexte indisponible : timeout",
+		},
+		{
+			Notice{Code: CodeExplicitCmdRefused},
+			"an explicit cmd is refused under the gateway-only route policy: it bypasses the model catalog; select a model instead",
+			"une commande explicite est refusée sous la politique de route « passerelle seule » : elle contourne le catalogue de modèles ; choisis plutôt un modèle",
+		},
+		{
+			Notice{Code: CodeHealthConnected},
+			"connected",
+			"connecté",
+		},
+		{
+			Notice{Code: CodeHealthCredentialsRefused},
+			"credentials refused",
+			"identifiants refusés",
+		},
+		{
+			Notice{Code: CodeHealthNotLoggedIn},
+			"not logged in",
+			"non connecté",
+		},
+		{
+			Notice{Code: CodeHealthRateLimited},
+			"rate limited",
+			"limite de débit atteinte",
+		},
+		{
+			Notice{Code: CodeModelRequired},
+			"a model is required under the gateway-only route policy: without one the session would spawn on this machine's own vendor login",
+			"un modèle est requis sous la politique de route « passerelle seule » : sans modèle, la session se lancerait sur la connexion fournisseur propre à cette machine",
+		},
+		{
+			Notice{Code: CodeNoHostRegistered},
+			"no host is registered",
+			"aucun hôte n'est enregistré",
+		},
+		{
+			Notice{Code: CodeServiceControlUnavailable},
+			"service control unavailable",
+			"le contrôle du service n'est pas disponible",
+		},
+		{
+			Notice{Code: CodeSettingInvalid, Args: []Arg{Text("Setting", "log_level"), Text("Value", "loud")}},
+			"invalid value loud for setting log_level",
+			"valeur invalide loud pour le réglage log_level",
+		},
+		{
+			Notice{Code: CodeTurnInterrupted},
+			"The last message got no reply, send it again if needed.",
+			"Le dernier message est resté sans réponse, renvoie-le si besoin.",
+		},
+		{
+			Notice{Code: CodeUnknownApprovalMode, Args: []Arg{Text("Mode", "yolo")}},
+			"unknown approval mode yolo: ask, accept-edits, plan, auto, bypass or strict",
+			"mode d'approbation inconnu yolo : ask, accept-edits, plan, auto, bypass ou strict",
+		},
+		{
+			Notice{Code: CodeUnsupportedHomeType, Args: []Arg{Text("Type", "forum")}},
+			"home type forum unsupported",
+			"le type de salon d'accueil forum n'est pas pris en charge",
+		},
 	}
 	renderer := NewRenderer()
 	for _, tc := range cases {
