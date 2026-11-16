@@ -495,9 +495,7 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeChannelKindHome`, `CodeInvalidValueHint`, `CodeSessionCloseDirty`, and the
   health codes `CodeHealthConnected`, `CodeHealthSignedInAs`, `CodeHealthNotLoggedIn`,
   `CodeHealthRateLimited`, `CodeHealthCredentialsRefused`, `CodeHealthUnreachable`,
-  `CodeHealthEnvMissing`, `CodeHealthRemedyRun`, `CodeHealthRemedyEnvRestart`, and
-  `CodeTurnInterrupted`, which reports that the last turn of the session was cut
-  short by a daemon stop and that its reply may be incomplete; it takes no argument.
+  `CodeHealthEnvMissing`, `CodeHealthRemedyRun`, and `CodeHealthRemedyEnvRestart`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -550,6 +548,14 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   field. `Notice` is omitted from the JSON when it is nil, so those clients read the
   same format as before. Until the shared form lands, set `Notice` only on a notice
   without arguments: any other notice would reach the gateway without them.
+  The rule for the gateway: when `Notice` is set and `Renderer` renders it, the
+  gateway shows that text; when `Notice` is nil, or `Renderer` refuses it with
+  `ErrUnknownCode` (an unknown code), `ErrNoticeArgs` (malformed arguments) or
+  `ErrMissingMessage` (no English message), the gateway shows `Text`. No helper in
+  contracts makes this choice for a `ScrollbackLine`: each gateway applies the rule.
+- `CodeTurnInterrupted` is a transcript notice, not a health code. It reports that
+  the last turn of the session was cut short by a daemon stop and that its reply may
+  be incomplete. It takes no argument.
 - `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
   fallback instead of the notice. The caller neither retries nor posts the notice
   again through `Degrade`.
