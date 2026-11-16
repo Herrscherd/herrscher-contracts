@@ -496,7 +496,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   health codes `CodeHealthConnected`, `CodeHealthSignedInAs`, `CodeHealthNotLoggedIn`,
   `CodeHealthRateLimited`, `CodeHealthCredentialsRefused`, `CodeHealthUnreachable`,
   `CodeHealthEnvMissing`, `CodeHealthRemedyRun` and `CodeHealthRemedyEnvRestart`, and
-  the account codes `CodeAccountFallback` and `CodeAccountNoQuota`.
+  the account codes `CodeAccountFallback` and `CodeAccountNoQuota`, and the transcript
+  notice code `CodeTurnInterrupted`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -544,7 +545,7 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   not defined here.
 - `ScrollbackLine`, one entry of a session's scrollback as `SessionControl.Scrollback`
   returns it, carries a `Notice` when the entry is a notice rather than a reply, such
-  as `CodeTurnInterrupted` after a daemon stop. The gateway renders `Notice` with
+  as `CodeTurnInterrupted` for a turn that ended without a reply. The gateway renders `Notice` with
   `Renderer` in the session language. `Role` does not tell a notice from a reply.
   `Text` is the fallback for clients that predate the field, and for a notice that
   `Renderer` refuses. `Notice` is omitted from the JSON when it is nil, so those
@@ -557,9 +558,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `ErrMissingMessage` (no English message), or with any other error of `Render`, for
   instance a catalogue that does not load, the gateway shows `Text`. No helper in
   contracts makes this choice for a `ScrollbackLine`: each gateway applies the rule.
-- `CodeTurnInterrupted` is a transcript notice, not a health code. It reports that
-  the last turn of the session was cut short by a daemon stop and that its reply may
-  be incomplete. It takes no argument.
+- `CodeTurnInterrupted` is a transcript notice, not a health code. It reports a
+  session turn that ended without a reply, whatever the cause, and names no cause.
+  It takes no argument.
 - `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
   fallback instead of the notice. The caller neither retries nor posts the notice
   again through `Degrade`.

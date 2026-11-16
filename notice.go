@@ -115,7 +115,7 @@ const (
 	CodeAccountFallback
 	// CodeAccountNoQuota reports that no account of Vendor has quota left, so the session keeps Account.
 	CodeAccountNoQuota
-	// CodeTurnInterrupted reports that the last turn of the session was cut short by a daemon stop and its reply may be incomplete.
+	// CodeTurnInterrupted reports a session turn that ended without a reply.
 	CodeTurnInterrupted
 )
 

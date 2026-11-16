@@ -232,7 +232,7 @@
   },
   {
     "id": "turn.interrupted",
-    "description": "Scrollback notice: the last turn was cut short",
-    "other": "le dernier tour de la session a été interrompu par un arrêt du démon, sa réponse est peut-être incomplète"
+    "description": "Scrollback notice: a turn ended without a reply",
+    "other": "Le dernier message est resté sans réponse, renvoie-le si besoin."
   }
 ]

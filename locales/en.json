@@ -232,7 +232,7 @@
   },
   {
     "id": "turn.interrupted",
-    "description": "Scrollback notice: the last turn was cut short",
-    "other": "the last turn of the session was cut short by a daemon stop, its reply may be incomplete"
+    "description": "Scrollback notice: a turn ended without a reply",
+    "other": "The last message got no reply, send it again if needed."
   }
 ]
