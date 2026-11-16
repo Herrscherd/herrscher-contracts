@@ -564,6 +564,11 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"le type de salon d'accueil forum n'est pas pris en charge",
 		},
 	}
+	listed := make([]Code, 0, len(cases))
+	for _, tc := range cases {
+		listed = append(listed, tc.notice.Code)
+	}
+	assertSameCodes(t, Codes(), listed)
 	renderer := NewRenderer()
 	for _, tc := range cases {
 		if got, err := renderer.Render(i18n.English, tc.notice); err != nil || got != tc.en {
@@ -573,11 +578,6 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			t.Fatalf("fr %q = %q, %v; want %q", tc.notice.Code.Key(), got, err, tc.fr)
 		}
 	}
-	listed := make([]Code, 0, len(cases))
-	for _, tc := range cases {
-		listed = append(listed, tc.notice.Code)
-	}
-	assertSameCodes(t, Codes(), listed)
 }
 
 func assertSameCodes(t *testing.T, want, got []Code) {
