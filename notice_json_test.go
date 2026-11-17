@@ -25,11 +25,7 @@ type notice030 struct {
 	Args []arg030 `json:"Args"`
 }
 
-type arg030 struct {
-	name  string
-	kind  ArgKind
-	value any
-}
+type arg030 struct{}
 
 func sameNotice(got, want Notice) bool {
 	if got.Code != want.Code || len(got.Args) != len(want.Args) {
@@ -88,7 +84,7 @@ func TestArgJSONRoundTripsEveryKind(t *testing.T) {
 				t.Fatalf("wire JSON:\n got %s\nwant %s", raw, tt.want)
 			}
 			var got Arg
-			if err := json.Unmarshal(raw, &got); err != nil {
+			if err = json.Unmarshal(raw, &got); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
 			if got.Name() != tt.arg.Name() || got.Kind() != tt.arg.Kind() || got.Value() != tt.arg.Value() {
@@ -108,7 +104,7 @@ func TestZeroArgJSONStaysMalformed(t *testing.T) {
 		t.Fatalf("zero argument wire JSON:\n got %s\nwant %s", raw, want)
 	}
 	var got Arg
-	if err := json.Unmarshal(raw, &got); err != nil {
+	if err = json.Unmarshal(raw, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	_, err = NewRenderer().Render(i18n.English, Notice{Code: CodeSessionNotFound, Args: []Arg{got}})
@@ -139,7 +135,7 @@ func TestNoticeJSONLiteralsAreFrozen(t *testing.T) {
 				t.Fatalf("wire JSON:\n got %s\nwant %s", raw, tt.want)
 			}
 			var got Notice
-			if err := json.Unmarshal(raw, &got); err != nil {
+			if err = json.Unmarshal(raw, &got); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
 			if !sameNotice(got, tt.notice) {
@@ -166,7 +162,7 @@ func TestNoticeJSONRoundTripRendersTheSameText(t *testing.T) {
 			t.Fatalf("marshal: %v", err)
 		}
 		var decoded Notice
-		if err := json.Unmarshal(raw, &decoded); err != nil {
+		if err = json.Unmarshal(raw, &decoded); err != nil {
 			t.Fatalf("unmarshal: %v", err)
 		}
 		got, err := renderer.Render(i18n.English, decoded)
@@ -274,7 +270,7 @@ func TestNoticeJSONLimitsTheArgumentCount(t *testing.T) {
 		t.Fatalf("marshal %d arguments: %v", maxNoticeArgs, err)
 	}
 	var got Notice
-	if err := json.Unmarshal(raw, &got); err != nil {
+	if err = json.Unmarshal(raw, &got); err != nil {
 		t.Fatalf("unmarshal %d arguments: %v", maxNoticeArgs, err)
 	}
 
@@ -297,7 +293,7 @@ func TestNoticeJSONLimitsTheArgumentSize(t *testing.T) {
 		t.Fatalf("marshal an argument of the limit size: %v", err)
 	}
 	var got Notice
-	if err := json.Unmarshal(raw, &got); err != nil {
+	if err = json.Unmarshal(raw, &got); err != nil {
 		t.Fatalf("unmarshal an argument of the limit size: %v", err)
 	}
 

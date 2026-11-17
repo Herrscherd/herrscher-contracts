@@ -74,34 +74,33 @@ func (a *Arg) UnmarshalJSON(data []byte) error {
 	if len(frame.Value) > maxNoticeArgBytes {
 		return fmt.Errorf("argument %q: %w", frame.Name, ErrNoticeLimit)
 	}
-	kind := ArgKind(frame.Kind)
-	value, err := decodeArgValue(kind, frame.Value)
-	if err != nil {
+	decoded := Arg{name: frame.Name, kind: ArgKind(frame.Kind)}
+	if err := decoded.decodeValue(frame.Value); err != nil {
 		return fmt.Errorf("argument %q: %w", frame.Name, err)
 	}
-	*a = Arg{name: frame.Name, kind: kind, value: value}
+	*a = decoded
 	return nil
 }
 
-func decodeArgValue(kind ArgKind, raw json.RawMessage) (any, error) {
+func (a *Arg) decodeValue(raw json.RawMessage) error {
 	if len(raw) == 0 {
-		return nil, nil
+		return nil
 	}
-	switch kind {
+	switch a.kind {
 	case ArgText, ArgRef:
 		var text string
 		if err := json.Unmarshal(raw, &text); err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrNoticeArgs, err)
+			return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
 		}
-		return text, nil
+		a.value = text
 	case ArgCount:
 		var count int
 		if err := json.Unmarshal(raw, &count); err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrNoticeArgs, err)
+			return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
 		}
-		return count, nil
+		a.value = count
 	}
-	return nil, nil
+	return nil
 }
 
 func decodeNoticeArgs(raw json.RawMessage) ([]Arg, error) {
