@@ -560,10 +560,20 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   shows `Text`. No helper in contracts makes this choice for a `ScrollbackLine`:
   each gateway applies the rule.
 - `ScrollbackLine.TurnID` carries the id of the turn that produced the entry, the
-  same id as `Event.TurnID`, so a gateway can tell a replayed entry from a live event
-  that repeats its text. It is omitted from the JSON when empty, so a line written
-  before the field existed reads with an empty `TurnID`, and a gateway falls back to
-  comparing `Role` and `Text` for that line.
+  same value as `Event.TurnID`. A turn produces several lines: a `user` line, an
+  `assistant` reply, or the `notice` of `CodeTurnInterrupted` for a turn that got no
+  reply. A `TurnID` alone therefore does not identify a line: the key that does is the
+  pair (`TurnID`, `Role`), and a gateway must compare both when it matches a replayed
+  line with a live event. If one turn yields two lines of the same role, the pair does
+  not separate them either: the gateway matches them in order, so the k-th replayed
+  line with a given (`TurnID`, `Role`) corresponds to the k-th live event with that pair.
+- The key is `TurnID` in JSON, not `turn_id` as on `Event`, on purpose.
+  `ScrollbackLine` keys every field by its Go name (`Role`, `Text`, `Notice`), a
+  convention pinned by `TestScrollbackLineJSONKeepsGoFieldNames`, while `Event` keys its
+  fields in snake_case. A client maps the event's `turn_id` onto the line's `TurnID`.
+- `TurnID` is omitted from the JSON when empty. An entry that no turn produced, and a
+  line written before the field existed, both read with an empty `TurnID`. For such a
+  line a gateway falls back to comparing `Role` and `Text`.
 - `CodeTurnInterrupted` is a transcript notice, not a health code. It reports a
   session turn that ended without a reply, whatever the cause, and names no cause.
   It takes no argument.

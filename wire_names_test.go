@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 	"time"
 
@@ -125,6 +126,22 @@ func TestScrollbackLineTurnIDJSONRoundTrip(t *testing.T) {
 		err := json.Unmarshal(raw, &got)
 		if err == nil && got != want {
 			t.Fatalf("ScrollbackLine decoded to %+v, want %+v", got, want)
+		}
+		return got, err
+	})
+}
+
+func TestScrollbackLinesOfOneTurnKeepTheirRoles(t *testing.T) {
+	want := []ScrollbackLine{
+		{Role: "user", Text: "bonjour", TurnID: "turn-8f31"},
+		{Role: "assistant", Text: "salut", TurnID: "turn-8f31"},
+	}
+	const wantJSON = `[{"Role":"user","Text":"bonjour","TurnID":"turn-8f31"},{"Role":"assistant","Text":"salut","TurnID":"turn-8f31"}]`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got []ScrollbackLine
+		err := json.Unmarshal(raw, &got)
+		if err == nil && !slices.Equal(got, want) {
+			t.Fatalf("lines of one turn decoded to %+v, want %+v", got, want)
 		}
 		return got, err
 	})
