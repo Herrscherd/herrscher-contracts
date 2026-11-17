@@ -131,7 +131,7 @@ func TestScrollbackLineTurnIDJSONRoundTrip(t *testing.T) {
 	})
 }
 
-func TestScrollbackLinesOfOneTurnKeepTheirRoles(t *testing.T) {
+func TestScrollbackLinesOfOneTurnRoundTripWithTheirRoles(t *testing.T) {
 	want := []ScrollbackLine{
 		{Role: "user", Text: "bonjour", TurnID: "turn-8f31"},
 		{Role: "assistant", Text: "salut", TurnID: "turn-8f31"},

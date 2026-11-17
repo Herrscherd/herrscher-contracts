@@ -560,13 +560,19 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   shows `Text`. No helper in contracts makes this choice for a `ScrollbackLine`:
   each gateway applies the rule.
 - `ScrollbackLine.TurnID` carries the id of the turn that produced the entry, the
-  same value as `Event.TurnID`. A turn produces several lines: a `user` line, an
-  `assistant` reply, or the `notice` of `CodeTurnInterrupted` for a turn that got no
-  reply. A `TurnID` alone therefore does not identify a line: the key that does is the
-  pair (`TurnID`, `Role`), and a gateway must compare both when it matches a replayed
-  line with a live event. If one turn yields two lines of the same role, the pair does
-  not separate them either: the gateway matches them in order, so the k-th replayed
-  line with a given (`TurnID`, `Role`) corresponds to the k-th live event with that pair.
+  same value as `Event.TurnID`. One turn produces several lines (a `user` line, one or
+  more `assistant` replies, or the `notice` of `CodeTurnInterrupted`), and neither
+  `Event` nor `ScrollbackLine` records a position within the turn. So a `TurnID` does
+  not identify a line, and a `(TurnID, Role)` pair does not either. A gateway that
+  replays a scrollback and then receives live events for the same session matches them
+  with this rule, comparing whole lines on (`TurnID`, `Role`, `Text`):
+  1. Find the longest suffix of the scrollback that equals a prefix of the live
+     events, line by line.
+  2. Discard that prefix of the live events: the scrollback already shows it.
+  3. For a line whose `TurnID` is empty, compare `Role` and `Text` only.
+  The rule needs no rank within the turn: `assistant a3` arriving live after the
+  scrollback held `user q`, `assistant a1` and `assistant a2` matches nothing in the
+  suffix, so it is shown.
 - The key is `TurnID` in JSON, not `turn_id` as on `Event`, on purpose.
   `ScrollbackLine` keys every field by its Go name (`Role`, `Text`, `Notice`), a
   convention pinned by `TestScrollbackLineJSONKeepsGoFieldNames`, while `Event` keys its
