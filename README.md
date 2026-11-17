@@ -578,14 +578,19 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   reporting a host error, becomes one `assistant` line that carries the event's
   `TurnID`. No other event becomes a line: a `chunk` event is a piece of a stream and
   never a line. Only lines produced this way are matched against the scrollback.
-- Lines without a `TurnID` are a residual. A scrollback line with an empty `TurnID`
-  compares on (`Role`, `Text`) alone, so a live `assistant` line with the same text and
-  a `TurnID` is discarded as a repeat, even when it is a new reply. For example, with a
-  scrollback of `assistant "ok"` without a `TurnID`, a live `assistant "ok"` with
-  `TurnID` T1 is discarded. This is kept on purpose: the scrollback can hold lines from
-  before the field existed, and the gateway cannot tell those apart from a repeat. It
-  lasts as long as lines without a `TurnID` remain in the scrollback. Once none remain,
-  the comparison uses the full triplet only.
+- An empty `TurnID` on either side is a residual. When a scrollback line or a live
+  `reply` has no `TurnID`, the comparison falls back to (`Role`, `Text`), so a live
+  `assistant` line with the same text as a scrollback line is discarded as a repeat,
+  even when it is a new reply. There are two cases:
+  - A scrollback line without a `TurnID`, for example `assistant "ok"`, followed by a
+    live `assistant "ok"` with `TurnID` T1: the live line is discarded. This is kept on
+    purpose: the scrollback can hold lines from before the field existed, and the
+    gateway cannot tell those apart from a repeat. It lasts as long as lines without a
+    `TurnID` remain in the scrollback.
+  - A live `reply` without a `TurnID`, for example `assistant "ok"`, after a scrollback
+    of `assistant "ok"` with `TurnID` T0: the live line is discarded. `Event.TurnID` is
+    omitted when empty, so the contract guarantees nothing here. This case does not end
+    with the scrollback: it lasts until the emitter sets a `TurnID` on every `reply`.
 - The key is `TurnID` in JSON, not `turn_id` as on `Event`, on purpose.
   `ScrollbackLine` keys every field by its Go name (`Role`, `Text`, `Notice`), a
   convention pinned by `TestScrollbackLineJSONKeepsGoFieldNames`, while `Event` keys its
