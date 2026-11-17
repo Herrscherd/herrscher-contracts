@@ -75,14 +75,14 @@ func (a *Arg) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("argument %q: %w", frame.Name, ErrNoticeLimit)
 	}
 	decoded := Arg{name: frame.Name, kind: ArgKind(frame.Kind)}
-	if err := decoded.decodeValue(frame.Value); err != nil {
+	if err := decodeValue(&decoded, frame.Value); err != nil {
 		return fmt.Errorf("argument %q: %w", frame.Name, err)
 	}
 	*a = decoded
 	return nil
 }
 
-func (a *Arg) decodeValue(raw json.RawMessage) error {
+func decodeValue(a *Arg, raw json.RawMessage) error {
 	if len(raw) == 0 {
 		return nil
 	}
