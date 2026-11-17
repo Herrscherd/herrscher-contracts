@@ -13,6 +13,7 @@ var ErrNoticeLimit = errors.New("notice exceeds the wire limits")
 const (
 	maxNoticeArgs      = 16
 	maxNoticeArgBytes  = 1 << 16
+	maxNoticeRawBytes  = 4 * maxNoticeArgBytes
 	maxNoticeNameBytes = 256
 )
 
@@ -118,6 +119,9 @@ func decodeValue(arg *Arg, raw json.RawMessage) error {
 			return fmt.Errorf("%w: a value is required for kind %d", ErrNoticeArgs, arg.kind)
 		}
 		return nil
+	}
+	if len(raw) > maxNoticeRawBytes {
+		return fmt.Errorf("value of %d raw bytes is longer than %d: %w", len(raw), maxNoticeRawBytes, ErrNoticeLimit)
 	}
 	switch arg.kind {
 	case ArgText, ArgRef:

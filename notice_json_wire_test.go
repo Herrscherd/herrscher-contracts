@@ -136,3 +136,53 @@ func TestNoticeJSONSyntaxErrorIsNotAShapeError(t *testing.T) {
 		t.Fatalf("a wrong JSON type: err = %v, want ErrNoticeArgs", err)
 	}
 }
+
+func TestNoticeJSONLimitsTheNameOnItsDecodedBytes(t *testing.T) {
+	withName := func(name string) string {
+		return `{"code":1,"args":[{"name":"` + name + `","kind":1,"value":"lead"}]}`
+	}
+	accepted := strings.Repeat("<", 256)
+	refused := strings.Repeat("<", 257)
+
+	var got Notice
+	if err := json.Unmarshal([]byte(withName(accepted)), &got); err != nil {
+		t.Fatalf("unmarshal a name of 256 bytes: %v", err)
+	}
+	if err := json.Unmarshal([]byte(withName(refused)), &got); !errors.Is(err, ErrNoticeLimit) {
+		t.Fatalf("unmarshal a name of 257 bytes: err = %v, want ErrNoticeLimit", err)
+	}
+	if _, err := json.Marshal(Text(accepted, "lead")); err != nil {
+		t.Fatalf("marshal a name of 256 bytes: %v", err)
+	}
+	if _, err := json.Marshal(Text(refused, "lead")); !errors.Is(err, ErrNoticeLimit) {
+		t.Fatalf("marshal a name of 257 bytes: err = %v, want ErrNoticeLimit", err)
+	}
+}
+
+func TestNoticeJSONLimitsTheRawValueBeforeItsCopy(t *testing.T) {
+	raw := `{"code":1,"args":[{"name":"Detail","kind":9,"value":` + strings.Repeat(" ", maxNoticeRawBytes+1) + `"x"}]}`
+	var got Notice
+	if err := json.Unmarshal([]byte(raw), &got); !errors.Is(err, ErrNoticeLimit) {
+		t.Fatalf("unmarshal a value of %d raw bytes: err = %v, want ErrNoticeLimit", maxNoticeRawBytes+1, err)
+	}
+}
+
+func TestNoticeJSONAcceptsTheEdgeOfTheValueSize(t *testing.T) {
+	const onEdge = 10922
+	const overEdge = 10923
+	raw := `{"code":1,"args":[{"name":"Detail","kind":1,"value":"` + strings.Repeat("<", onEdge) + `"}]}`
+	want := `{"code":1,"args":[{"name":"Detail","kind":1,"value":"` + strings.ReplaceAll(strings.Repeat("<", onEdge), "<", "\\u003c") + `"}]}`
+	assertWireRoundTrip(t, raw, want)
+	if _, err := json.Marshal(Text("Detail", strings.Repeat("<", onEdge))); err != nil {
+		t.Fatalf("marshal %d angle brackets: %v", onEdge, err)
+	}
+
+	tooLarge := `{"code":1,"args":[{"name":"Detail","kind":1,"value":"` + strings.Repeat("<", overEdge) + `"}]}`
+	var got Notice
+	if err := json.Unmarshal([]byte(tooLarge), &got); !errors.Is(err, ErrNoticeLimit) {
+		t.Fatalf("unmarshal %d angle brackets: err = %v, want ErrNoticeLimit", overEdge, err)
+	}
+	if _, err := json.Marshal(Text("Detail", strings.Repeat("<", overEdge))); !errors.Is(err, ErrNoticeLimit) {
+		t.Fatalf("marshal %d angle brackets: err = %v, want ErrNoticeLimit", overEdge, err)
+	}
+}
