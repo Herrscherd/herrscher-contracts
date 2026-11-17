@@ -585,8 +585,12 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   - A scrollback line without a `TurnID`, for example `assistant "ok"`, followed by a
     live `assistant "ok"` with `TurnID` T1: the live line is discarded. This is kept on
     purpose: the scrollback can hold lines from before the field existed, and the
-    gateway cannot tell those apart from a repeat. It lasts as long as lines without a
-    `TurnID` remain in the scrollback.
+    gateway cannot tell those apart from a repeat. It applies only while such a line is
+    among the last lines of the scrollback that the live batch aligns with. For example,
+    with a scrollback of `user "q"` with `TurnID` T0 followed by `assistant "ok"`
+    without a `TurnID`, the live `assistant "ok"` with `TurnID` T1 is discarded; with a
+    scrollback of `assistant "ok"` without a `TurnID` followed by `user "q"` with
+    `TurnID` T0, the same live line is shown.
   - A live `reply` without a `TurnID`, for example `assistant "ok"`, after a scrollback
     of `assistant "ok"` with `TurnID` T0: the live line is discarded. `Event.TurnID` is
     omitted when empty, so the contract guarantees nothing here. This case does not end
