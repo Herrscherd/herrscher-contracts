@@ -159,12 +159,18 @@ func TestNoticeJSONLimitsTheNameOnItsDecodedBytes(t *testing.T) {
 	}
 }
 
-func TestNoticeJSONLimitsTheRawValueBeforeItsCopy(t *testing.T) {
-	raw := `{"code":1,"args":[{"name":"Detail","kind":9,"value":` + strings.Repeat(" ", maxNoticeRawBytes+1) + `"x"}]}`
+func TestNoticeJSONLimitsTheRawValueBeforeCompaction(t *testing.T) {
+	raw := `{"code":1,"args":[{"name":"Detail","kind":9,"value":[` + strings.Repeat(" ", maxNoticeRawBytes+1) + `1]}]}`
 	var got Notice
 	if err := json.Unmarshal([]byte(raw), &got); !errors.Is(err, ErrNoticeLimit) {
 		t.Fatalf("unmarshal a value of %d raw bytes: err = %v, want ErrNoticeLimit", maxNoticeRawBytes+1, err)
 	}
+}
+
+func TestNoticeJSONCompactsInternalSpacesUnderTheRawCap(t *testing.T) {
+	raw := `{"code":1,"args":[{"name":"Detail","kind":9,"value":[` + strings.Repeat(" ", 1000) + `1]}]}`
+	want := `{"code":1,"args":[{"name":"Detail","kind":9,"value":[1]}]}`
+	assertWireRoundTrip(t, raw, want)
 }
 
 func TestNoticeJSONAcceptsTheEdgeOfTheValueSize(t *testing.T) {
