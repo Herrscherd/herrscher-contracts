@@ -548,11 +548,12 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   in their escaped form (`\u003c`, `\u003e` and `\u0026`), as `encoding/json` does.
   `Renderer` refuses such an argument. A `null` argument, an argument that is not an
   object, a name or a kind of the wrong type, a kind outside `uint8`, a code outside
-  `uint16` and an argument list that is not a list are all refused with `ErrNoticeArgs`. A malformed JSON text is not a shape error: it is returned
-  as the `*json.SyntaxError` of `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is false
-  for it. A `null` notice changes nothing, as in v0.30.0: decoding it into a `Notice`
-  leaves the `Notice` as it was. A `null` argument is refused with `ErrNoticeArgs`, since an
-  argument has no absent value.
+  `uint16` and an argument list that is not a list are all refused with `ErrNoticeArgs`. A
+  malformed JSON text is not a shape error: it is returned as the `*json.SyntaxError` of
+  `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is false for it. A `null` notice
+  changes nothing, as in v0.30.0: decoding it into a `Notice` leaves the `Notice` as it
+  was. A `null` argument is refused with `ErrNoticeArgs`, since an argument has no absent
+  value.
   A notice takes at most 16 arguments and a name at most 256 bytes of the decoded name, not
   of its escaped form. A value takes at most 64 KiB of JSON as it is encoded, and the raw
   JSON of a value is refused above 256 KiB before it is compacted. `encoding/json` reads the
