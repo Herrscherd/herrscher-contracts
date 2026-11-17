@@ -104,6 +104,19 @@ func TestScrollbackLineJSONKeepsGoFieldNames(t *testing.T) {
 	})
 }
 
+func TestScrollbackNoticeJSONKeepsCode(t *testing.T) {
+	want := ScrollbackLine{Role: "notice", Text: "The last message got no reply, send it again if needed.", Notice: &Notice{Code: CodeTurnInterrupted}}
+	const wantJSON = `{"Role":"notice","Text":"The last message got no reply, send it again if needed.","Notice":{"Code":47,"Args":null}}`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got ScrollbackLine
+		err := json.Unmarshal(raw, &got)
+		if err == nil && (got.Notice == nil || got.Notice.Code != CodeTurnInterrupted || got.Notice.Args != nil) {
+			t.Fatalf("ScrollbackLine notice decoded to %+v, want %+v", got.Notice, want.Notice)
+		}
+		return got, err
+	})
+}
+
 func TestLocationJSONKeepsGoFieldNames(t *testing.T) {
 	want := Location{Obsidian: "obsidian://open?vault=herrscher", File: "/vault/n.md"}
 	const wantJSON = `{"Obsidian":"obsidian://open?vault=herrscher","File":"/vault/n.md"}`

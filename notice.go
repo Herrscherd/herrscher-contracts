@@ -115,6 +115,8 @@ const (
 	CodeAccountFallback
 	// CodeAccountNoQuota reports that no account of Vendor has quota left, so the session keeps Account.
 	CodeAccountNoQuota
+	// CodeTurnInterrupted reports a session turn that ended without a reply.
+	CodeTurnInterrupted
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -134,7 +136,7 @@ func Codes() []Code {
 		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint, CodeSessionCloseDirty,
 		CodeHealthConnected, CodeHealthSignedInAs, CodeHealthNotLoggedIn, CodeHealthRateLimited, CodeHealthCredentialsRefused,
 		CodeHealthUnreachable, CodeHealthEnvMissing, CodeHealthRemedyRun, CodeHealthRemedyEnvRestart,
-		CodeAccountFallback, CodeAccountNoQuota,
+		CodeAccountFallback, CodeAccountNoQuota, CodeTurnInterrupted,
 	}
 }
 
@@ -234,6 +236,8 @@ func (c Code) Key() string {
 		return "account.fallback"
 	case CodeAccountNoQuota:
 		return "account.no_quota"
+	case CodeTurnInterrupted:
+		return "turn.interrupted"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -253,7 +257,7 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	case CodeAddressPlaintextRefused:
 		return map[string]ArgKind{"Address": ArgText}, true
 	case CodeNodeMerged, CodeCompacted,
-		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread:
+		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread, CodeTurnInterrupted:
 		return nil, true
 	case CodeSessionLimit:
 		return map[string]ArgKind{countName: ArgCount}, true
@@ -300,8 +304,8 @@ func (c Code) params() (map[string]ArgKind, bool) {
 // Arg is built only by Text, Count or Ref, so a notice cannot carry a value its
 // text cannot show.
 type Notice struct {
-	Code Code
-	Args []Arg
+	Code Code  `json:"Code"`
+	Args []Arg `json:"Args"`
 }
 
 // ArgKind is the closed set of argument kinds. The zero value is not a kind.

@@ -75,12 +75,11 @@ type RepoRef struct {
 	Local       bool
 }
 
-// ScrollbackLine is one replayed transcript entry, carried across the seam so a
-// gateway (the terminal TUI) can repaint history without reading the state dir
-// (which lives behind the core's internal packages).
+// ScrollbackLine is one replayed transcript entry: its Notice when Renderer renders it, otherwise Text.
 type ScrollbackLine struct {
-	Role string `json:"Role"`
-	Text string `json:"Text"`
+	Role   string  `json:"Role"`
+	Text   string  `json:"Text"`
+	Notice *Notice `json:"Notice,omitempty"`
 }
 
 // CreateSession is the typed spec for SessionControl.Create. The structured

@@ -229,5 +229,10 @@
     "id": "account.no_quota",
     "description": "Account fallback notice",
     "other": "aucun compte {{.Vendor}} n'a de quota disponible, la session garde {{.Account}}"
+  },
+  {
+    "id": "turn.interrupted",
+    "description": "Scrollback notice: a turn ended without a reply",
+    "other": "Le dernier message est resté sans réponse, renvoie-le si besoin."
   }
 ]
