@@ -106,7 +106,7 @@ func TestScrollbackLineJSONKeepsGoFieldNames(t *testing.T) {
 
 func TestScrollbackNoticeJSONKeepsCode(t *testing.T) {
 	want := ScrollbackLine{Role: "notice", Text: "The last message got no reply, send it again if needed.", Notice: &Notice{Code: CodeTurnInterrupted}}
-	const wantJSON = `{"Role":"notice","Text":"The last message got no reply, send it again if needed.","Notice":{"Code":47,"Args":null}}`
+	const wantJSON = `{"Role":"notice","Text":"The last message got no reply, send it again if needed.","Notice":{"code":47}}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got ScrollbackLine
 		err := json.Unmarshal(raw, &got)

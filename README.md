@@ -535,14 +535,24 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   compaction that cannot run. It sits inside a sentence, so a gateway must
   neutralise it like every other `Text` argument. The Discord gateway does so from
   v0.24.0 on, for each `Text` of a notice.
-- `Notice` has no wire form of its own yet. `encoding/json` writes `Code` as its
-  number and `Args` as a list, but `Arg` keeps its fields private and so encodes as
-  `{}`: the arguments of a notice do not survive a JSON round trip. A notice without
-  arguments, such as `CodeTurnInterrupted`, comes back exact. Compaction notices cross
-  herrscher through compactwire (lowercase keys `code`, `args`, `name`, `kind`,
-  `value`), but the `session scrollback` command still marshals the scrollback with
-  `encoding/json`. The shared form, owned by contracts and aligned on compactwire, is
-  not defined here.
+- `Notice` and `Arg` have a JSON form owned by contracts, the form compactwire uses
+  for a compaction notice. A notice without arguments is `{"code":47}`, such as
+  `CodeTurnInterrupted`. Otherwise it is `{"code":1,"args":[{"name":"Name","kind":1,"value":"lead"}]}`,
+  where `kind` is 1 for `Text`, 2 for `Count` and 3 for `Ref`, and `Arg` encodes alone
+  in the same shape. The decoder reads that form and the v0.30.0 form
+  (`{"Code":1,"Args":[{}]}`), ignores unknown fields, keeps a code outside `Codes` for
+  `Renderer` to refuse, and refuses a value of the wrong JSON type with `ErrNoticeArgs`.
+  A notice takes at most 16 arguments and a value at most 64 KiB of JSON. A notice that
+  goes beyond either limit is refused with `ErrNoticeLimit`, when it is encoded and when
+  it is decoded.
+- Compatibility with v0.30.0. `encoding/json` matches keys case-insensitively, so a
+  v0.30.0 client reads `code` and `args` into its `Code` and `Args`. A notice without
+  arguments comes back exact. A notice with arguments keeps its code and its number of
+  arguments, but each argument is an empty `Arg`, as v0.30.0 already produces: `Renderer`
+  refuses it with `ErrNoticeArgs` when its code has parameters, and renders a code without
+  parameters as before. compactwire keeps its own frame in herrscher and is unchanged by
+  this version; its bytes match the `Notice` JSON, except for code 0, which compactwire
+  encodes as the empty string.
 - `ScrollbackLine`, one entry of a session's scrollback as
   `SessionControl.Scrollback` returns it, carries a `Notice` when the entry is a
   notice rather than a reply, such as `CodeTurnInterrupted` for a turn that ended
@@ -550,9 +560,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   language. `Role` does not tell a notice from a reply. `Text` is the fallback for
   clients that predate the field, and for a notice that `Renderer` refuses. `Notice`
   is omitted from the JSON when it is nil, so those clients read the same format as
-  before. Until the shared form lands, set `Notice` only on a notice without
-  arguments: any other notice would reach the gateway, and the `session scrollback`
-  command, without them. The rule for the gateway: when `Notice` is set and
+  before. A notice with arguments reaches the gateway, and the `session scrollback`
+  command, with them, in the form described above. The rule for the gateway: when `Notice` is set and
   `Renderer` renders it, the gateway shows that text; when `Notice` is nil, or
   `Renderer` refuses it with `ErrUnknownCode` (an unknown code), `ErrNoticeArgs`
   (malformed arguments) or `ErrMissingMessage` (no English message), or with any
