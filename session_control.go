@@ -80,6 +80,7 @@ type ScrollbackLine struct {
 	Role   string  `json:"Role"`
 	Text   string  `json:"Text"`
 	Notice *Notice `json:"Notice,omitempty"`
+	TurnID string  `json:"TurnID,omitempty"`
 }
 
 // CreateSession is the typed spec for SessionControl.Create. The structured

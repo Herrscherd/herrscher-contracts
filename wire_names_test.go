@@ -117,6 +117,37 @@ func TestScrollbackNoticeJSONKeepsCode(t *testing.T) {
 	})
 }
 
+func TestScrollbackLineTurnIDJSONRoundTrip(t *testing.T) {
+	want := ScrollbackLine{Role: "assistant", Text: "ok", TurnID: "turn-8f31"}
+	const wantJSON = `{"Role":"assistant","Text":"ok","TurnID":"turn-8f31"}`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got ScrollbackLine
+		err := json.Unmarshal(raw, &got)
+		if err == nil && got != want {
+			t.Fatalf("ScrollbackLine decoded to %+v, want %+v", got, want)
+		}
+		return got, err
+	})
+}
+
+func TestScrollbackLineWithoutTurnIDJSON(t *testing.T) {
+	const oldJSON = `{"Role":"user","Text":"hello"}`
+	var got ScrollbackLine
+	if err := json.Unmarshal([]byte(oldJSON), &got); err != nil {
+		t.Fatalf("unmarshal old format: %v", err)
+	}
+	if got.TurnID != "" {
+		t.Fatalf("TurnID = %q from a line without the field, want the zero value", got.TurnID)
+	}
+	again, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(again) != oldJSON {
+		t.Fatalf("old format re-marshalled as %s, want %s", again, oldJSON)
+	}
+}
+
 func TestLocationJSONKeepsGoFieldNames(t *testing.T) {
 	want := Location{Obsidian: "obsidian://open?vault=herrscher", File: "/vault/n.md"}
 	const wantJSON = `{"Obsidian":"obsidian://open?vault=herrscher","File":"/vault/n.md"}`

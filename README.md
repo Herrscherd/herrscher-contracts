@@ -559,6 +559,11 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   other error of `Render`, for instance a catalogue that does not load, the gateway
   shows `Text`. No helper in contracts makes this choice for a `ScrollbackLine`:
   each gateway applies the rule.
+- `ScrollbackLine.TurnID` carries the id of the turn that produced the entry, the
+  same id as `Event.TurnID`, so a gateway can tell a replayed entry from a live event
+  that repeats its text. It is omitted from the JSON when empty, so a line written
+  before the field existed reads with an empty `TurnID`, and a gateway falls back to
+  comparing `Role` and `Text` for that line.
 - `CodeTurnInterrupted` is a transcript notice, not a health code. It reports a
   session turn that ended without a reply, whatever the cause, and names no cause.
   It takes no argument.
