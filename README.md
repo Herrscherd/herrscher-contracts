@@ -567,19 +567,31 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   replays a scrollback and then receives live events for the same session matches them
   with this rule, comparing whole lines on (`TurnID`, `Role`, `Text`):
   1. Find the longest suffix of the scrollback that equals a prefix of the live
-     events, line by line.
-  2. Discard that prefix of the live events: the scrollback already shows it.
-  3. For a line whose `TurnID` is empty, compare `Role` and `Text` only.
+     lines, line by line.
+  2. Discard that prefix of the live lines: the scrollback already shows it.
+  3. When either side of a comparison has an empty `TurnID`, compare `Role` and
+     `Text` only.
   The rule needs no rank within the turn: `assistant a3` arriving live after the
   scrollback held `user q`, `assistant a1` and `assistant a2` matches nothing in the
   suffix, so it is shown.
+- Live events become lines as follows. A `reply` event with non-empty text, and not
+  reporting a host error, becomes one `assistant` line that carries the event's
+  `TurnID`. No other event becomes a line: a `chunk` event is a piece of a stream and
+  never a line. Only lines produced this way are matched against the scrollback.
+- Lines without a `TurnID` are a residual. A scrollback line with an empty `TurnID`
+  compares on (`Role`, `Text`) alone, so a live `assistant` line with the same text and
+  a `TurnID` is discarded as a repeat, even when it is a new reply. For example, with a
+  scrollback of `assistant "ok"` without a `TurnID`, a live `assistant "ok"` with
+  `TurnID` T1 is discarded. This is kept on purpose: the scrollback can hold lines from
+  before the field existed, and the gateway cannot tell those apart from a repeat. It
+  lasts as long as lines without a `TurnID` remain in the scrollback. Once none remain,
+  the comparison uses the full triplet only.
 - The key is `TurnID` in JSON, not `turn_id` as on `Event`, on purpose.
   `ScrollbackLine` keys every field by its Go name (`Role`, `Text`, `Notice`), a
   convention pinned by `TestScrollbackLineJSONKeepsGoFieldNames`, while `Event` keys its
   fields in snake_case. A client maps the event's `turn_id` onto the line's `TurnID`.
 - `TurnID` is omitted from the JSON when empty. An entry that no turn produced, and a
-  line written before the field existed, both read with an empty `TurnID`. For such a
-  line a gateway falls back to comparing `Role` and `Text`.
+  line written before the field existed, both read with an empty `TurnID`.
 - `CodeTurnInterrupted` is a transcript notice, not a health code. It reports a
   session turn that ended without a reply, whatever the cause, and names no cause.
   It takes no argument.
