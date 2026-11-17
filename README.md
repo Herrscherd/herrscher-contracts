@@ -544,8 +544,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `Renderer` to refuse. A value of kind 1 to 3 that is absent, `null` or of the wrong JSON
   type is refused with `ErrNoticeArgs`; `null` is reserved for the zero argument (kind 0).
   A value whose kind is unknown is kept as its JSON, and it encodes back in an equivalent
-  compact form: spaces are removed, and `<`, `>` and `&` are escaped as `<`, `>`
-  and `&`, as `encoding/json` does. `Renderer` refuses such an argument. A `null`
+  compact form: spaces are removed, and the HTML characters `<`, `>` and `&` are written
+  in their Unicode form (U+003C, U+003E and U+0026), as `encoding/json` does. `Renderer` refuses such an argument. A `null`
   argument, an argument that is not an object, a name or a kind of the wrong type, a kind
   outside `uint8`, a code outside `uint16` and an argument list that is not a list are all
   refused with `ErrNoticeArgs`. A malformed JSON text is not a shape error: it is returned

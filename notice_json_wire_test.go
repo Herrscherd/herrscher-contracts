@@ -1,13 +1,42 @@
 package contracts
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 )
 
-func TestNoticeJSONRoundTripsOrRefusesAtTheWireSize(t *testing.T) {
+func assertWireRoundTrip(t *testing.T, raw, want string) {
+	t.Helper()
+	var got Notice
+	if err := json.Unmarshal([]byte(raw), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	first, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(first) != want {
+		t.Fatalf("encoded:\n got %s\nwant %s", first, want)
+	}
+	var again Notice
+	if err = json.Unmarshal(first, &again); err != nil {
+		t.Fatalf("unmarshal own output: %v", err)
+	}
+	second, err := json.Marshal(again)
+	if err != nil {
+		t.Fatalf("marshal again: %v", err)
+	}
+	if !bytes.Equal(second, first) {
+		t.Fatalf("second encoding:\n got %s\nwant %s", second, first)
+	}
+}
+
+func TestNoticeJSONRoundTripsWithinTheWireSize(t *testing.T) {
+	escapedAngles := strings.ReplaceAll(strings.Repeat("<", 9000), "<", "\\u003c")
+	escapedAmpersands := strings.ReplaceAll(strings.Repeat("&", 9000), "&", "\\u0026")
 	tests := []struct {
 		name string
 		raw  string
@@ -16,12 +45,12 @@ func TestNoticeJSONRoundTripsOrRefusesAtTheWireSize(t *testing.T) {
 		{
 			name: "text of angle brackets within the limit once escaped",
 			raw:  `{"code":1,"args":[{"name":"Detail","kind":1,"value":"` + strings.Repeat("<", 9000) + `"}]}`,
-			want: `{"code":1,"args":[{"name":"Detail","kind":1,"value":"` + strings.Repeat(`<`, 9000) + `"}]}`,
+			want: `{"code":1,"args":[{"name":"Detail","kind":1,"value":"` + escapedAngles + `"}]}`,
 		},
 		{
 			name: "unknown kind of ampersands within the limit once escaped",
 			raw:  `{"code":1,"args":[{"name":"Detail","kind":9,"value":"` + strings.Repeat("&", 9000) + `"}]}`,
-			want: `{"code":1,"args":[{"name":"Detail","kind":9,"value":"` + strings.Repeat(`&`, 9000) + `"}]}`,
+			want: `{"code":1,"args":[{"name":"Detail","kind":9,"value":"` + escapedAmpersands + `"}]}`,
 		},
 		{
 			name: "unknown kind with internal spaces",
@@ -31,28 +60,7 @@ func TestNoticeJSONRoundTripsOrRefusesAtTheWireSize(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var got Notice
-			if err := json.Unmarshal([]byte(tt.raw), &got); err != nil {
-				t.Fatalf("unmarshal: %v", err)
-			}
-			first, err := json.Marshal(got)
-			if err != nil {
-				t.Fatalf("marshal: %v", err)
-			}
-			if string(first) != tt.want {
-				t.Fatalf("encoded:\n got %s\nwant %s", first, tt.want)
-			}
-			var again Notice
-			if err = json.Unmarshal(first, &again); err != nil {
-				t.Fatalf("unmarshal own output: %v", err)
-			}
-			second, err := json.Marshal(again)
-			if err != nil {
-				t.Fatalf("marshal again: %v", err)
-			}
-			if string(second) != string(first) {
-				t.Fatalf("second encoding:\n got %s\nwant %s", second, first)
-			}
+			assertWireRoundTrip(t, tt.raw, tt.want)
 		})
 	}
 }

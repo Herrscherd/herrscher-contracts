@@ -16,6 +16,8 @@ const (
 	maxNoticeNameBytes = 256
 )
 
+const jsonNull = "null"
+
 type argWire struct {
 	Name  string          `json:"name"`
 	Kind  uint8           `json:"kind"`
@@ -42,7 +44,7 @@ func (n Notice) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON reads the form MarshalJSON writes and the capitalised v0.30.0 form; null leaves the notice unchanged, as in v0.30.0.
 func (n *Notice) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+	if string(data) == jsonNull {
 		return nil
 	}
 	var envelope noticeWireIn
@@ -71,7 +73,7 @@ func (a Arg) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON reads an argument; a null argument, a wrong JSON type or a malformed shape is refused with ErrNoticeArgs.
 func (a *Arg) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+	if string(data) == jsonNull {
 		return fmt.Errorf("notice argument is null: %w", ErrNoticeArgs)
 	}
 	var frame argWire
@@ -137,7 +139,7 @@ func decodeValue(arg *Arg, raw json.RawMessage) error {
 }
 
 func isNullOrAbsent(raw []byte) bool {
-	return len(raw) == 0 || string(raw) == "null"
+	return len(raw) == 0 || string(raw) == jsonNull
 }
 
 func decodeNoticeArgs(raw json.RawMessage) ([]Arg, error) {
