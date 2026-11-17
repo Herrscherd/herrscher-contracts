@@ -559,6 +559,48 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   other error of `Render`, for instance a catalogue that does not load, the gateway
   shows `Text`. No helper in contracts makes this choice for a `ScrollbackLine`:
   each gateway applies the rule.
+- `ScrollbackLine.TurnID` carries the id of the turn that produced the entry, the
+  same value as `Event.TurnID`. One turn produces several lines (a `user` line, one or
+  more `assistant` replies, or the `notice` of `CodeTurnInterrupted`), and neither
+  `Event` nor `ScrollbackLine` records a position within the turn. So a `TurnID` does
+  not identify a line, and a `(TurnID, Role)` pair does not either. A gateway that
+  replays a scrollback and then receives live events for the same session matches them
+  with this rule, comparing whole lines on (`TurnID`, `Role`, `Text`):
+  1. Find the longest suffix of the scrollback that equals a prefix of the live
+     lines, line by line.
+  2. Discard that prefix of the live lines: the scrollback already shows it.
+  3. When either side of a comparison has an empty `TurnID`, compare `Role` and
+     `Text` only.
+  The rule needs no rank within the turn: `assistant a3` arriving live after the
+  scrollback held `user q`, `assistant a1` and `assistant a2` matches nothing in the
+  suffix, so it is shown.
+- Live events become lines as follows. A `reply` event with non-empty text, and not
+  reporting a host error, becomes one `assistant` line that carries the event's
+  `TurnID`. No other event becomes a line: a `chunk` event is a piece of a stream and
+  never a line. Only lines produced this way are matched against the scrollback.
+- An empty `TurnID` on either side is a residual. When a scrollback line or a live
+  `reply` has no `TurnID`, the comparison falls back to (`Role`, `Text`), so a live
+  `assistant` line with the same text as a scrollback line is discarded as a repeat,
+  even when it is a new reply. There are two cases:
+  - A scrollback line without a `TurnID`, for example `assistant "ok"`, followed by a
+    live `assistant "ok"` with `TurnID` T1: the live line is discarded. This is kept on
+    purpose: the scrollback can hold lines from before the field existed, and the
+    gateway cannot tell those apart from a repeat. It applies only while such a line is
+    among the last lines of the scrollback that the live batch aligns with. For example,
+    with a scrollback of `user "q"` with `TurnID` T0 followed by `assistant "ok"`
+    without a `TurnID`, the live `assistant "ok"` with `TurnID` T1 is discarded; with a
+    scrollback of `assistant "ok"` without a `TurnID` followed by `user "q"` with
+    `TurnID` T0, the same live line is shown.
+  - A live `reply` without a `TurnID`, for example `assistant "ok"`, after a scrollback
+    of `assistant "ok"` with `TurnID` T0: the live line is discarded. `Event.TurnID` is
+    omitted when empty, so the contract guarantees nothing here. This case does not end
+    with the scrollback: it lasts until the emitter sets a `TurnID` on every `reply`.
+- The key is `TurnID` in JSON, not `turn_id` as on `Event`, on purpose.
+  `ScrollbackLine` keys every field by its Go name (`Role`, `Text`, `Notice`), a
+  convention pinned by `TestScrollbackLineJSONKeepsGoFieldNames`, while `Event` keys its
+  fields in snake_case. A client maps the event's `turn_id` onto the line's `TurnID`.
+- `TurnID` is omitted from the JSON when empty. An entry that no turn produced, and a
+  line written before the field existed, both read with an empty `TurnID`.
 - `CodeTurnInterrupted` is a transcript notice, not a health code. It reports a
   session turn that ended without a reply, whatever the cause, and names no cause.
   It takes no argument.
