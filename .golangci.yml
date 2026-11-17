@@ -69,6 +69,9 @@ linters:
     - varnamelen
     - wastedassign
   settings:
+    recvcheck:
+      exclusions:
+        - "*.UnmarshalJSON"
     depguard:
       rules:
         banned:
