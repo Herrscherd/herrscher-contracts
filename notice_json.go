@@ -82,23 +82,23 @@ func (a *Arg) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func decodeValue(a *Arg, raw json.RawMessage) error {
+func decodeValue(arg *Arg, raw json.RawMessage) error {
 	if len(raw) == 0 {
 		return nil
 	}
-	switch a.kind {
+	switch arg.kind {
 	case ArgText, ArgRef:
 		var text string
 		if err := json.Unmarshal(raw, &text); err != nil {
 			return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
 		}
-		a.value = text
+		arg.value = text
 	case ArgCount:
 		var count int
 		if err := json.Unmarshal(raw, &count); err != nil {
 			return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
 		}
-		a.value = count
+		arg.value = count
 	}
 	return nil
 }
