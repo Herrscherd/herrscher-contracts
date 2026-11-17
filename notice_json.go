@@ -40,11 +40,14 @@ func (n Notice) MarshalJSON() ([]byte, error) {
 	return json.Marshal(noticeWire{Code: uint16(n.Code), Args: n.Args})
 }
 
-// UnmarshalJSON reads the form MarshalJSON writes and the capitalised v0.30.0 form.
+// UnmarshalJSON reads the form MarshalJSON writes and the capitalised v0.30.0 form; null leaves the notice unchanged, as in v0.30.0.
 func (n *Notice) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
 	var envelope noticeWireIn
 	if err := json.Unmarshal(data, &envelope); err != nil {
-		return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
+		return shapeError(err)
 	}
 	args, err := decodeNoticeArgs(envelope.Args)
 	if err != nil {
@@ -59,12 +62,9 @@ func (a Arg) MarshalJSON() ([]byte, error) {
 	if len(a.name) > maxNoticeNameBytes {
 		return nil, fmt.Errorf("argument name is longer than %d bytes: %w", maxNoticeNameBytes, ErrNoticeLimit)
 	}
-	value, err := json.Marshal(a.value)
+	value, err := encodeValue(a.value)
 	if err != nil {
 		return nil, fmt.Errorf("argument %q: %w", a.name, err)
-	}
-	if len(value) > maxNoticeArgBytes {
-		return nil, fmt.Errorf("argument %q: %w", a.name, ErrNoticeLimit)
 	}
 	return json.Marshal(argWire{Name: a.name, Kind: uint8(a.kind), Value: value})
 }
@@ -76,20 +76,38 @@ func (a *Arg) UnmarshalJSON(data []byte) error {
 	}
 	var frame argWire
 	if err := json.Unmarshal(data, &frame); err != nil {
-		return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
+		return shapeError(err)
 	}
 	if len(frame.Name) > maxNoticeNameBytes {
 		return fmt.Errorf("argument name is longer than %d bytes: %w", maxNoticeNameBytes, ErrNoticeLimit)
-	}
-	if len(frame.Value) > maxNoticeArgBytes {
-		return fmt.Errorf("argument %q: %w", frame.Name, ErrNoticeLimit)
 	}
 	decoded := Arg{name: frame.Name, kind: ArgKind(frame.Kind)}
 	if err := decodeValue(&decoded, frame.Value); err != nil {
 		return fmt.Errorf("argument %q: %w", frame.Name, err)
 	}
+	if _, err := encodeValue(decoded.value); err != nil {
+		return fmt.Errorf("argument %q: %w", frame.Name, err)
+	}
 	*a = decoded
 	return nil
+}
+
+func encodeValue(value any) ([]byte, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	if len(encoded) > maxNoticeArgBytes {
+		return nil, fmt.Errorf("value of %d bytes is longer than %d: %w", len(encoded), maxNoticeArgBytes, ErrNoticeLimit)
+	}
+	return encoded, nil
+}
+
+func shapeError(err error) error {
+	if _, ok := errors.AsType[*json.SyntaxError](err); ok {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
 }
 
 func decodeValue(arg *Arg, raw json.RawMessage) error {
@@ -129,7 +147,7 @@ func decodeNoticeArgs(raw json.RawMessage) ([]Arg, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	open, err := decoder.Token()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrNoticeArgs, err)
+		return nil, shapeError(err)
 	}
 	if open != json.Delim('[') {
 		return nil, fmt.Errorf("notice arguments are not a list: %w", ErrNoticeArgs)

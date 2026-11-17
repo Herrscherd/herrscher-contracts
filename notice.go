@@ -357,7 +357,7 @@ func (a Arg) Name() string { return a.name }
 // Kind returns the kind the argument was built with.
 func (a Arg) Kind() ArgKind { return a.kind }
 
-// Value returns the string of a text or ref argument, or the int of a count.
+// Value returns the string of a text or ref argument, the int of a count, or the json.RawMessage of an argument whose kind is unknown; that value is not comparable with ==.
 func (a Arg) Value() any { return a.value }
 
 func (a Arg) checkKind() error {

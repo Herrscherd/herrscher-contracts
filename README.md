@@ -543,13 +543,19 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   (`{"Code":1,"Args":[{}]}`), ignores unknown fields and keeps a code outside `Codes` for
   `Renderer` to refuse. A value of kind 1 to 3 that is absent, `null` or of the wrong JSON
   type is refused with `ErrNoticeArgs`; `null` is reserved for the zero argument (kind 0).
-  A value whose kind is unknown is kept as its JSON, so it encodes back unchanged, and
-  `Renderer` refuses it. A `null` argument, an argument that is not an object, a name or a
-  kind of the wrong type, a kind outside `uint8`, a code outside `uint16` and an argument
-  list that is not a list are all refused with `ErrNoticeArgs`.
-  A notice takes at most 16 arguments, a value at most 64 KiB of JSON and a name at most
-  256 bytes. A notice that goes beyond one of these limits is refused with `ErrNoticeLimit`,
-  when it is encoded and when it is decoded.
+  A value whose kind is unknown is kept as its JSON, and it encodes back in an equivalent
+  compact form: spaces are removed, and `<`, `>` and `&` are escaped as `<`, `>`
+  and `&`, as `encoding/json` does. `Renderer` refuses such an argument. A `null`
+  argument, an argument that is not an object, a name or a kind of the wrong type, a kind
+  outside `uint8`, a code outside `uint16` and an argument list that is not a list are all
+  refused with `ErrNoticeArgs`. A malformed JSON text is not a shape error: it is returned
+  as the `*json.SyntaxError` of `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is false
+  for it. A `null` decoded into a `Notice` leaves it unchanged, as in v0.30.0.
+  A notice takes at most 16 arguments, a name at most 256 bytes and a value at most 64 KiB
+  of JSON as it is encoded. The size of a value is measured on that encoded form, escapes
+  included, on both encoding and decoding: a value that would exceed it is refused with
+  `ErrNoticeLimit` when it is encoded and when it is decoded, so a relay never receives a
+  notice it cannot send back.
 - Compatibility with v0.30.0. The keys move from `Code` and `Args` to `code` and `args`.
   The compatibility holds only for a case-insensitive reader, such as Go's `encoding/json`,
   which reads `code` and `args` into a v0.30.0 `Code` and `Args`. A case-sensitive reader
