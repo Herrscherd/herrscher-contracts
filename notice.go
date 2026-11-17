@@ -300,9 +300,9 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	return nil, false
 }
 
-// Notice is a message for a human: a code and the arguments its text needs. An
-// Arg is built only by Text, Count or Ref, so a notice cannot carry a value its
-// text cannot show.
+// Notice is a message for a human: a code and the arguments its text needs. Its
+// arguments come from Text, Count or Ref, and a decoded one can be malformed:
+// Renderer is the safety net that refuses what its code cannot show.
 type Notice struct {
 	Code Code  `json:"Code"`
 	Args []Arg `json:"Args"`
@@ -357,7 +357,7 @@ func (a Arg) Name() string { return a.name }
 // Kind returns the kind the argument was built with.
 func (a Arg) Kind() ArgKind { return a.kind }
 
-// Value returns the string of a text or ref argument, or the int of a count.
+// Value returns the string of a text or ref argument, the int of a count, or the json.RawMessage of an argument whose kind is unknown; that value is not comparable with ==.
 func (a Arg) Value() any { return a.value }
 
 func (a Arg) checkKind() error {
