@@ -540,19 +540,26 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeTurnInterrupted`. Otherwise it is `{"code":1,"args":[{"name":"Name","kind":1,"value":"lead"}]}`,
   where `kind` is 1 for `Text`, 2 for `Count` and 3 for `Ref`, and `Arg` encodes alone
   in the same shape. The decoder reads that form and the v0.30.0 form
-  (`{"Code":1,"Args":[{}]}`), ignores unknown fields, keeps a code outside `Codes` for
-  `Renderer` to refuse, and refuses a value of the wrong JSON type with `ErrNoticeArgs`.
-  A notice takes at most 16 arguments and a value at most 64 KiB of JSON. A notice that
-  goes beyond either limit is refused with `ErrNoticeLimit`, when it is encoded and when
-  it is decoded.
-- Compatibility with v0.30.0. `encoding/json` matches keys case-insensitively, so a
-  v0.30.0 client reads `code` and `args` into its `Code` and `Args`. A notice without
-  arguments comes back exact. A notice with arguments keeps its code and its number of
-  arguments, but each argument is an empty `Arg`, as v0.30.0 already produces: `Renderer`
-  refuses it with `ErrNoticeArgs` when its code has parameters, and renders a code without
-  parameters as before. compactwire keeps its own frame in herrscher and is unchanged by
-  this version; its bytes match the `Notice` JSON, except for code 0, which compactwire
-  encodes as the empty string.
+  (`{"Code":1,"Args":[{}]}`), ignores unknown fields and keeps a code outside `Codes` for
+  `Renderer` to refuse. A value of kind 1 to 3 that is absent, `null` or of the wrong JSON
+  type is refused with `ErrNoticeArgs`; `null` is reserved for the zero argument (kind 0).
+  A value whose kind is unknown is kept as its JSON, so it encodes back unchanged, and
+  `Renderer` refuses it. A `null` argument, an argument that is not an object, a name or a
+  kind of the wrong type, a kind outside `uint8`, a code outside `uint16` and an argument
+  list that is not a list are all refused with `ErrNoticeArgs`.
+  A notice takes at most 16 arguments, a value at most 64 KiB of JSON and a name at most
+  256 bytes. A notice that goes beyond one of these limits is refused with `ErrNoticeLimit`,
+  when it is encoded and when it is decoded.
+- Compatibility with v0.30.0. The keys move from `Code` and `Args` to `code` and `args`.
+  The compatibility holds only for a case-insensitive reader, such as Go's `encoding/json`,
+  which reads `code` and `args` into a v0.30.0 `Code` and `Args`. A case-sensitive reader
+  no longer reads the code. A notice without arguments comes back exact. A notice with
+  arguments keeps its code and its number of arguments, but each argument is an empty `Arg`,
+  as v0.30.0 already produces: `Renderer` refuses it with `ErrNoticeArgs` when its code has
+  parameters, and renders a code without parameters as before. compactwire keeps its own
+  frame in herrscher and is unchanged by this version. The shape model in
+  `notice_json_test.go` mirrors that frame; it is a model of the shape, not the compactwire
+  codec.
 - `ScrollbackLine`, one entry of a session's scrollback as
   `SessionControl.Scrollback` returns it, carries a `Notice` when the entry is a
   notice rather than a reply, such as `CodeTurnInterrupted` for a turn that ended
@@ -576,9 +583,11 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   again through `Degrade`.
 - A code of success, such as `CodeSessionCreated`, is a notice like any other: it
   is never `CodeUnexpected`.
-- `Arg` is built only by `Text(name, value)`, `Count(n)` (named `Count`, it selects
+- `Arg` is built by `Text(name, value)`, `Count(n)` (named `Count`, it selects
   the plural form) and `Ref(name, id)` (the identifier of a platform object, which
-  a gateway renders as a mention). Its zero value is malformed. `Arg` has no
+  a gateway renders as a mention). Its zero value is malformed, and a decoded `Arg`
+  can be malformed too: `Renderer` is the safety net that refuses what its code
+  cannot show. `Arg` has no
   float constructor, so a decimal number is never rendered in Go format. `Render`
   checks that the name matches the kind: `Count` must be an `ArgCount`, and an
   `ArgCount` must be named `Count`. It also checks each argument against the kind

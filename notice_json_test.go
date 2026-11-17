@@ -9,12 +9,12 @@ import (
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
 
-type compactwireFrame struct {
-	Code uint16           `json:"code"`
-	Args []compactwireArg `json:"args,omitempty"`
+type shapeModelFrame struct {
+	Code uint16          `json:"code"`
+	Args []shapeModelArg `json:"args,omitempty"`
 }
 
-type compactwireArg struct {
+type shapeModelArg struct {
 	Name  string          `json:"name"`
 	Kind  uint8           `json:"kind"`
 	Value json.RawMessage `json:"value"`
@@ -39,15 +39,15 @@ func sameNotice(got, want Notice) bool {
 	return true
 }
 
-func compactwireEncode(t *testing.T, notice Notice) string {
+func shapeModelEncode(t *testing.T, notice Notice) string {
 	t.Helper()
-	frame := compactwireFrame{Code: uint16(notice.Code), Args: make([]compactwireArg, 0, len(notice.Args))}
+	frame := shapeModelFrame{Code: uint16(notice.Code), Args: make([]shapeModelArg, 0, len(notice.Args))}
 	for _, arg := range notice.Args {
 		value, err := json.Marshal(arg.Value())
 		if err != nil {
 			t.Fatalf("marshal value: %v", err)
 		}
-		frame.Args = append(frame.Args, compactwireArg{Name: arg.Name(), Kind: uint8(arg.Kind()), Value: value})
+		frame.Args = append(frame.Args, shapeModelArg{Name: arg.Name(), Kind: uint8(arg.Kind()), Value: value})
 	}
 	encoded, err := json.Marshal(frame)
 	if err != nil {
@@ -235,26 +235,68 @@ func TestNoticeJSONKeepsAnUnknownCode(t *testing.T) {
 }
 
 func TestNoticeJSONKeepsAnUnknownArgKind(t *testing.T) {
-	var got Notice
-	if err := json.Unmarshal([]byte(`{"code":1,"args":[{"name":"Name","kind":9,"value":"lead"}]}`), &got); err != nil {
-		t.Fatalf("unmarshal unknown argument kind: %v", err)
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{"kind 9 keeps its text", `{"code":1,"args":[{"name":"Name","kind":9,"value":"lead"}]}`},
+		{"kind 0 keeps its text", `{"code":1,"args":[{"name":"Name","kind":0,"value":"lead"}]}`},
+		{"kind 9 keeps an object", `{"code":1,"args":[{"name":"Name","kind":9,"value":{"a":[1,2]}}]}`},
 	}
-	_, err := NewRenderer().Render(i18n.English, got)
-	if !errors.Is(err, ErrNoticeArgs) {
-		t.Fatalf("rendering the unknown argument kind: err = %v, want ErrNoticeArgs", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got Notice
+			if err := json.Unmarshal([]byte(tt.raw), &got); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			raw, err := json.Marshal(got)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			if string(raw) != tt.raw {
+				t.Fatalf("re-encoded:\n got %s\nwant %s", raw, tt.raw)
+			}
+			_, err = NewRenderer().Render(i18n.English, got)
+			if !errors.Is(err, ErrNoticeArgs) {
+				t.Fatalf("rendering the unknown argument kind: err = %v, want ErrNoticeArgs", err)
+			}
+		})
 	}
 }
 
-func TestNoticeJSONRefusesAValueOfTheWrongType(t *testing.T) {
+func TestNoticeJSONRefusesAMissingValueOfAKnownKind(t *testing.T) {
 	tests := []string{
+		`{"code":1,"args":[{"name":"Name","kind":1}]}`,
+		`{"code":1,"args":[{"name":"Name","kind":1,"value":null}]}`,
+		`{"code":16,"args":[{"name":"Count","kind":2}]}`,
+		`{"code":16,"args":[{"name":"Count","kind":2,"value":null}]}`,
+		`{"code":32,"args":[{"name":"Channel","kind":3}]}`,
+		`{"code":32,"args":[{"name":"Channel","kind":3,"value":null}]}`,
+	}
+	for _, raw := range tests {
+		var got Notice
+		if err := json.Unmarshal([]byte(raw), &got); !errors.Is(err, ErrNoticeArgs) {
+			t.Fatalf("unmarshal %s: err = %v, want ErrNoticeArgs", raw, err)
+		}
+	}
+}
+
+func TestNoticeJSONRefusesAMalformedShape(t *testing.T) {
+	tests := []string{
+		`{"code":1,"args":[1]}`,
+		`{"code":1,"args":[null]}`,
+		`{"code":1,"args":[{"name":3,"kind":1,"value":"lead"}]}`,
+		`{"code":1,"args":[{"name":"Name","kind":"1","value":"lead"}]}`,
+		`{"code":1,"args":[{"name":"Name","kind":300,"value":"lead"}]}`,
+		`{"code":70000}`,
+		`{"code":1,"args":{}}`,
 		`{"code":1,"args":[{"name":"Name","kind":1,"value":3}]}`,
 		`{"code":16,"args":[{"name":"Count","kind":2,"value":"3"}]}`,
 		`{"code":3,"args":[{"name":"Name","kind":3,"value":true}]}`,
 	}
 	for _, raw := range tests {
 		var got Notice
-		err := json.Unmarshal([]byte(raw), &got)
-		if !errors.Is(err, ErrNoticeArgs) {
+		if err := json.Unmarshal([]byte(raw), &got); !errors.Is(err, ErrNoticeArgs) {
 			t.Fatalf("unmarshal %s: err = %v, want ErrNoticeArgs", raw, err)
 		}
 	}
@@ -307,7 +349,28 @@ func TestNoticeJSONLimitsTheArgumentSize(t *testing.T) {
 	}
 }
 
-func TestNoticeJSONMatchesCompactwire(t *testing.T) {
+func TestNoticeJSONLimitsTheNameSize(t *testing.T) {
+	fits := Text(strings.Repeat("n", maxNoticeNameBytes), "lead")
+	raw, err := json.Marshal(Notice{Code: CodeSessionNotFound, Args: []Arg{fits}})
+	if err != nil {
+		t.Fatalf("marshal a name of the limit size: %v", err)
+	}
+	var got Notice
+	if err = json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal a name of the limit size: %v", err)
+	}
+
+	tooLong := Text(strings.Repeat("n", maxNoticeNameBytes+1), "lead")
+	if _, err := json.Marshal(tooLong); !errors.Is(err, ErrNoticeLimit) {
+		t.Fatalf("marshal an overlong name: err = %v, want ErrNoticeLimit", err)
+	}
+	long := `{"code":1,"args":[{"name":"` + strings.Repeat("n", maxNoticeNameBytes+1) + `","kind":1,"value":"lead"}]}`
+	if err := json.Unmarshal([]byte(long), &got); !errors.Is(err, ErrNoticeLimit) {
+		t.Fatalf("unmarshal an overlong name: err = %v, want ErrNoticeLimit", err)
+	}
+}
+
+func TestNoticeJSONMatchesTheCompactwireShapeModel(t *testing.T) {
 	notices := []Notice{
 		{Code: CodeTurnInterrupted},
 		{Code: CodeSessionNotFound, Args: []Arg{Text("Name", "lead")}},
@@ -316,20 +379,20 @@ func TestNoticeJSONMatchesCompactwire(t *testing.T) {
 		{Code: CodeAccountFallback, Args: []Arg{Text("From", `a"b`), Text("To", "é")}},
 	}
 	for _, notice := range notices {
-		want := compactwireEncode(t, notice)
+		want := shapeModelEncode(t, notice)
 		got, err := json.Marshal(notice)
 		if err != nil {
 			t.Fatalf("marshal %+v: %v", notice, err)
 		}
 		if string(got) != want {
-			t.Fatalf("contracts encodes %s, compactwire encodes %s", got, want)
+			t.Fatalf("contracts encodes %s, the shape model encodes %s", got, want)
 		}
 		var decoded Notice
 		if err := json.Unmarshal([]byte(want), &decoded); err != nil {
-			t.Fatalf("contracts decodes compactwire %s: %v", want, err)
+			t.Fatalf("contracts decodes the shape model %s: %v", want, err)
 		}
 		if !sameNotice(decoded, notice) {
-			t.Fatalf("contracts decodes compactwire %s to %+v, want %+v", want, decoded, notice)
+			t.Fatalf("contracts decodes the shape model %s to %+v, want %+v", want, decoded, notice)
 		}
 	}
 }
