@@ -26,7 +26,7 @@ type CoordinationEvent struct {
 //	{"t":"input","who":"terminal","text":"apply them"}
 //	{"t":"pick","value":"2"}
 //	{"t":"interrupt"}  // cancel the in-flight turn (esc-to-interrupt from a gateway)
-//	{"t":"reset"}  // the backend started a new process mid-turn: the output streamed so far is discarded and the same prompt runs again
+//	{"t":"reset"}  // the backend started a new process mid-turn and the same prompt runs again
 type Event struct {
 	T     string `json:"t"`
 	Who   string `json:"who,omitempty"`
