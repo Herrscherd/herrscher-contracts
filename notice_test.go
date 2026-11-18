@@ -554,6 +554,11 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"Le dernier message est resté sans réponse, renvoie-le si besoin.",
 		},
 		{
+			Notice{Code: CodeResumeLost},
+			"the earlier conversation could not be resumed, so this reply comes from a new session without its context",
+			"l'historique précédent n'a pas pu être repris, cette réponse vient d'une session neuve sans son contexte",
+		},
+		{
 			Notice{Code: CodeUnknownApprovalMode, Args: []Arg{Text("Mode", "yolo")}},
 			"unknown approval mode yolo: ask, accept-edits, plan, auto, bypass or strict",
 			"mode d'approbation inconnu yolo : ask, accept-edits, plan, auto, bypass ou strict",
@@ -686,23 +691,6 @@ func TestResultCarriesNoticeOrData(t *testing.T) {
 	}
 	if DataResult(nil) != (Result{}) {
 		t.Fatal("DataResult(nil) must equal the zero result")
-	}
-}
-
-func TestResumeLostNoticeReadsInBothLanguages(t *testing.T) {
-	renderer := NewRenderer()
-	cases := []struct {
-		lang i18n.Language
-		want string
-	}{
-		{i18n.English, "the earlier conversation could not be resumed, so this reply comes from a new session without its context"},
-		{i18n.French, "l'historique précédent n'a pas pu être repris, cette réponse vient d'une session neuve sans son contexte"},
-	}
-	for _, tc := range cases {
-		text, err := renderer.Render(tc.lang, Notice{Code: CodeResumeLost})
-		if err != nil || text != tc.want {
-			t.Fatalf("Render in %v = %q, %v; want %q", tc.lang, text, err, tc.want)
-		}
 	}
 }
 
