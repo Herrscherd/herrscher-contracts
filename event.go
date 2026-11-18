@@ -77,6 +77,10 @@ type Event struct {
 	Coordination *CoordinationEvent `json:"coordination,omitempty"`
 	Todos        []TodoItem         `json:"todos,omitempty"`
 	Subagent     *Subagent          `json:"subagent,omitempty"`
+	// Notice is the message a notice event reports, on an event whose T is "notice".
+	// A gateway renders it through Renderer, as it renders a scrollback notice. Nil
+	// on every other event.
+	Notice *Notice `json:"notice,omitempty"`
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live

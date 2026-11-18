@@ -689,6 +689,23 @@ func TestResultCarriesNoticeOrData(t *testing.T) {
 	}
 }
 
+func TestResumeLostNoticeReadsInBothLanguages(t *testing.T) {
+	renderer := NewRenderer()
+	cases := []struct {
+		lang i18n.Language
+		want string
+	}{
+		{i18n.English, "the earlier conversation could not be resumed, so this reply comes from a new session without its context"},
+		{i18n.French, "l'historique précédent n'a pas pu être repris, cette réponse vient d'une session neuve sans son contexte"},
+	}
+	for _, tc := range cases {
+		text, err := renderer.Render(tc.lang, Notice{Code: CodeResumeLost})
+		if err != nil || text != tc.want {
+			t.Fatalf("Render in %v = %q, %v; want %q", tc.lang, text, err, tc.want)
+		}
+	}
+}
+
 func TestCodeValuesAreFrozen(t *testing.T) {
 	frozen := map[Code]uint16{
 		CodeSessionNotFound:           1,
@@ -738,6 +755,7 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeAccountFallback:           45,
 		CodeAccountNoQuota:            46,
 		CodeTurnInterrupted:           47,
+		CodeResumeLost:                48,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))

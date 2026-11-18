@@ -51,7 +51,8 @@ type Prompt struct {
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
 // progress consumer: a tool invocation, streamed assistant text, or the terminal
 // result carrying cost. Models splits the usage of the terminal result by model,
-// empty when the backend gives no breakdown.
+// empty when the backend gives no breakdown. Notice is set alone, with Kind empty,
+// when the backend reports a notice for the human, such as a resume it had to drop.
 type BackendEvent struct {
 	Kind        string
 	Tool        string
@@ -65,6 +66,7 @@ type BackendEvent struct {
 	Models      []ModelUsage
 	Todos       []TodoItem
 	Subagent    *Subagent
+	Notice      *Notice
 }
 
 // PendingChoice is an interactive selection a backend is waiting on after a turn

@@ -497,7 +497,7 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeHealthRateLimited`, `CodeHealthCredentialsRefused`, `CodeHealthUnreachable`,
   `CodeHealthEnvMissing`, `CodeHealthRemedyRun` and `CodeHealthRemedyEnvRestart`, and
   the account codes `CodeAccountFallback` and `CodeAccountNoQuota`, and the transcript
-  notice code `CodeTurnInterrupted`.
+  notice codes `CodeTurnInterrupted` and `CodeResumeLost`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -631,6 +631,13 @@ Messages a human reads are named by a code, not by a sentence. The host emits
 - `CodeTurnInterrupted` is a transcript notice, not a health code. It reports a
   session turn that ended without a reply, whatever the cause, and names no cause.
   It takes no argument.
+- `CodeResumeLost` reports that the earlier conversation of a session could not be
+  resumed, so the turn runs on a new session without its context. It takes no
+  argument. A backend reports it by setting `BackendEvent.Notice` alone, with an empty
+  `Kind`, during the turn. The host relays it as an `Event` whose `T` is `notice` and
+  whose `Notice` field carries the notice, JSON key `notice`, which is `{"code":48}`.
+  Every other event leaves `Notice` nil and omits the key. A gateway renders the notice
+  through `Renderer` in the session language, as for a scrollback notice.
 - `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
   fallback instead of the notice. The caller neither retries nor posts the notice
   again through `Degrade`.
