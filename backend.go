@@ -53,10 +53,19 @@ type Prompt struct {
 const BackendKindNotice = "notice"
 
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
-// progress consumer: a tool invocation, streamed assistant text, or the terminal
-// result carrying cost. Models splits the usage of the terminal result by model,
-// empty when the backend gives no breakdown. An event of kind BackendKindNotice
-// carries its notice in Notice.
+// progress consumer, and Kind says which one it is. The kinds are:
+//   - "text": a text block of the assistant reply, in Detail.
+//   - "thinking": a thinking block of the assistant, in Detail.
+//   - "tool": a tool invocation, its name in Tool and its detail in Detail.
+//   - "todos": a task list written by the assistant, in Todos.
+//   - "subagent": a child agent started (State active) or finished (State done), in Subagent.
+//   - "usage": the token usage reported with one assistant message, in the token fields.
+//   - "result": the terminal result of the turn, with its cost in Cost and its total tokens.
+//   - "reset": the backend lost its process mid-turn and restarts it, so the turn in progress is discarded.
+//   - "notice": a notice for the human, in Notice, such as a resume the backend had to drop. It is BackendKindNotice.
+//
+// Models splits the usage of the terminal result by model, empty when the backend
+// gives no breakdown.
 type BackendEvent struct {
 	Kind        string
 	Tool        string
