@@ -62,10 +62,11 @@ const BackendKindNotice = "notice"
 //   - "usage": the token usage reported with one assistant message, in the token fields.
 //   - "result": the terminal result of the turn, with its cost in Cost and its total tokens.
 //   - "reset": the backend started a new process mid-turn, and the output streamed so far is discarded:
-//     the same prompt runs again on the new process, which may still fail. It is emitted when the resumed
+//     the same prompt runs again on the new process, which may still fail. It is emitted every time the
+//     backend relaunches a process mid-turn. The notice CodeResumeLost accompanies it only when the resumed
 //     session was given up (refused before any line, no line yet accepted by the backend, or two silent
-//     deaths in a row) or when the failed session was not a resumed one. A resumed session that dies after
-//     accepting its turn is resumed silently, with no reset.
+//     deaths in a row). A resumed session that dies after accepting its turn is resumed without a notice,
+//     but with a reset.
 //   - "notice": a notice for the human, in Notice, such as a resume the backend had to drop. It is BackendKindNotice.
 //
 // Models splits the usage of the terminal result by model, empty when the backend
