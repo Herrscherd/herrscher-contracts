@@ -633,12 +633,11 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   It takes no argument.
 - `CodeResumeLost` reports that the earlier conversation of a session could not be
   resumed, so the turn runs on a new session without its context. It takes no
-  argument. A backend reports it during the turn with a `BackendEvent` whose `Kind` is
-  `BackendKindNotice` and whose `Notice` field is set. The host routes the notice to the
-  gateway through `NoticeSink.Notify`, as it does for `CodeAccountFallback`, and the
-  gateway renders it through `Renderer` in the session language.
+  argument. This version defines the contract only: the code, its texts in the shared
+  catalog, and `BackendKindNotice`, the `Kind` of a `BackendEvent` whose `Notice` field
+  carries the notice.
 - One route per notice: a notice reaches a gateway only through `NoticeSink.Notify`.
-  The host does not carry a notice on the event bus, so `Event` has no notice field.
+  `Event` has no notice field and no notice type.
 - `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
   fallback instead of the notice. The caller neither retries nor posts the notice
   again through `Degrade`.

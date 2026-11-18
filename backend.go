@@ -61,7 +61,7 @@ const BackendKindNotice = "notice"
 //   - "subagent": a child agent started (State active) or finished (State done), in Subagent.
 //   - "usage": the token usage reported with one assistant message, in the token fields.
 //   - "result": the terminal result of the turn, with its cost in Cost and its total tokens.
-//   - "reset": the backend lost its process mid-turn and restarts it, so the turn in progress is discarded.
+//   - "reset": the backend lost its process mid-turn and started a new one: the output streamed so far is discarded and the same prompt runs again on the new process, which may still fail. It is emitted when the process was lost or was not a resumed one.
 //   - "notice": a notice for the human, in Notice, such as a resume the backend had to drop. It is BackendKindNotice.
 //
 // Models splits the usage of the terminal result by model, empty when the backend
