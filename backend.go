@@ -48,10 +48,28 @@ type Prompt struct {
 	Outbox      string        `json:"Outbox"`
 }
 
+// BackendKindNotice is the Kind of a BackendEvent that reports a notice for the
+// human in its Notice field, such as a resume the backend had to drop.
+const BackendKindNotice = "notice"
+
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
-// progress consumer: a tool invocation, streamed assistant text, or the terminal
-// result carrying cost. Models splits the usage of the terminal result by model,
-// empty when the backend gives no breakdown.
+// progress consumer, and Kind says which one it is. The kinds are:
+//   - "text": a text block of the assistant reply, in Detail.
+//   - "thinking": a thinking block of the assistant, in Detail.
+//   - "tool": a tool invocation, its name in Tool and its detail in Detail.
+//   - "todos": a task list written by the assistant, in Todos.
+//   - "subagent": a child agent started (State active) or finished (State done), in Subagent.
+//   - "usage": the token usage reported with one assistant message, in the token fields.
+//   - "result": the terminal result of the turn, with its cost in Cost and its total tokens.
+//   - "reset": the backend started a new process mid-turn, and the output streamed so far is discarded:
+//     the same prompt runs again on the new process, which may still fail. It is emitted when the resumed
+//     session was given up (refused before any line, no line yet accepted by the backend, or two silent
+//     deaths in a row) or when the failed session was not a resumed one. A resumed session that dies after
+//     accepting its turn is resumed silently, with no reset.
+//   - "notice": a notice for the human, in Notice, such as a resume the backend had to drop. It is BackendKindNotice.
+//
+// Models splits the usage of the terminal result by model, empty when the backend
+// gives no breakdown.
 type BackendEvent struct {
 	Kind        string
 	Tool        string
@@ -65,6 +83,7 @@ type BackendEvent struct {
 	Models      []ModelUsage
 	Todos       []TodoItem
 	Subagent    *Subagent
+	Notice      *Notice
 }
 
 // PendingChoice is an interactive selection a backend is waiting on after a turn

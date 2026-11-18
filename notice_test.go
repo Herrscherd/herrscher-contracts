@@ -554,6 +554,11 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 			"Le dernier message est resté sans réponse, renvoie-le si besoin.",
 		},
 		{
+			Notice{Code: CodeResumeLost},
+			"the earlier conversation could not be resumed, so this reply comes from a new session without its context",
+			"l'historique précédent n'a pas pu être repris, cette réponse vient d'une session neuve sans son contexte",
+		},
+		{
 			Notice{Code: CodeUnknownApprovalMode, Args: []Arg{Text("Mode", "yolo")}},
 			"unknown approval mode yolo: ask, accept-edits, plan, auto, bypass or strict",
 			"mode d'approbation inconnu yolo : ask, accept-edits, plan, auto, bypass ou strict",
@@ -738,6 +743,7 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		CodeAccountFallback:           45,
 		CodeAccountNoQuota:            46,
 		CodeTurnInterrupted:           47,
+		CodeResumeLost:                48,
 	}
 	if len(frozen) != len(Codes()) {
 		t.Fatalf("%d codes frozen, %d listed: every code needs its frozen value", len(frozen), len(Codes()))
@@ -746,5 +752,12 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 		if uint16(code) != value {
 			t.Errorf("%s = %d, frozen at %d: a code value is part of the wire and must not move", code.Key(), uint16(code), value)
 		}
+	}
+	owner := make(map[uint16]Code, len(frozen))
+	for code, value := range frozen {
+		if other, shared := owner[value]; shared {
+			t.Errorf("%s and %s share the frozen value %d: each code needs its own", code.Key(), other.Key(), value)
+		}
+		owner[value] = code
 	}
 }

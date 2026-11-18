@@ -117,6 +117,8 @@ const (
 	CodeAccountNoQuota
 	// CodeTurnInterrupted reports a session turn that ended without a reply.
 	CodeTurnInterrupted
+	// CodeResumeLost reports that the earlier conversation of the session could not be resumed, so the turn runs on a new session without its context.
+	CodeResumeLost
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -136,7 +138,7 @@ func Codes() []Code {
 		CodeChannelKindUnder, CodeChannelKindHome, CodeInvalidValueHint, CodeSessionCloseDirty,
 		CodeHealthConnected, CodeHealthSignedInAs, CodeHealthNotLoggedIn, CodeHealthRateLimited, CodeHealthCredentialsRefused,
 		CodeHealthUnreachable, CodeHealthEnvMissing, CodeHealthRemedyRun, CodeHealthRemedyEnvRestart,
-		CodeAccountFallback, CodeAccountNoQuota, CodeTurnInterrupted,
+		CodeAccountFallback, CodeAccountNoQuota, CodeTurnInterrupted, CodeResumeLost,
 	}
 }
 
@@ -238,6 +240,8 @@ func (c Code) Key() string {
 		return "account.no_quota"
 	case CodeTurnInterrupted:
 		return "turn.interrupted"
+	case CodeResumeLost:
+		return "session.resume_lost"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -257,7 +261,7 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	case CodeAddressPlaintextRefused:
 		return map[string]ArgKind{"Address": ArgText}, true
 	case CodeNodeMerged, CodeCompacted,
-		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread, CodeTurnInterrupted:
+		CodeCompactTimeoutInvalid, CodeCompactInstructionRefused, CodeCompactNoThread, CodeTurnInterrupted, CodeResumeLost:
 		return nil, true
 	case CodeSessionLimit:
 		return map[string]ArgKind{countName: ArgCount}, true

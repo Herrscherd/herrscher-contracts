@@ -234,5 +234,10 @@
     "id": "turn.interrupted",
     "description": "Scrollback notice: a turn ended without a reply",
     "other": "The last message got no reply, send it again if needed."
+  },
+  {
+    "id": "session.resume_lost",
+    "description": "Notice: the earlier conversation could not be resumed, a new session runs the turn",
+    "other": "the earlier conversation could not be resumed, so this reply comes from a new session without its context"
   }
 ]
