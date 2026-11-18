@@ -48,11 +48,15 @@ type Prompt struct {
 	Outbox      string        `json:"Outbox"`
 }
 
+// BackendKindNotice is the Kind of a BackendEvent that reports a notice for the
+// human in its Notice field, such as a resume the backend had to drop.
+const BackendKindNotice = "notice"
+
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
 // progress consumer: a tool invocation, streamed assistant text, or the terminal
 // result carrying cost. Models splits the usage of the terminal result by model,
-// empty when the backend gives no breakdown. Notice is set alone, with Kind empty,
-// when the backend reports a notice for the human, such as a resume it had to drop.
+// empty when the backend gives no breakdown. An event of kind BackendKindNotice
+// carries its notice in Notice.
 type BackendEvent struct {
 	Kind        string
 	Tool        string

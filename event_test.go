@@ -103,20 +103,3 @@ func TestEventCarriesTokenBreakdown(t *testing.T) {
 		t.Fatalf("token breakdown lost: %+v", got)
 	}
 }
-
-func TestEventCarriesANotice(t *testing.T) {
-	b, err := json.Marshal(Event{T: "notice", Notice: &Notice{Code: CodeResumeLost}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := string(b), `{"t":"notice","notice":{"code":48}}`; got != want {
-		t.Fatalf("notice event = %s, want %s", got, want)
-	}
-	var back Event
-	if err := json.Unmarshal(b, &back); err != nil {
-		t.Fatal(err)
-	}
-	if back.Notice == nil || back.Notice.Code != CodeResumeLost {
-		t.Fatalf("Notice = %+v, want CodeResumeLost", back.Notice)
-	}
-}

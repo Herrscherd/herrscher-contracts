@@ -753,4 +753,11 @@ func TestCodeValuesAreFrozen(t *testing.T) {
 			t.Errorf("%s = %d, frozen at %d: a code value is part of the wire and must not move", code.Key(), uint16(code), value)
 		}
 	}
+	owner := make(map[uint16]Code, len(frozen))
+	for code, value := range frozen {
+		if other, shared := owner[value]; shared {
+			t.Errorf("%s and %s share the frozen value %d: each code needs its own", code.Key(), other.Key(), value)
+		}
+		owner[value] = code
+	}
 }

@@ -633,11 +633,12 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   It takes no argument.
 - `CodeResumeLost` reports that the earlier conversation of a session could not be
   resumed, so the turn runs on a new session without its context. It takes no
-  argument. A backend reports it by setting `BackendEvent.Notice` alone, with an empty
-  `Kind`, during the turn. The host relays it as an `Event` whose `T` is `notice` and
-  whose `Notice` field carries the notice, JSON key `notice`, which is `{"code":48}`.
-  Every other event leaves `Notice` nil and omits the key. A gateway renders the notice
-  through `Renderer` in the session language, as for a scrollback notice.
+  argument. A backend reports it during the turn with a `BackendEvent` whose `Kind` is
+  `BackendKindNotice` and whose `Notice` field is set. The host routes the notice to the
+  gateway through `NoticeSink.Notify`, as it does for `CodeAccountFallback`, and the
+  gateway renders it through `Renderer` in the session language.
+- One route per notice: a notice reaches a gateway only through `NoticeSink.Notify`.
+  The host does not carry a notice on the event bus, so `Event` has no notice field.
 - `ErrNoticeFallbackPosted` is returned by a `NoticeSink` that posted a plain-text
   fallback instead of the notice. The caller neither retries nor posts the notice
   again through `Degrade`.
