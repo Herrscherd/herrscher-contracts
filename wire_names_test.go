@@ -92,6 +92,30 @@ func TestPromptWithoutLanguageDecodesToUnknown(t *testing.T) {
 	}
 }
 
+func TestPromptJSONKeepsSessionIdentity(t *testing.T) {
+	want := Prompt{Content: "bonjour", Author: "alice", ChannelID: "chan-9", Language: i18n.French, Outbox: "/w/out", Session: "lead", SessionToken: "tok-lead"}
+	const wantJSON = `{"Content":"bonjour","Context":"","Author":"alice","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2,"Outbox":"/w/out","Session":"lead","SessionToken":"tok-lead"}`
+	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
+		var got Prompt
+		err := json.Unmarshal(raw, &got)
+		if err == nil && (got.Session != want.Session || got.SessionToken != want.SessionToken) {
+			t.Fatalf("Prompt decoded to session %q with token %q, want %q with %q", got.Session, got.SessionToken, want.Session, want.SessionToken)
+		}
+		return got, err
+	})
+}
+
+func TestPromptWithoutSessionIdentityDecodesToNone(t *testing.T) {
+	const oldHostJSON = `{"Content":"bonjour","Author":"alice","ChannelID":"chan-9"}`
+	var got Prompt
+	if err := json.Unmarshal([]byte(oldHostJSON), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.Session != "" || got.SessionToken != "" {
+		t.Fatalf("session identity %q/%q from a message without the fields, want none", got.Session, got.SessionToken)
+	}
+}
+
 func TestScrollbackLineJSONKeepsGoFieldNames(t *testing.T) {
 	want := ScrollbackLine{Role: "user", Text: "hello"}
 	const wantJSON = `{"Role":"user","Text":"hello"}`

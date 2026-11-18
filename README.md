@@ -146,6 +146,20 @@ A gateway that implements `FileSender` posts the text with the files attached, i
 reply to the message. Through `Degrade`, a gateway without it receives a reply,
 or a post when the platform has no replies, whose text lists the name and path of each file, so no file is dropped silently.
 
+## Session identity on a turn
+
+`Prompt.Session` names the session a turn belongs to, and `Prompt.SessionToken`
+carries the approval token the daemon issued to that session, the value of
+`HERRSCHER_SESSION_TOKEN`. Both are optional and omitted from the JSON when empty,
+so a host that sends neither, and a backend built before they existed, keep working.
+A backend that runs the turn in another process exports both into that process's
+environment, so the session's approval hook can ask the daemon. A hook that finds
+neither refuses the tool call, so a backend that drops them fails closed.
+
+The token is a credential: the daemon accepts it for the session it names and for
+nothing else. It travels inside the transport's mutually authenticated TLS channel,
+and a backend never logs a `Prompt`.
+
 ## Compaction
 
 A backend that implements `Compactor` compacts its own sessions: for Claude that

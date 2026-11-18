@@ -36,16 +36,22 @@ type ResumeAware interface {
 // does not know it: the backend then keeps its own default. Outbox is the absolute
 // directory the host made for this turn, where a [FileProducer] writes the files it
 // renders, never the filesystem root, and is empty when the host takes no file from
-// this backend.
+// this backend. Session names the session the turn belongs to, and SessionToken is the
+// approval token the daemon issued to that session, the value of HERRSCHER_SESSION_TOKEN.
+// A backend that runs the turn in another process exports both into that process's
+// environment, so the session's approval hook can ask the daemon. Both are empty when the
+// turn belongs to no session. SessionToken is a credential: a backend never logs a Prompt.
 type Prompt struct {
-	Content     string        `json:"Content"`
-	Context     string        `json:"Context"`
-	Author      string        `json:"Author"`
-	MessageID   string        `json:"MessageID"`
-	ChannelID   string        `json:"ChannelID"`
-	Attachments []string      `json:"Attachments"`
-	Language    i18n.Language `json:"Language"`
-	Outbox      string        `json:"Outbox"`
+	Content      string        `json:"Content"`
+	Context      string        `json:"Context"`
+	Author       string        `json:"Author"`
+	MessageID    string        `json:"MessageID"`
+	ChannelID    string        `json:"ChannelID"`
+	Attachments  []string      `json:"Attachments"`
+	Language     i18n.Language `json:"Language"`
+	Outbox       string        `json:"Outbox"`
+	Session      string        `json:"Session,omitempty"`
+	SessionToken string        `json:"SessionToken,omitempty"`
 }
 
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
