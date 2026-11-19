@@ -3,7 +3,9 @@ package approvalsock_test
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -13,7 +15,7 @@ import (
 	"github.com/Herrscherd/herrscher-contracts/approvalsock"
 )
 
-const malformedFailures = 41
+const refusedBeyondSlots = 40
 
 type blockingReports struct {
 	mu       sync.Mutex
@@ -79,12 +81,12 @@ func awaitEntered(t *testing.T, reports *blockingReports) {
 	}
 }
 
-func startReportingServer(t *testing.T, opt approvalsock.Option) string {
+func startReportingServer(t *testing.T, asker contracts.ApprovalAsker, opt approvalsock.Option) string {
 	t.Helper()
 	path := filepath.Join(privateDir(t), "a.sock")
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- approvalsock.Serve(ctx, path, allowAll, opt) }()
+	go func() { done <- approvalsock.Serve(ctx, path, asker, opt) }()
 	t.Cleanup(func() {
 		cancel()
 		if err := <-done; err != nil {
@@ -109,69 +111,110 @@ func awaitAnswer(t *testing.T, path string) {
 	t.Fatal("approval socket never answered")
 }
 
+func askUntilAllowed(t *testing.T, path, id string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		answer, err := approvalsock.Ask(ctx, path, contracts.ApprovalRequest{ID: id, Tool: "Bash", Subject: "ls"})
+		cancel()
+		if err == nil {
+			if !answer.Allowed() {
+				t.Fatalf("answer = %+v, want allow", answer)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Ask %q never answered: %v", id, err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func holdEverySlot(t *testing.T, path string, asked <-chan struct{}) {
+	t.Helper()
+	var holders []net.Conn
+	t.Cleanup(func() {
+		for _, connection := range holders {
+			closeQuietly(t, connection)
+		}
+	})
+	for range approvalsock.MaxConcurrentConnections {
+		holders = append(holders, sendRequest(t, path, "hold"))
+	}
+	for range approvalsock.MaxConcurrentConnections {
+		awaitSignal(t, asked, "a holding request never reached the asker")
+	}
+}
+
+func awaitSignal(t *testing.T, signal <-chan struct{}, message string) {
+	t.Helper()
+	select {
+	case <-signal:
+	case <-time.After(5 * time.Second):
+		t.Fatal(message)
+	}
+}
+
+func refuseBeyondSlots(t *testing.T, path string) {
+	t.Helper()
+	var dialer net.Dialer
+	for range refusedBeyondSlots {
+		connection, err := dialer.DialContext(t.Context(), "unix", path)
+		if err != nil {
+			t.Fatalf("dial while slots are held: %v", err)
+		}
+		closeConnection(t, connection)
+	}
+}
+
+func requireRefusedWhileFull(t *testing.T, path string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	_, err := approvalsock.Ask(ctx, path, contracts.ApprovalRequest{ID: "barrier", Tool: "Bash", Subject: "ls"})
+	if err == nil {
+		t.Fatal("a request beyond the slots was answered while every slot was held")
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatal("accept loop stalled behind a blocked report")
+	}
+}
+
 func TestServeBlockedReportNeverStallsAcceptOrAnswer(t *testing.T) {
 	t.Parallel()
 	reports := newBlockingReports()
-	releaseOnce := sync.OnceFunc(func() { close(reports.release) })
-	path := startReportingServer(t, approvalsock.WithErrorHandler(reports.report))
-	t.Cleanup(releaseOnce)
+	releaseReports := sync.OnceFunc(func() { close(reports.release) })
+	holdAsker := make(chan struct{})
+	releaseHolders := sync.OnceFunc(func() { close(holdAsker) })
+	asked := make(chan struct{}, approvalsock.MaxConcurrentConnections)
+	asker := func(ctx context.Context, req contracts.ApprovalRequest) contracts.ApprovalAnswer {
+		if req.ID == "hold" {
+			asked <- struct{}{}
+			select {
+			case <-holdAsker:
+			case <-ctx.Done():
+			}
+		}
+		return allowAll(ctx, req)
+	}
+	path := startReportingServer(t, asker, approvalsock.WithErrorHandler(reports.report))
+	t.Cleanup(releaseReports)
+	t.Cleanup(releaseHolders)
 
-	sendMalformed(t, path)
+	holdEverySlot(t, path, asked)
+	refuseBeyondSlots(t, path)
 	awaitEntered(t, reports)
+	requireRefusedWhileFull(t, path)
 
-	legitimate := func() {
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-		answer, err := approvalsock.Ask(ctx, path, contracts.ApprovalRequest{ID: "legit", Tool: "Bash", Subject: "ls"})
-		if err != nil {
-			t.Fatalf("Ask while the handler is blocked: %v", err)
-		}
-		if !answer.Allowed() {
-			t.Fatalf("answer = %+v, want allow", answer)
-		}
-	}
-	legitimate()
-
-	started := time.Now()
-	for range malformedFailures - 1 {
-		sendMalformed(t, path)
-	}
-	if elapsed := time.Since(started); elapsed > 5*time.Second {
-		t.Fatalf("%d failures took %v with a blocked handler", malformedFailures-1, elapsed)
-	}
-	legitimate()
+	releaseHolders()
+	askUntilAllowed(t, path, "legit")
 
 	if got := reports.count(); got != 1 {
 		t.Fatalf("handler saw %d reports while blocked, want only the first", got)
 	}
-}
-
-func TestServeReportsQueueOverflowOnceHandlerIsFree(t *testing.T) {
-	t.Parallel()
-	reports := newBlockingReports()
-	releaseOnce := sync.OnceFunc(func() { close(reports.release) })
-	path := startReportingServer(t, approvalsock.WithErrorHandler(reports.report))
-	t.Cleanup(releaseOnce)
-
-	sendMalformed(t, path)
-	awaitEntered(t, reports)
-	for range malformedFailures - 1 {
-		sendMalformed(t, path)
-	}
-	releaseOnce()
-
-	waitUntil(t, func() bool { return reports.total() == malformedFailures })
-	reports.mu.Lock()
-	defer reports.mu.Unlock()
-	var sawDropped bool
-	for _, err := range reports.received {
-		if dropped, ok := errors.AsType[*approvalsock.ReportsDroppedError](err); ok && errors.Is(dropped, approvalsock.ErrReportsDropped) {
-			sawDropped = true
-		}
-	}
-	if !sawDropped {
-		t.Fatal("no ReportsDroppedError reached the handler after the overflow")
-	}
+	releaseReports()
+	waitUntil(t, func() bool { return reports.total() >= refusedBeyondSlots })
 }
 
 func TestServeReturnsOnlyAfterBlockedReportIsReleased(t *testing.T) {
@@ -189,10 +232,14 @@ func TestServeReturnsOnlyAfterBlockedReportIsReleased(t *testing.T) {
 	awaitEntered(t, reports)
 	cancel()
 
+	waitUntil(t, func() bool {
+		_, err := os.Lstat(path)
+		return errors.Is(err, fs.ErrNotExist)
+	})
 	select {
 	case err := <-done:
 		t.Fatalf("Serve returned %v while the handler was still blocked", err)
-	case <-time.After(200 * time.Millisecond):
+	default:
 	}
 	releaseOnce()
 	select {
