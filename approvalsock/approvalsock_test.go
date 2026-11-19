@@ -768,3 +768,37 @@ func TestServeCancelsAskerWhenClientLeaves(t *testing.T) {
 		t.Fatal("asker context was not cancelled after the client left")
 	}
 }
+
+func TestServeWritesNoAnswerAfterClientHalfCloses(t *testing.T) {
+	t.Parallel()
+	cancelled := make(chan struct{})
+	path := startServer(t, func(ctx context.Context, req contracts.ApprovalRequest) contracts.ApprovalAnswer {
+		<-ctx.Done()
+		close(cancelled)
+		return contracts.ApprovalAnswer{ID: req.ID, Decision: contracts.DecisionAllow}
+	})
+	connection := sendRequest(t, path, "18")
+	unixConnection, isUnix := connection.(*net.UnixConn)
+	if !isUnix {
+		t.Fatalf("client connection is %T, want *net.UnixConn", connection)
+	}
+	if err := unixConnection.CloseWrite(); err != nil {
+		t.Fatalf("half-close: %v", err)
+	}
+	select {
+	case <-cancelled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("asker context survived the client's half-close")
+	}
+	if err := connection.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	reply, err := io.ReadAll(connection)
+	if err != nil {
+		t.Fatalf("read reply: %v", err)
+	}
+	if len(reply) != 0 {
+		t.Fatalf("client received %q after its half-close, want no answer", reply)
+	}
+	closeQuietly(t, connection)
+}

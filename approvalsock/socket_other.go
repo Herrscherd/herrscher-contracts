@@ -3,11 +3,12 @@
 package approvalsock
 
 import (
+	"context"
 	"errors"
 	"fmt"
 )
 
-func lockSocket(string) (func() error, error) {
+func lockSocket(context.Context, string) (func() error, error) {
 	return nil, fmt.Errorf("approval socket needs a unix platform: %w", errors.ErrUnsupported)
 }
 

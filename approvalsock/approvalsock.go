@@ -58,6 +58,9 @@ var (
 	// ErrDirectoryChanged is returned by Serve when the directory of the socket was
 	// replaced while the socket was being created.
 	ErrDirectoryChanged = errors.New("approval socket directory changed while the socket was created")
+	// ErrSocketReplaced is returned by Serve when the entry at the socket path stopped
+	// being the socket it bound while that socket was being secured.
+	ErrSocketReplaced = errors.New("approval socket was replaced while it was secured")
 	// ErrRequestTooLarge is returned when a message exceeds 64 KiB.
 	ErrRequestTooLarge = errors.New("approval message exceeds its size bound")
 	// ErrAnswerMismatch is returned by Ask when the answer carries another ID than
@@ -129,8 +132,9 @@ func WithErrorHandler(report func(error)) Option {
 // ErrInsecureDirectory. A nil asker returns ErrNoAsker, and no WithErrorHandler
 // returns ErrNoErrorHandler. While it binds, Serve holds a lock file beside the
 // socket, so two Serve calls on one path never both bind: the second one finds the
-// first socket alive and returns an error matching ErrPathInUse. A socket left by
-// a run that was killed is removed and replaced. Any other file at path, a live
+// first socket alive and returns an error matching ErrPathInUse. A context that
+// ends while Serve waits for that lock makes Serve return its error at once. A
+// socket left by a run that was killed is removed and replaced. Any other file at path, a live
 // socket included, returns an error matching ErrPathInUse, and is left alone.
 //
 // Each connection carries one request line of at most 64 KiB, read within five
@@ -139,8 +143,10 @@ func WithErrorHandler(report func(error)) Option {
 // without an answer and reported with Op OpBusy and ErrBusy. A malformed, oversized
 // or silent request closes its connection without calling asker, and the hook reads
 // that as a denial. The context of asker ends when ctx ends, after ten minutes, or
-// when the hook closes its connection. Serve returns nil once ctx ends, after the
-// socket file is removed and every connection in progress has returned. asker must
+// when the hook closes its connection or half-closes its write side: a hook keeps
+// its write side open until the answer arrives. Once that context has ended, Serve
+// writes no answer, and the hook reads the closed stream as a denial. Serve returns
+// nil once ctx ends, after the socket file is removed and every connection in progress has returned. asker must
 // therefore return when its context ends.
 func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts ...Option) error {
 	if asker == nil {
@@ -168,7 +174,8 @@ func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts
 // lasts as long as ctx allows, so the caller sets the deadline. Ask returns an
 // error when the directory of path is not private to the current user, when the
 // socket cannot be reached, when the process answering it runs as another user, or
-// when ctx ends first. The peer check runs on Linux only: on other platforms Ask
+// when ctx ends first. Ask keeps its write side open while it waits: a half-closed
+// connection ends the wait without an answer. The peer check runs on Linux only: on other platforms Ask
 // relies on the private directory alone, and on Windows Ask returns an error
 // matching errors.ErrUnsupported. A request whose line exceeds 64 KiB matches
 // ErrRequestTooLarge and is not sent. An answer that is not one JSON line, or whose
@@ -191,9 +198,11 @@ func Ask(ctx context.Context, path string, req contracts.ApprovalRequest) (contr
 	if err != nil {
 		return contracts.ApprovalAnswer{}, fmt.Errorf("dial approval socket: %w", err)
 	}
-	closeConn := sync.OnceValue(connection.Close)
-	answer, exchangeErr := exchange(ctx, connection, closeConn, line, req.ID)
-	if joined := errors.Join(exchangeErr, connectionError(OpClose, closeConn())); joined != nil {
+	var closeErr error
+	closeOnce := sync.OnceFunc(func() { closeErr = connection.Close() })
+	answer, exchangeErr := exchange(ctx, connection, closeOnce, line, req.ID)
+	closeOnce()
+	if joined := errors.Join(exchangeErr, connectionError(OpClose, closeErr)); joined != nil {
 		return contracts.ApprovalAnswer{}, joined
 	}
 	return answer, nil
@@ -238,7 +247,7 @@ func acceptConnections(ctx context.Context, listener net.Listener, asker contrac
 		case slots <- struct{}{}:
 			connections.Go(func() { answerConnection(ctx, connection, asker, report, slots) })
 		default:
-			connections.Go(func() { report(refuseBusy(connection)) })
+			report(refuseBusy(connection))
 		}
 	}
 }
@@ -269,17 +278,29 @@ func serveRequest(ctx context.Context, connection net.Conn, asker contracts.Appr
 func answerRequest(ctx context.Context, connection net.Conn, asker contracts.ApprovalAsker, request contracts.ApprovalRequest) error {
 	askCtx, cancel := context.WithTimeout(ctx, answerDeadline)
 	defer cancel()
+	var gate sync.Mutex
 	departed := make(chan error, 1)
-	go func() { departed <- readUntilDeparture(connection, cancel) }()
+	go func() {
+		departed <- readUntilDeparture(connection, func() {
+			gate.Lock()
+			defer gate.Unlock()
+			cancel()
+		})
+	}()
 	answer := asker(askCtx, request)
-	cancel()
-	err := connectionError(OpAnswer, writeMessage(connection, answer))
+	gate.Lock()
+	var writeErr error
+	if askCtx.Err() == nil {
+		writeErr = writeMessage(connection, answer)
+	}
+	gate.Unlock()
+	err := connectionError(OpAnswer, writeErr)
 	err = errors.Join(err, closeConnection(connection))
 	return errors.Join(err, <-departed)
 }
 
-func readUntilDeparture(connection net.Conn, cancel context.CancelFunc) error {
-	defer cancel()
+func readUntilDeparture(connection net.Conn, depart func()) error {
+	defer depart()
 	var scratch [1]byte
 	for {
 		if _, err := connection.Read(scratch[:]); err != nil {
@@ -295,12 +316,11 @@ func departureError(err error) error {
 	return connectionError(OpRead, fmt.Errorf("watch approval client: %w", err))
 }
 
-func exchange(ctx context.Context, connection net.Conn, closeConn func() error, line []byte, requestID string) (contracts.ApprovalAnswer, error) {
+func exchange(ctx context.Context, connection net.Conn, closeOnce func(), line []byte, requestID string) (contracts.ApprovalAnswer, error) {
 	if err := checkPeer(connection); err != nil {
 		return contracts.ApprovalAnswer{}, err
 	}
-	closed := make(chan error, 1)
-	stopOnCancel := context.AfterFunc(ctx, func() { closed <- closeConn() })
+	stopOnCancel := context.AfterFunc(ctx, closeOnce)
 	answer, err := roundTrip(connection, line, requestID)
 	if stopOnCancel() {
 		return answer, err

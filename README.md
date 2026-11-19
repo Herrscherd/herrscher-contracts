@@ -429,8 +429,10 @@ The model is deliberately closed:
 - **Binding is serialised.** While it binds, `Serve` holds an exclusive `flock` on
   a lock file `<path>.lock` beside the socket, inside the same private directory.
   Two `Serve` calls racing on one path never both bind: the loser finds the
-  winner's socket alive and returns `ErrPathInUse`. The lock file is left in place,
-  empty and owner-only, once `Serve` returns.
+  winner's socket alive and returns `ErrPathInUse`. A wait for the lock ends as soon
+  as the context ends: `Serve` then returns the context error without waiting for
+  the holder. The lock file is left in place, empty and owner-only, once `Serve`
+  returns.
 - **Orphan sockets are recovered, nothing else is.** A socket left by a killed
   run is detected with `Lstat` and a probe: when the probe is refused, `Serve`
   removes it and listens. A regular file, a symlink, or a socket that still
@@ -438,11 +440,17 @@ The model is deliberately closed:
   cancelled before the probe ends, it returns the context error and leaves the
   orphan in place, so a cancelled start never reads as a live socket.
 - **The socket is owner-only.** After `Listen`, `Serve` sets the socket path to
-  mode 0600, whatever the umask. It checks that the entry is still the same socket
-  before and after the change, and closes the socket if the directory it validated
-  is no longer the one that holds it (`ErrDirectoryChanged`). The change is made on
-  the path because the directory is private to this user, so no other user can
-  swap the entry in between.
+  mode 0600, whatever the umask. The change is made on the path, because the
+  descriptor of a socket does not carry the path's mode on Linux. Before the change,
+  `Serve` checks with `Lstat` that the entry is the socket it bound, and it checks
+  again right after. A symlink, a regular file or a missing entry at the path is
+  refused with `ErrSocketReplaced`, and a symlink is never followed, so its target
+  keeps its mode. The directory is private to this user, which is what keeps the
+  entry from being swapped by another user. Go has no `chmod` that refuses to follow
+  a symlink on Linux, so a window remains between the last `Lstat` and the `chmod`:
+  a process running as this user could swap the entry there, and the change would
+  then reach the target. `Serve` closes the socket if the directory it validated is
+  no longer the one that holds it (`ErrDirectoryChanged`).
 - **The peer is checked on Linux.** `Ask` reads the peer credentials with
   `SO_PEERCRED` and refuses a listener that does not run as the current user
   (`ErrForeignPeer`). On other unix systems the private directory is the only peer
@@ -459,10 +467,14 @@ The model is deliberately closed:
   its connection, so an asker that waits for a human stops when nobody is waiting
   for it. A malformed, oversized or silent request closes its connection without
   reaching the asker.
-- **A departing hook is not an error.** While the asker runs, `Serve` watches the
-  connection. A hook that closes it, by end of stream or reset, cancels the asker's
-  context without a report. Any other read failure on that connection is reported
-  as `OpRead`.
+- **The client keeps its write side open until the answer.** While the asker runs,
+  `Serve` watches the connection. A client that half-closes its write side after
+  its request, or that closes or resets the connection, counts as departed: it
+  cancels the asker's context without a report, and `Serve` writes no answer after
+  that context ends, so a client that half-closed receives nothing. The asker then
+  returns a denial, which the hook reads as a refusal. `Ask` keeps its write side
+  open while it waits, so the daemon sees the request until it is answered. Any
+  other read failure on that connection is reported as `OpRead`.
 - **No failure goes unseen.** `Serve` requires `WithErrorHandler`, and it
   reports every connection failure, every refused connection and every failed
   accept to it as a `*ConnectionError` carrying an `Op` (`OpAccept`, `OpRead`,

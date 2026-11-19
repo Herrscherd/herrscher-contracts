@@ -5,8 +5,10 @@ import "context"
 type approvalAskerKey struct{}
 
 // ApprovalAsker asks the daemon for one tool approval and waits for the answer. It
-// returns when the answer arrives or ctx ends. An asker that cannot reach the
-// daemon returns a denial, never an allowance.
+// returns when the answer arrives or ctx ends. When ctx ends, the asker returns a
+// denial, and an answer it returns afterwards is never delivered: the caller reads
+// that as a denial too. An asker that cannot reach the daemon returns a denial,
+// never an allowance.
 type ApprovalAsker func(ctx context.Context, req ApprovalRequest) ApprovalAnswer
 
 // WithApprovalAsker returns a context that carries asker for the turn it is passed

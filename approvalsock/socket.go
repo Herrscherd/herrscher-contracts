@@ -13,13 +13,14 @@ import (
 )
 
 const (
-	lockSuffix = ".lock"
-	lockMode   = 0o600
-	socketMode = 0o600
+	lockSuffix     = ".lock"
+	lockMode       = 0o600
+	socketMode     = 0o600
+	lockRetryDelay = 10 * time.Millisecond
 )
 
 func bindSocket(ctx context.Context, path string, directory os.FileInfo) (net.Listener, error) {
-	release, err := lockSocket(path)
+	release, err := lockSocket(ctx, path)
 	if err != nil {
 		return nil, err
 	}
