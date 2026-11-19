@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"encoding/json"
+	"errors"
 	"slices"
 	"testing"
 )
@@ -58,5 +59,39 @@ func TestApprovalAnswerAllowed(t *testing.T) {
 				t.Fatalf("Allowed() with decision %q = %v, want %v", testCase.decision, got, testCase.want)
 			}
 		})
+	}
+}
+
+func TestParseApprovalDecisionAcceptsKnownValues(t *testing.T) {
+	for _, text := range []string{"allow", "deny"} {
+		got, err := ParseApprovalDecision(text)
+		if err != nil {
+			t.Fatalf("ParseApprovalDecision(%q): %v", text, err)
+		}
+		if string(got) != text {
+			t.Fatalf("ParseApprovalDecision(%q) = %q, want the same text", text, got)
+		}
+	}
+}
+
+func TestParseApprovalDecisionRefusesUnknownValues(t *testing.T) {
+	for _, text := range []string{"maybe", "", "ALLOW", "Deny"} {
+		if _, err := ParseApprovalDecision(text); !errors.Is(err, ErrInvalidDecision) {
+			t.Fatalf("ParseApprovalDecision(%q) error = %v, want ErrInvalidDecision", text, err)
+		}
+	}
+}
+
+func TestApprovalDecisionMarshalRefusesUnknownValue(t *testing.T) {
+	if _, err := json.Marshal(ApprovalAnswer{ID: "1", Decision: "maybe"}); !errors.Is(err, ErrInvalidDecision) {
+		t.Fatalf("marshal with unknown decision error = %v, want ErrInvalidDecision", err)
+	}
+}
+
+func TestApprovalAnswerUnmarshalRefusesUnknownDecision(t *testing.T) {
+	var answer ApprovalAnswer
+	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"maybe"}`), &answer)
+	if !errors.Is(err, ErrInvalidDecision) {
+		t.Fatalf("unmarshal with unknown decision error = %v, want ErrInvalidDecision", err)
 	}
 }
