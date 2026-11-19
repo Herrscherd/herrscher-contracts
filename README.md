@@ -82,8 +82,8 @@ it is absent.
 | `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | the model catalog a backend declares, its route, and the policy that bounds it, plus `ValidateModels`, `FilterModels`, `GatewayCreds` and `NewGatewayCreds` |
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
-| `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
-| `Serve`, `Ask`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, and the environment variable that names its path |
+| `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
+| `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
@@ -423,17 +423,45 @@ The model is deliberately closed:
 - **No token travels.** The socket is local to the machine and carries one JSON
   line each way per connection.
 - **The directory is private.** `Serve` refuses a socket directory that is not
-  owned by the current user with mode 0700, with `ErrInsecureDirectory`. It does
-  not remove a file already at the path, so a socket left by an earlier run must
-  be removed first.
-- **Everything is bounded.** A message is at most 64 KiB, and a request not
-  received within five seconds is dropped. A malformed, oversized or silent
-  request closes its connection without reaching the asker.
+  owned by the current user with mode 0700, with `ErrInsecureDirectory`, and `Ask`
+  applies the same check to the directory of the path before it dials. A wrong
+  directory is never reached. `Serve` does not remove a file already at the path.
+- **Orphan sockets are recovered, nothing else is.** A socket left by a killed
+  run is detected with `Lstat` and a probe: when the probe is refused, `Serve`
+  removes it and listens. A regular file, a symlink, or a socket that still
+  answers returns `ErrPathInUse`, and the file is left untouched.
+- **The socket is owner-only.** After `Listen`, `Serve` sets the socket to mode
+  0600, whatever the umask. It then checks that the directory it validated is
+  still the one that holds the socket (`ErrDirectoryChanged` otherwise), and
+  closes the socket if it is not.
+- **The peer is checked on Linux.** `Ask` reads the peer credentials with
+  `SO_PEERCRED` and refuses a listener that does not run as the current user
+  (`ErrForeignPeer`). On other unix systems the directory check is the only peer
+  guard.
+- **Everything is bounded.** A message is at most 64 KiB (a line of 65535 bytes
+  is accepted, one of 65536 is refused), and a request not received within five
+  seconds is dropped. At most `MaxConcurrentConnections` (16) connections are
+  answered at once, and the next one waits in the listen backlog. A request is
+  answered within ten minutes: the asker's context ends then, and also when the
+  hook closes its connection, so an asker that waits for a human stops when
+  nobody is waiting for it. A malformed, oversized or silent request closes its
+  connection without reaching the asker.
+- **No failure goes unseen.** `Serve` requires `WithErrorHandler`, and it
+  reports every connection failure and every failed accept to it as a
+  `*ConnectionError` carrying an `Op` (`OpAccept`, `OpRead`, `OpAnswer` or
+  `OpClose`). The handler runs concurrently, so it must be safe for that. An
+  answer the asker returns with an unknown decision is reported as
+  `ErrInvalidDecision` and never reaches the hook.
+- **Decisions are parsed at the boundary.** `ParseApprovalDecision` accepts only
+  `allow` and `deny`, and `ApprovalDecision` marshals and unmarshals through the
+  same check. `Ask` refuses an answer with another decision, a missing one included,
+  with `ErrInvalidDecision`. `Allowed()` still denies anything else.
 - **Failure is a denial.** `Ask` returns an error for every way the daemon may
-  not be reached: an absent socket, a deadline, an unreadable answer, a mismatched
-  ID. The caller turns every error into a denial. An asker that cannot reach the
-  daemon returns a denial too, never an allowance. `Ask` waits as long as its
-  context allows, so the caller sets the deadline.
+  not be reached: an open directory, an absent socket, a foreign peer, a deadline,
+  an unreadable answer, an unknown decision, a mismatched ID. The caller turns
+  every error into a denial. An asker that cannot reach the daemon returns a
+  denial too, never an allowance. `Ask` waits as long as its context allows, so
+  the caller sets the deadline.
 
 ## Helpers
 

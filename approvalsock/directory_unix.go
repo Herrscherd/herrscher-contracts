@@ -10,14 +10,14 @@ import (
 
 const privateDirectoryMode = 0o700
 
-func checkPrivateDirectory(dir string) error {
+func checkPrivateDirectory(dir string) (os.FileInfo, error) {
 	info, err := os.Stat(dir)
 	if err != nil {
-		return fmt.Errorf("stat approval socket directory: %w", err)
+		return nil, fmt.Errorf("stat approval socket directory: %w", err)
 	}
 	owner, isUnix := info.Sys().(*syscall.Stat_t)
 	if !info.IsDir() || !isUnix || info.Mode().Perm() != privateDirectoryMode || int(owner.Uid) != os.Getuid() {
-		return fmt.Errorf("%w: %s", ErrInsecureDirectory, dir)
+		return nil, fmt.Errorf("%w: %s", ErrInsecureDirectory, dir)
 	}
-	return nil
+	return info, nil
 }

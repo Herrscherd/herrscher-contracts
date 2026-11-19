@@ -5,8 +5,9 @@ package approvalsock
 import (
 	"errors"
 	"fmt"
+	"os"
 )
 
-func checkPrivateDirectory(string) error {
-	return fmt.Errorf("approval socket needs a unix platform: %w", errors.ErrUnsupported)
+func checkPrivateDirectory(string) (os.FileInfo, error) {
+	return nil, fmt.Errorf("approval socket needs a unix platform: %w", errors.ErrUnsupported)
 }
