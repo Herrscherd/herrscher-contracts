@@ -81,20 +81,26 @@ func awaitEntered(t *testing.T, reports *blockingReports) {
 	}
 }
 
-func startReportingServer(t *testing.T, asker contracts.ApprovalAsker, opt approvalsock.Option) string {
+type reportingServer struct {
+	path string
+	stop func()
+}
+
+func startReportingServer(t *testing.T, asker contracts.ApprovalAsker, opt approvalsock.Option) reportingServer {
 	t.Helper()
 	path := filepath.Join(privateDir(t), "a.sock")
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- approvalsock.Serve(ctx, path, asker, opt) }()
-	t.Cleanup(func() {
+	stop := sync.OnceFunc(func() {
 		cancel()
 		if err := <-done; err != nil {
 			t.Errorf("Serve returned %v after cancel", err)
 		}
 	})
+	t.Cleanup(stop)
 	awaitAnswer(t, path)
-	return path
+	return reportingServer{path: path, stop: stop}
 }
 
 func awaitAnswer(t *testing.T, path string) {
@@ -111,9 +117,10 @@ func awaitAnswer(t *testing.T, path string) {
 	t.Fatal("approval socket never answered")
 }
 
-func askUntilAllowed(t *testing.T, path, id string) {
+func askUntilAllowed(t *testing.T, path, id string) int {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
+	refused := 0
 	for {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		answer, err := approvalsock.Ask(ctx, path, contracts.ApprovalRequest{ID: id, Tool: "Bash", Subject: "ls"})
@@ -122,8 +129,9 @@ func askUntilAllowed(t *testing.T, path, id string) {
 			if !answer.Allowed() {
 				t.Fatalf("answer = %+v, want allow", answer)
 			}
-			return
+			return refused
 		}
+		refused++
 		if time.Now().After(deadline) {
 			t.Fatalf("Ask %q never answered: %v", id, err)
 		}
@@ -131,19 +139,28 @@ func askUntilAllowed(t *testing.T, path, id string) {
 	}
 }
 
-func holdEverySlot(t *testing.T, path string, asked <-chan struct{}) {
+func holdEverySlot(t *testing.T, path string, asked <-chan struct{}) func() {
 	t.Helper()
 	var holders []net.Conn
-	t.Cleanup(func() {
+	closeHolders := sync.OnceFunc(func() {
 		for _, connection := range holders {
 			closeQuietly(t, connection)
 		}
 	})
+	t.Cleanup(closeHolders)
 	for range approvalsock.MaxConcurrentConnections {
 		holders = append(holders, sendRequest(t, path, "hold"))
 	}
 	for range approvalsock.MaxConcurrentConnections {
 		awaitSignal(t, asked, "a holding request never reached the asker")
+	}
+	return closeHolders
+}
+
+func awaitHolderReturns(t *testing.T, returned <-chan struct{}) {
+	t.Helper()
+	for range approvalsock.MaxConcurrentConnections {
+		awaitSignal(t, returned, "a holding request never returned from the asker")
 	}
 }
 
@@ -188,6 +205,7 @@ func TestServeBlockedReportNeverStallsAcceptOrAnswer(t *testing.T) {
 	holdAsker := make(chan struct{})
 	releaseHolders := sync.OnceFunc(func() { close(holdAsker) })
 	asked := make(chan struct{}, approvalsock.MaxConcurrentConnections)
+	returned := make(chan struct{}, approvalsock.MaxConcurrentConnections)
 	asker := func(ctx context.Context, req contracts.ApprovalRequest) contracts.ApprovalAnswer {
 		if req.ID == "hold" {
 			asked <- struct{}{}
@@ -195,26 +213,34 @@ func TestServeBlockedReportNeverStallsAcceptOrAnswer(t *testing.T) {
 			case <-holdAsker:
 			case <-ctx.Done():
 			}
+			returned <- struct{}{}
 		}
 		return allowAll(ctx, req)
 	}
-	path := startReportingServer(t, asker, approvalsock.WithErrorHandler(reports.report))
+	server := startReportingServer(t, asker, approvalsock.WithErrorHandler(reports.report))
+	path := server.path
 	t.Cleanup(releaseReports)
 	t.Cleanup(releaseHolders)
 
-	holdEverySlot(t, path, asked)
+	closeHolders := holdEverySlot(t, path, asked)
 	refuseBeyondSlots(t, path)
 	awaitEntered(t, reports)
 	requireRefusedWhileFull(t, path)
 
 	releaseHolders()
-	askUntilAllowed(t, path, "legit")
+	awaitHolderReturns(t, returned)
+	retries := askUntilAllowed(t, path, "legit")
 
 	if got := reports.count(); got != 1 {
 		t.Fatalf("handler saw %d reports while blocked, want only the first", got)
 	}
+	closeHolders()
 	releaseReports()
-	waitUntil(t, func() bool { return reports.total() >= refusedBeyondSlots })
+	server.stop()
+	const barrier = 1
+	if want := uint64(refusedBeyondSlots + barrier + retries); reports.total() != want {
+		t.Fatalf("reported failures = %d, want %d (%d refused, %d barrier, %d retries)", reports.total(), want, refusedBeyondSlots, barrier, retries)
+	}
 }
 
 func TestServeReturnsOnlyAfterBlockedReportIsReleased(t *testing.T) {
@@ -239,7 +265,7 @@ func TestServeReturnsOnlyAfterBlockedReportIsReleased(t *testing.T) {
 	select {
 	case err := <-done:
 		t.Fatalf("Serve returned %v while the handler was still blocked", err)
-	default:
+	case <-time.After(200 * time.Millisecond):
 	}
 	releaseOnce()
 	select {
