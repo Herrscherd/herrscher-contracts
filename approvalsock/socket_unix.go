@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -54,43 +53,4 @@ func acquireLock(ctx context.Context, file *os.File) error {
 			return fmt.Errorf("lock approval socket: %w", ctx.Err())
 		}
 	}
-}
-
-func restrictSocket(path string) error {
-	bound, err := socketEntry(path)
-	if err != nil {
-		return err
-	}
-	beforeChmod, err := socketEntry(path)
-	if err != nil {
-		return err
-	}
-	if !os.SameFile(bound, beforeChmod) {
-		return fmt.Errorf("%w: %s was replaced", ErrSocketReplaced, path)
-	}
-	if err = os.Chmod(path, socketMode); err != nil {
-		return fmt.Errorf("restrict approval socket: %w", err)
-	}
-	restricted, err := socketEntry(path)
-	if err != nil {
-		return err
-	}
-	if !os.SameFile(bound, restricted) {
-		return fmt.Errorf("%w: %s was replaced", ErrSocketReplaced, path)
-	}
-	return nil
-}
-
-func socketEntry(path string) (fs.FileInfo, error) {
-	info, err := os.Lstat(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("%w: %s is gone", ErrSocketReplaced, path)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("inspect approval socket: %w", err)
-	}
-	if info.Mode().Type() != fs.ModeSocket {
-		return nil, fmt.Errorf("%w: %s is not a socket", ErrSocketReplaced, path)
-	}
-	return info, nil
 }

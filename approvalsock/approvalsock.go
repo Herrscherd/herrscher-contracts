@@ -58,9 +58,6 @@ var (
 	// ErrDirectoryChanged is returned by Serve when the directory of the socket was
 	// replaced while the socket was being created.
 	ErrDirectoryChanged = errors.New("approval socket directory changed while the socket was created")
-	// ErrSocketReplaced is returned by Serve when the entry at the socket path stopped
-	// being the socket it bound while that socket was being secured.
-	ErrSocketReplaced = errors.New("approval socket was replaced while it was secured")
 	// ErrRequestTooLarge is returned when a message exceeds 64 KiB.
 	ErrRequestTooLarge = errors.New("approval message exceeds its size bound")
 	// ErrAnswerMismatch is returned by Ask when the answer carries another ID than
@@ -72,6 +69,8 @@ var (
 	// ErrBusy is the cause of a connection refused because MaxConcurrentConnections
 	// are already being answered.
 	ErrBusy = errors.New("approval socket is answering the maximum number of connections")
+	// ErrReportsDropped is the cause of a ReportsDroppedError.
+	ErrReportsDropped = errors.New("approval connection errors were dropped while the error handler was busy")
 )
 
 // Op names the step of a connection that failed.
@@ -107,6 +106,23 @@ func (e *ConnectionError) Unwrap() error {
 	return e.Err
 }
 
+// ReportsDroppedError reports how many failures could not be queued for the error
+// handler, because the handler was still busy with earlier ones. Count is that
+// number.
+type ReportsDroppedError struct {
+	Count uint64
+}
+
+// Error renders the number of dropped failures.
+func (e *ReportsDroppedError) Error() string {
+	return fmt.Sprintf("%d approval connection errors dropped while the error handler was busy", e.Count)
+}
+
+// Unwrap returns ErrReportsDropped.
+func (e *ReportsDroppedError) Unwrap() error {
+	return ErrReportsDropped
+}
+
 // Option tunes Serve.
 type Option func(*serveSettings)
 
@@ -116,10 +132,12 @@ type serveSettings struct {
 
 // WithErrorHandler sends every failure that ends a connection, every refused
 // connection and every failed accept to report as a *ConnectionError. Serve calls
-// report on its own goroutine, after the connection slot is released, so a slow
-// report delays only Serve's return and never another connection. report must be
-// safe for concurrent use, must return quickly, and must not panic: Serve does not
-// recover from a panic in report. Serve refuses to start without it.
+// report from one goroutine of its own, through a bounded queue: a slow report
+// never delays a connection, and a failure that finds the queue full is counted
+// instead, then reported as a *ReportsDroppedError once the queue has room. Serve
+// returns only after report has returned for every failure it queued, so report
+// must return quickly and must not panic: Serve does not recover from a panic in
+// report. Serve refuses to start without WithErrorHandler.
 func WithErrorHandler(report func(error)) Option {
 	return func(settings *serveSettings) {
 		settings.report = report
@@ -134,20 +152,22 @@ func WithErrorHandler(report func(error)) Option {
 // socket, so two Serve calls on one path never both bind: the second one finds the
 // first socket alive and returns an error matching ErrPathInUse. A context that
 // ends while Serve waits for that lock makes Serve return its error at once. A
-// socket left by a run that was killed is removed and replaced. Any other file at path, a live
-// socket included, returns an error matching ErrPathInUse, and is left alone.
+// socket left by a run that was killed is removed and replaced. Any other file at
+// path, a live socket included, returns an error matching ErrPathInUse, and is
+// left alone.
 //
 // Each connection carries one request line of at most 64 KiB, read within five
 // seconds, and receives one answer line. At most MaxConcurrentConnections are
 // answered at once. A connection that arrives beyond that bound is closed at once
-// without an answer and reported with Op OpBusy and ErrBusy. A malformed, oversized
-// or silent request closes its connection without calling asker, and the hook reads
-// that as a denial. The context of asker ends when ctx ends, after ten minutes, or
-// when the hook closes its connection or half-closes its write side: a hook keeps
-// its write side open until the answer arrives. Once that context has ended, Serve
-// writes no answer, and the hook reads the closed stream as a denial. Serve returns
-// nil once ctx ends, after the socket file is removed and every connection in progress has returned. asker must
-// therefore return when its context ends.
+// without an answer and reported with Op OpBusy and ErrBusy. A malformed,
+// oversized or silent request closes its connection without calling asker, and the
+// hook reads that as a denial. The context of asker ends when ctx ends, after ten
+// minutes, or when the hook closes its connection or half-closes its write side: a
+// hook keeps its write side open until the answer arrives. Once that context has
+// ended, Serve writes no answer, and the hook reads the closed stream as a denial.
+// Serve returns nil once ctx ends, after the socket file is removed, every
+// connection in progress has returned, and report has returned for every failure
+// it queued. asker must therefore return when its context ends.
 func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts ...Option) error {
 	if asker == nil {
 		return ErrNoAsker
@@ -175,13 +195,13 @@ func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts
 // error when the directory of path is not private to the current user, when the
 // socket cannot be reached, when the process answering it runs as another user, or
 // when ctx ends first. Ask keeps its write side open while it waits: a half-closed
-// connection ends the wait without an answer. The peer check runs on Linux only: on other platforms Ask
-// relies on the private directory alone, and on Windows Ask returns an error
-// matching errors.ErrUnsupported. A request whose line exceeds 64 KiB matches
-// ErrRequestTooLarge and is not sent. An answer that is not one JSON line, or whose
-// decision is unknown, matches ErrInvalidDecision. An answer whose ID is not req.ID
-// matches ErrAnswerMismatch. Every error means the daemon was not reached, and the
-// caller must treat it as a denial.
+// connection ends the wait without an answer. The peer check runs on Linux only:
+// on other platforms Ask relies on the private directory alone, and on Windows Ask
+// returns an error matching errors.ErrUnsupported. A request whose line exceeds 64
+// KiB matches ErrRequestTooLarge and is not sent. An answer that is not one JSON
+// line, or whose decision is unknown, matches ErrInvalidDecision. An answer whose
+// ID is not req.ID matches ErrAnswerMismatch. Every error means the daemon was not
+// reached, and the caller must treat it as a denial.
 func Ask(ctx context.Context, path string, req contracts.ApprovalRequest) (contracts.ApprovalAnswer, error) {
 	if _, err := checkPrivateDirectory(filepath.Dir(path)); err != nil {
 		return contracts.ApprovalAnswer{}, err
@@ -213,7 +233,13 @@ func serveListener(ctx context.Context, listener net.Listener, asker contracts.A
 	stopOnCancel := context.AfterFunc(ctx, func() { closed <- listener.Close() })
 	var connections sync.WaitGroup
 	slots := make(chan struct{}, MaxConcurrentConnections)
-	acceptErr := acceptConnections(ctx, listener, asker, report, slots, &connections)
+	failures := newReporter()
+	delivered := make(chan struct{})
+	go func() {
+		failures.deliver(report)
+		close(delivered)
+	}()
+	acceptErr := acceptConnections(ctx, listener, asker, failures, slots, &connections)
 	var closeErr error
 	if stopOnCancel() {
 		closeErr = listener.Close()
@@ -221,13 +247,15 @@ func serveListener(ctx context.Context, listener net.Listener, asker contracts.A
 		closeErr = <-closed
 	}
 	connections.Wait()
+	close(failures.queue)
+	<-delivered
 	if ctx.Err() != nil {
 		return closeErr
 	}
 	return errors.Join(acceptErr, closeErr)
 }
 
-func acceptConnections(ctx context.Context, listener net.Listener, asker contracts.ApprovalAsker, report func(error), slots chan struct{}, connections *sync.WaitGroup) error {
+func acceptConnections(ctx context.Context, listener net.Listener, asker contracts.ApprovalAsker, failures *reporter, slots chan struct{}, connections *sync.WaitGroup) error {
 	var delay time.Duration
 	for {
 		connection, err := listener.Accept()
@@ -235,7 +263,7 @@ func acceptConnections(ctx context.Context, listener net.Listener, asker contrac
 			if ctx.Err() != nil || errors.Is(err, net.ErrClosed) {
 				return fmt.Errorf("accept on approval socket: %w", err)
 			}
-			connections.Go(func() { report(&ConnectionError{Op: OpAccept, Err: err}) })
+			failures.send(&ConnectionError{Op: OpAccept, Err: err})
 			delay = nextAcceptDelay(delay)
 			if !pause(ctx, delay) {
 				return nil
@@ -245,9 +273,9 @@ func acceptConnections(ctx context.Context, listener net.Listener, asker contrac
 		delay = 0
 		select {
 		case slots <- struct{}{}:
-			connections.Go(func() { answerConnection(ctx, connection, asker, report, slots) })
+			connections.Go(func() { answerConnection(ctx, connection, asker, failures, slots) })
 		default:
-			report(refuseBusy(connection))
+			failures.send(refuseBusy(connection))
 		}
 	}
 }
@@ -256,11 +284,11 @@ func refuseBusy(connection net.Conn) error {
 	return errors.Join(connectionError(OpBusy, ErrBusy), closeConnection(connection))
 }
 
-func answerConnection(ctx context.Context, connection net.Conn, asker contracts.ApprovalAsker, report func(error), slots <-chan struct{}) {
+func answerConnection(ctx context.Context, connection net.Conn, asker contracts.ApprovalAsker, failures *reporter, slots <-chan struct{}) {
 	err := serveRequest(ctx, connection, asker)
 	<-slots
 	if err != nil {
-		report(err)
+		failures.send(err)
 	}
 }
 

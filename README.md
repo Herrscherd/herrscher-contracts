@@ -439,18 +439,13 @@ The model is deliberately closed:
   answers returns `ErrPathInUse`, and the file is left untouched. If `Serve` is
   cancelled before the probe ends, it returns the context error and leaves the
   orphan in place, so a cancelled start never reads as a live socket.
-- **The socket is owner-only.** After `Listen`, `Serve` sets the socket path to
-  mode 0600, whatever the umask. The change is made on the path, because the
-  descriptor of a socket does not carry the path's mode on Linux. Before the change,
-  `Serve` checks with `Lstat` that the entry is the socket it bound, and it checks
-  again right after. A symlink, a regular file or a missing entry at the path is
-  refused with `ErrSocketReplaced`, and a symlink is never followed, so its target
-  keeps its mode. The directory is private to this user, which is what keeps the
-  entry from being swapped by another user. Go has no `chmod` that refuses to follow
-  a symlink on Linux, so a window remains between the last `Lstat` and the `chmod`:
-  a process running as this user could swap the entry there, and the change would
-  then reach the target. `Serve` closes the socket if the directory it validated is
-  no longer the one that holds it (`ErrDirectoryChanged`).
+- **The socket is private through its directory.** `Serve` does not change the mode
+  of the socket file: it keeps the mode the umask gives it. The protection is the
+  directory, which is owned by the current user with mode 0700. `Serve` checks it
+  before the bind and checks with `SameFile` after the bind that it is still the
+  directory that holds the socket, and it closes the socket if it is not
+  (`ErrDirectoryChanged`). No other user can traverse the directory, so none can
+  reach the socket. Nothing else should be placed in that directory.
 - **The peer is checked on Linux.** `Ask` reads the peer credentials with
   `SO_PEERCRED` and refuses a listener that does not run as the current user
   (`ErrForeignPeer`). On other unix systems the private directory is the only peer
@@ -475,13 +470,18 @@ The model is deliberately closed:
   returns a denial, which the hook reads as a refusal. `Ask` keeps its write side
   open while it waits, so the daemon sees the request until it is answered. Any
   other read failure on that connection is reported as `OpRead`.
-- **No failure goes unseen.** `Serve` requires `WithErrorHandler`, and it
-  reports every connection failure, every refused connection and every failed
-  accept to it as a `*ConnectionError` carrying an `Op` (`OpAccept`, `OpRead`,
-  `OpAnswer`, `OpClose` or `OpBusy`). The handler runs on its own goroutine, after
-  the connection slot is released, so a slow handler delays only the return of
-  `Serve`. It is called concurrently, so it must be safe for that, it must return
-  quickly, and it must not panic: `Serve` does not recover from a panic in it.
+- **No failure goes unseen, and none stalls the server.** `Serve` requires
+  `WithErrorHandler`, and it reports every connection failure, every refused
+  connection and every failed accept to it as a `*ConnectionError` carrying an `Op`
+  (`OpAccept`, `OpRead`, `OpAnswer`, `OpClose` or `OpBusy`). `Serve` calls the
+  handler from one goroutine of its own, fed by a queue of 32 failures, so a slow
+  handler never delays the accept loop or a connection. A failure that finds the
+  queue full is counted, and the handler then receives a `*ReportsDroppedError`
+  with that count once the queue has room, matching `ErrReportsDropped`: a drop is
+  never silent. `Serve` returns only after the handler has returned for every queued
+  failure. The handler must return quickly. It must not panic either: `Serve` does
+  not recover from a panic in the handler, by choice, because a panic is a bug that
+  has to be seen.
 - **An unsendable answer is never sent.** An answer whose decision is unknown does
   not marshal: `json.Marshal` returns `ErrInvalidDecision`, `Serve` reports it as
   `OpAnswer` and closes the connection without writing. The hook reads that as a

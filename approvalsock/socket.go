@@ -15,7 +15,6 @@ import (
 const (
 	lockSuffix     = ".lock"
 	lockMode       = 0o600
-	socketMode     = 0o600
 	lockRetryDelay = 10 * time.Millisecond
 )
 
@@ -44,10 +43,7 @@ func bindLocked(ctx context.Context, path string, directory os.FileInfo) (net.Li
 	if err != nil {
 		return nil, fmt.Errorf("listen on approval socket: %w", err)
 	}
-	err = restrictSocket(path)
-	if err == nil {
-		err = checkSameDirectory(filepath.Dir(path), directory)
-	}
+	err = checkSameDirectory(filepath.Dir(path), directory)
 	if err != nil {
 		return nil, errors.Join(err, listener.Close())
 	}
