@@ -73,11 +73,11 @@ func TestProfileHomeEnvPerVendor(t *testing.T) {
 }
 
 func TestProfileEnvSetsOnlyTheVendorVariable(t *testing.T) {
-	env, err := ProfileEnv(VendorCodex, "/home/shan/.config/herrscher/accounts/codex/work")
+	env, err := ProfileEnv(VendorCodex, "/home/user/.config/herrscher/accounts/codex/work")
 	if err != nil {
 		t.Fatalf("ProfileEnv: %v", err)
 	}
-	want := map[string]string{"CODEX_HOME": "/home/shan/.config/herrscher/accounts/codex/work"}
+	want := map[string]string{"CODEX_HOME": "/home/user/.config/herrscher/accounts/codex/work"}
 	if len(env) != len(want) || env["CODEX_HOME"] != want["CODEX_HOME"] {
 		t.Fatalf("ProfileEnv = %v, want %v", env, want)
 	}

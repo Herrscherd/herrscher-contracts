@@ -69,8 +69,8 @@ func TestSessionInfoWithoutLanguageDecodesToUnknown(t *testing.T) {
 }
 
 func TestPromptJSONKeepsLanguageAsItsNumber(t *testing.T) {
-	want := Prompt{Content: "bonjour", Author: "shan", ChannelID: "chan-9", Language: i18n.French, Outbox: "/w/out"}
-	const wantJSON = `{"Content":"bonjour","Context":"","Author":"shan","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2,"Outbox":"/w/out"}`
+	want := Prompt{Content: "bonjour", Author: "alice", ChannelID: "chan-9", Language: i18n.French, Outbox: "/w/out"}
+	const wantJSON = `{"Content":"bonjour","Context":"","Author":"alice","MessageID":"","ChannelID":"chan-9","Attachments":null,"Language":2,"Outbox":"/w/out"}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got Prompt
 		err := json.Unmarshal(raw, &got)
@@ -82,7 +82,7 @@ func TestPromptJSONKeepsLanguageAsItsNumber(t *testing.T) {
 }
 
 func TestPromptWithoutLanguageDecodesToUnknown(t *testing.T) {
-	const oldHostJSON = `{"Content":"bonjour","Author":"shan"}`
+	const oldHostJSON = `{"Content":"bonjour","Author":"alice"}`
 	var got Prompt
 	if err := json.Unmarshal([]byte(oldHostJSON), &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)

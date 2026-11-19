@@ -40,12 +40,12 @@ func TestPluginCatalogIsReadWithoutAnInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCatalog: %v", err)
 	}
-	got, err := catalog.Message(i18n.French, "gateway.hello", map[string]any{"Name": "Shan"})
+	got, err := catalog.Message(i18n.French, "gateway.hello", map[string]any{"Name": "alice"})
 	if err != nil {
 		t.Fatalf("Message: %v", err)
 	}
-	if got != "bonjour Shan" {
-		t.Fatalf("Message = %q, want %q", got, "bonjour Shan")
+	if got != "bonjour alice" {
+		t.Fatalf("Message = %q, want %q", got, "bonjour alice")
 	}
 }
 
@@ -56,12 +56,12 @@ func TestPluginWithoutCatalogIsIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCatalog: %v", err)
 	}
-	got, err := catalog.Message(i18n.French, "gateway.hello", map[string]any{"Name": "Shan"})
+	got, err := catalog.Message(i18n.French, "gateway.hello", map[string]any{"Name": "alice"})
 	if err != nil {
 		t.Fatalf("Message: %v", err)
 	}
-	if got != "bonjour Shan" {
-		t.Fatalf("Message = %q, want %q", got, "bonjour Shan")
+	if got != "bonjour alice" {
+		t.Fatalf("Message = %q, want %q", got, "bonjour alice")
 	}
 }
 
