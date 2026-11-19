@@ -82,6 +82,8 @@ it is absent.
 | `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | the model catalog a backend declares, its route, and the policy that bounds it, plus `ValidateModels`, `FilterModels`, `GatewayCreds` and `NewGatewayCreds` |
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
+| `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
+| `Serve`, `Ask`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, and the environment variable that names its path |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
@@ -390,6 +392,48 @@ was, so an old plugin keeps working exactly as it did. An empty principal is not
 a name: it yields the same context back, so a gateway with no identity to offer
 does not have to know whether passing `""` would be worse than not calling at
 all.
+
+## Remote approvals
+
+A backend that runs on another machine than the daemon can ask the daemon to
+approve a tool while a turn runs. The request rises in the turn's stream and the
+answer comes back down the same stream. Nothing that identifies the daemon's
+session leaves the daemon's machine: no session name and no token travels, in
+the request, in the answer or on the socket.
+
+The hook that the CLI agent spawns reaches the backend process through a Unix
+socket on the same machine. The backend passes the socket path to the hook in
+`HERRSCHER_APPROVAL_SOCKET` (`approvalsock.EnvApprovalSocket`).
+
+- `ApprovalRequest{ID, Tool, Subject}` asks about one tool. `ApprovalAnswer{ID,
+  Decision, Reason}` answers it. `Decision` is `allow` or `deny`, and
+  `Allowed()` is true only for `allow`: an empty, unknown or malformed decision
+  is a denial.
+- `ID` correlates a request with its answer within one stream. It is not a
+  secret. An answer whose ID is not the request's is refused.
+- `WithApprovalAsker` puts an `ApprovalAsker` on the turn's context, and
+  `ApprovalAskerFrom` reads it back. `Backend.Respond` does not change.
+- `approvalsock.Serve` runs on the backend side with the asker it got from the
+  daemon. `approvalsock.Ask` runs in the hook with the path it read from the
+  environment. `Reason` is free text the daemon supplies, and the contracts never
+  translate it.
+
+The model is deliberately closed:
+
+- **No token travels.** The socket is local to the machine and carries one JSON
+  line each way per connection.
+- **The directory is private.** `Serve` refuses a socket directory that is not
+  owned by the current user with mode 0700, with `ErrInsecureDirectory`. It does
+  not remove a file already at the path, so a socket left by an earlier run must
+  be removed first.
+- **Everything is bounded.** A message is at most 64 KiB, and a request not
+  received within five seconds is dropped. A malformed, oversized or silent
+  request closes its connection without reaching the asker.
+- **Failure is a denial.** `Ask` returns an error for every way the daemon may
+  not be reached: an absent socket, a deadline, an unreadable answer, a mismatched
+  ID. The caller turns every error into a denial. An asker that cannot reach the
+  daemon returns a denial too, never an allowance. `Ask` waits as long as its
+  context allows, so the caller sets the deadline.
 
 ## Helpers
 
