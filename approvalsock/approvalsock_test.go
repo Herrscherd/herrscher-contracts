@@ -96,6 +96,21 @@ func sendRequest(t *testing.T, path, id string) net.Conn {
 	return connection
 }
 
+func probeRequest(t *testing.T, path, id string) (net.Conn, error) {
+	t.Helper()
+	var dialer net.Dialer
+	connection, err := dialer.DialContext(t.Context(), "unix", path)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	encoded, err := json.Marshal(contracts.ApprovalRequest{ID: id, Tool: "Bash", Subject: "ls"})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	_, writeErr := connection.Write(append(encoded, '\n'))
+	return connection, writeErr
+}
+
 func closeConnection(t *testing.T, connection net.Conn) {
 	t.Helper()
 	if err := connection.Close(); err != nil {
@@ -603,14 +618,20 @@ func TestServeRefusesSymlinkAtPath(t *testing.T) {
 	}
 }
 
-func TestServeBoundsConcurrentConnections(t *testing.T) {
+func TestServeRefusesConnectionsBeyondTheBound(t *testing.T) {
 	t.Parallel()
 	var active atomic.Int32
-	path := startServer(t, func(ctx context.Context, req contracts.ApprovalRequest) contracts.ApprovalAnswer {
+	reports := make(chan error, 64)
+	path := startServerWith(t, func(ctx context.Context, req contracts.ApprovalRequest) contracts.ApprovalAnswer {
 		active.Add(1)
 		<-ctx.Done()
 		return contracts.ApprovalAnswer{ID: req.ID}
-	})
+	}, approvalsock.WithErrorHandler(func(err error) {
+		select {
+		case reports <- err:
+		default:
+		}
+	}))
 	held := make([]net.Conn, 0, approvalsock.MaxConcurrentConnections)
 	for range approvalsock.MaxConcurrentConnections {
 		held = append(held, sendRequest(t, path, "held"))
@@ -621,14 +642,113 @@ func TestServeBoundsConcurrentConnections(t *testing.T) {
 		}
 	})
 	waitUntil(t, func() bool { return active.Load() == approvalsock.MaxConcurrentConnections })
-	extra := sendRequest(t, path, "extra")
-	t.Cleanup(func() { closeQuietly(t, extra) })
-	time.Sleep(100 * time.Millisecond)
+	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "extra"})
+	if err == nil {
+		t.Fatal("Ask was answered beyond the connection bound")
+	}
+	awaitReport(t, reports, func(err error) bool {
+		connectionErr, ok := errors.AsType[*approvalsock.ConnectionError](err)
+		return ok && connectionErr.Op == approvalsock.OpBusy && errors.Is(err, approvalsock.ErrBusy)
+	})
 	if got := active.Load(); got != approvalsock.MaxConcurrentConnections {
 		t.Fatalf("asker ran %d times with the bound reached, want %d", got, approvalsock.MaxConcurrentConnections)
 	}
 	closeConnection(t, held[0])
-	waitUntil(t, func() bool { return active.Load() == approvalsock.MaxConcurrentConnections+1 })
+	waitUntil(t, func() bool {
+		probe, writeErr := probeRequest(t, path, "freed")
+		time.Sleep(20 * time.Millisecond)
+		answered := writeErr == nil && active.Load() == approvalsock.MaxConcurrentConnections+1
+		closeQuietly(t, probe)
+		return answered
+	})
+}
+
+func TestServeKeepsOrphanSocketWhenCancelledBeforeProbe(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(privateDir(t), "a.sock")
+	listenOrphan(t, path)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	err := approvalsock.Serve(ctx, path, allowAll, logErrors(t))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Serve error = %v, want context.Canceled", err)
+	}
+	if errors.Is(err, approvalsock.ErrPathInUse) {
+		t.Fatalf("cancelled probe was reported as a live socket: %v", err)
+	}
+	if _, statErr := os.Lstat(path); statErr != nil {
+		t.Fatalf("orphan socket was removed by a cancelled Serve: %v", statErr)
+	}
+}
+
+func TestAskRefusesOversizedRequestWithoutDialing(t *testing.T) {
+	t.Parallel()
+	dir := privateDir(t)
+	path := filepath.Join(dir, "a.sock")
+	var listenConfig net.ListenConfig
+	listener, err := listenConfig.Listen(t.Context(), "unix", path)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := listener.Close(); closeErr != nil {
+			t.Errorf("close listener: %v", closeErr)
+		}
+	})
+	_, err = approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "16", Subject: strings.Repeat("s", 64<<10)})
+	if !errors.Is(err, approvalsock.ErrRequestTooLarge) {
+		t.Fatalf("Ask error = %v, want ErrRequestTooLarge", err)
+	}
+	unixListener, isUnix := listener.(*net.UnixListener)
+	if !isUnix {
+		t.Fatalf("listener is %T, want *net.UnixListener", listener)
+	}
+	if deadlineErr := unixListener.SetDeadline(time.Now().Add(100 * time.Millisecond)); deadlineErr != nil {
+		t.Fatalf("set deadline: %v", deadlineErr)
+	}
+	connection, err := unixListener.Accept()
+	if err == nil {
+		closeConnection(t, connection)
+		t.Fatal("Ask dialed the socket with an oversized request")
+	}
+}
+
+func silentServer(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(privateDir(t), "silent.sock")
+	var listenConfig net.ListenConfig
+	listener, err := listenConfig.Listen(t.Context(), "unix", path)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := listener.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+			t.Errorf("close listener: %v", closeErr)
+		}
+	})
+	go func() {
+		connection, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			return
+		}
+		<-t.Context().Done()
+		closeQuietly(t, connection)
+	}()
+	return path
+}
+
+func TestAskReportsDeadlineWithoutItsOwnCloseError(t *testing.T) {
+	t.Parallel()
+	path := silentServer(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	_, err := approvalsock.Ask(ctx, path, contracts.ApprovalRequest{ID: "17"})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Ask error = %v, want context.DeadlineExceeded", err)
+	}
+	if errors.Is(err, net.ErrClosed) {
+		t.Fatalf("Ask reported its own close as an error: %v", err)
+	}
 }
 
 func TestServeCancelsAskerWhenClientLeaves(t *testing.T) {
