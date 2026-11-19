@@ -29,7 +29,7 @@ func TestValidateOutboundFileRefusesEachMalformedFile(t *testing.T) {
 	}{
 		"relative path":           {OutboundFile{Path: "out/pixel.png", Name: "pixel.png"}, testOutbox},
 		"empty path":              {OutboundFile{Name: "pixel.png"}, testOutbox},
-		"outside the outbox":      {OutboundFile{Path: "/home/shan/.ssh/id_rsa", Name: "id_rsa"}, testOutbox},
+		"outside the outbox":      {OutboundFile{Path: "/home/user/.ssh/id_rsa", Name: "id_rsa"}, testOutbox},
 		"parent segment":          {OutboundFile{Path: "/w/out/../../etc/passwd", Name: "passwd"}, testOutbox},
 		"sibling with a prefix":   {OutboundFile{Path: "/w/outside/pixel.png", Name: "pixel.png"}, testOutbox},
 		"the outbox itself":       {OutboundFile{Path: "/w/out", Name: "out"}, testOutbox},
