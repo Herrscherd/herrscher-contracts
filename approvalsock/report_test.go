@@ -3,6 +3,7 @@ package approvalsock_test
 import (
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	"net"
 	"os"
@@ -86,12 +87,12 @@ type reportingServer struct {
 	stop func()
 }
 
-func startReportingServer(t *testing.T, asker contracts.ApprovalAsker, opt approvalsock.Option) reportingServer {
+func startReportingServer(t *testing.T, asker contracts.ApprovalAsker, reports *blockingReports) reportingServer {
 	t.Helper()
 	path := filepath.Join(privateDir(t), "a.sock")
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- approvalsock.Serve(ctx, path, asker, opt) }()
+	go func() { done <- approvalsock.Serve(ctx, path, asker, approvalsock.WithErrorHandler(reports.report)) }()
 	stop := sync.OnceFunc(func() {
 		cancel()
 		if err := <-done; err != nil {
@@ -99,7 +100,8 @@ func startReportingServer(t *testing.T, asker contracts.ApprovalAsker, opt appro
 		}
 	})
 	t.Cleanup(stop)
-	awaitAnswer(t, path)
+	waitForServer(t, path)
+	awaitEntered(t, reports)
 	return reportingServer{path: path, stop: stop}
 }
 
@@ -139,22 +141,33 @@ func askUntilAllowed(t *testing.T, path, id string) int {
 	}
 }
 
-func holdEverySlot(t *testing.T, path string, asked <-chan struct{}) func() {
+func holdEverySlot(t *testing.T, path string, asked <-chan struct{}) []net.Conn {
 	t.Helper()
-	var holders []net.Conn
-	closeHolders := sync.OnceFunc(func() {
+	holders := make([]net.Conn, 0, approvalsock.MaxConcurrentConnections)
+	t.Cleanup(func() {
 		for _, connection := range holders {
 			closeQuietly(t, connection)
 		}
 	})
-	t.Cleanup(closeHolders)
 	for range approvalsock.MaxConcurrentConnections {
 		holders = append(holders, sendRequest(t, path, "hold"))
 	}
 	for range approvalsock.MaxConcurrentConnections {
 		awaitSignal(t, asked, "a holding request never reached the asker")
 	}
-	return closeHolders
+	return holders
+}
+
+func awaitHolderAnswers(t *testing.T, holders []net.Conn) {
+	t.Helper()
+	for _, connection := range holders {
+		if err := connection.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			t.Fatalf("set holder deadline: %v", err)
+		}
+		if _, err := io.Copy(io.Discard, connection); err != nil {
+			t.Fatalf("read holder answer to its close: %v", err)
+		}
+	}
 }
 
 func awaitHolderReturns(t *testing.T, returned <-chan struct{}) {
@@ -217,29 +230,29 @@ func TestServeBlockedReportNeverStallsAcceptOrAnswer(t *testing.T) {
 		}
 		return allowAll(ctx, req)
 	}
-	server := startReportingServer(t, asker, approvalsock.WithErrorHandler(reports.report))
+	server := startReportingServer(t, asker, reports)
 	path := server.path
 	t.Cleanup(releaseReports)
 	t.Cleanup(releaseHolders)
 
-	closeHolders := holdEverySlot(t, path, asked)
+	holders := holdEverySlot(t, path, asked)
 	refuseBeyondSlots(t, path)
-	awaitEntered(t, reports)
 	requireRefusedWhileFull(t, path)
 
 	releaseHolders()
 	awaitHolderReturns(t, returned)
+	awaitHolderAnswers(t, holders)
 	retries := askUntilAllowed(t, path, "legit")
 
 	if got := reports.count(); got != 1 {
 		t.Fatalf("handler saw %d reports while blocked, want only the first", got)
 	}
-	closeHolders()
 	releaseReports()
 	server.stop()
+	const probe = 1
 	const barrier = 1
-	if want := uint64(refusedBeyondSlots + barrier + retries); reports.total() != want {
-		t.Fatalf("reported failures = %d, want %d (%d refused, %d barrier, %d retries)", reports.total(), want, refusedBeyondSlots, barrier, retries)
+	if want := uint64(probe + refusedBeyondSlots + barrier + retries); reports.total() != want {
+		t.Fatalf("reported failures = %d, want %d (%d probe, %d refused, %d barrier, %d retries)", reports.total(), want, probe, refusedBeyondSlots, barrier, retries)
 	}
 }
 
