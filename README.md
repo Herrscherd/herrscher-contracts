@@ -419,11 +419,12 @@ socket on the same machine. The backend passes the socket path to the hook in
 - `Refusal` always goes with `Decision` `deny`. `MarshalJSON` refuses to write a
   refused answer with any other decision: an `allow` with a `Refusal` returns
   `ErrRefusedAllow`, and an empty or unknown `Decision` with a `Refusal` returns
-  `ErrInvalidDecision`. It never changes a value silently. `UnmarshalJSON` reads a
-  `Refusal` with an `allow` or a `deny` as `deny`, so for answers written by this
+  `ErrInvalidDecision`. It never changes a value silently. `UnmarshalJSON` reads any
+  `Refusal` as `deny`, whatever `Decision` holds, so for answers written by this
   module, a reader from before v0.35.0, which decides on `Decision` alone, never
-  allows a refused answer. An empty or unknown `Decision` with a `Refusal` fails to
-  decode, as any unknown decision does in v0.34. `RefusedAnswer(id, refusal)` builds
+  allows a refused answer. A `Decision` missing from the JSON, as in
+  `{"ID":"1","Refusal":"too_many"}`, reads as `deny`. A `Decision` that is present
+  but empty or unknown fails to decode, as in v0.34. `RefusedAnswer(id, refusal)` builds
   such an answer and returns `ErrInvalidRefusal` for an empty or unknown code.
 - A JSON `null` leaves an `ApprovalAnswer` unchanged. `UnmarshalJSON` does not
   inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does not

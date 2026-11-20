@@ -250,8 +250,18 @@ func TestApprovalAnswerMarshalWritesDenyWithRefusalAsIs(t *testing.T) {
 	}
 }
 
-func TestApprovalAnswerReadRefusesMissingOrUnknownDecisionWithRefusal(t *testing.T) {
-	for _, input := range []string{`{"ID":"1","Refusal":"too_many"}`, `{"ID":"1","Decision":"","Refusal":"too_many"}`, `{"ID":"1","Decision":"maybe","Refusal":"too_many"}`} {
+func TestApprovalAnswerReadsMissingDecisionWithRefusalAsDeny(t *testing.T) {
+	var answer ApprovalAnswer
+	if err := json.Unmarshal([]byte(`{"ID":"1","Refusal":"too_many"}`), &answer); err != nil {
+		t.Fatalf("unmarshal refusal without Decision: %v", err)
+	}
+	if answer.Decision != DecisionDeny || answer.Allowed() || answer.Refusal != RefusalTooMany {
+		t.Fatalf("answer = %+v, want a deny carrying too_many", answer)
+	}
+}
+
+func TestApprovalAnswerReadRefusesPresentUnknownDecisionWithRefusal(t *testing.T) {
+	for _, input := range []string{`{"ID":"1","Decision":"","Refusal":"too_many"}`, `{"ID":"1","Decision":"maybe","Refusal":"too_many"}`} {
 		var answer ApprovalAnswer
 		if err := json.Unmarshal([]byte(input), &answer); !errors.Is(err, ErrInvalidDecision) {
 			t.Fatalf("unmarshal %s error = %v, want ErrInvalidDecision", input, err)

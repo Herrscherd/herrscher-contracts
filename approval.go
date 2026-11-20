@@ -161,19 +161,17 @@ func RefusedAnswer(requestID string, refusal ApprovalRefusal) (ApprovalAnswer, e
 func (a ApprovalAnswer) MarshalJSON() ([]byte, error) {
 	type wire ApprovalAnswer
 	out := wire(a)
-	if out.Refusal != "" && out.Decision != DecisionDeny {
-		if out.Decision == DecisionAllow {
-			return nil, ErrRefusedAllow
-		}
-		return nil, fmt.Errorf("%w: %q", ErrInvalidDecision, a.Decision)
+	if out.Refusal != "" && out.Decision == DecisionAllow {
+		return nil, ErrRefusedAllow
 	}
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON reads the answer. A null leaves it unchanged. A Refusal must come with a
-// valid decision, which is read as DecisionDeny, as [ApprovalAnswer.MarshalJSON] writes it.
-// It does not inherit the caller's json.Decoder settings, so DisallowUnknownFields does not
-// reject unknown keys.
+// UnmarshalJSON reads the answer. A null leaves it unchanged. A Refusal is read as
+// DecisionDeny, so an allow, or a Decision missing from the JSON, becomes a denial. A
+// Decision that is present but empty or unknown fails to decode, as in v0.34. It does not
+// inherit the caller's json.Decoder settings, so DisallowUnknownFields does not reject
+// unknown keys.
 func (a *ApprovalAnswer) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		return nil
@@ -184,9 +182,6 @@ func (a *ApprovalAnswer) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	if incoming.Refusal != "" {
-		if _, err := ParseApprovalDecision(string(incoming.Decision)); err != nil {
-			return err
-		}
 		incoming.Decision = DecisionDeny
 	}
 	*a = ApprovalAnswer(incoming)
