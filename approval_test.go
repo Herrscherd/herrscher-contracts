@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -93,5 +94,72 @@ func TestApprovalAnswerUnmarshalRefusesUnknownDecision(t *testing.T) {
 	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"maybe"}`), &answer)
 	if !errors.Is(err, ErrInvalidDecision) {
 		t.Fatalf("unmarshal with unknown decision error = %v, want ErrInvalidDecision", err)
+	}
+}
+
+func TestApprovalAnswerRefusalRoundTrip(t *testing.T) {
+	want := ApprovalAnswer{ID: "1", Decision: DecisionDeny, Reason: "too big", Refusal: RefusalTooLarge}
+	encoded, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"Refusal":"too_large"`) {
+		t.Fatalf("marshal = %s, want the Refusal key with its short code", encoded)
+	}
+	var got ApprovalAnswer
+	if err := json.Unmarshal(encoded, &got); err != nil {
+		t.Fatalf("unmarshal %s: %v", encoded, err)
+	}
+	if got != want {
+		t.Fatalf("round trip = %+v, want %+v", got, want)
+	}
+}
+
+func TestApprovalAnswerOmitsEmptyRefusal(t *testing.T) {
+	got := jsonKeys(t, ApprovalAnswer{ID: "1", Decision: DecisionDeny, Reason: "human"})
+	if slices.Contains(got, "Refusal") {
+		t.Fatalf("ApprovalAnswer keys = %v, want no Refusal key when empty", got)
+	}
+}
+
+func TestParseApprovalRefusalAcceptsKnownValues(t *testing.T) {
+	known := []string{"invalid", "too_large", "too_many", "no_asker", "cancelled", "deadline", "stream_closed", "send_failed"}
+	for _, text := range known {
+		got, err := ParseApprovalRefusal(text)
+		if err != nil {
+			t.Fatalf("ParseApprovalRefusal(%q): %v", text, err)
+		}
+		if string(got) != text {
+			t.Fatalf("ParseApprovalRefusal(%q) = %q, want the same text", text, got)
+		}
+	}
+}
+
+func TestParseApprovalRefusalRefusesUnknownValues(t *testing.T) {
+	for _, text := range []string{"maybe", "", "TOO_LARGE", "too-large", "Invalid"} {
+		if _, err := ParseApprovalRefusal(text); !errors.Is(err, ErrInvalidRefusal) {
+			t.Fatalf("ParseApprovalRefusal(%q) error = %v, want ErrInvalidRefusal", text, err)
+		}
+	}
+}
+
+func TestApprovalAnswerMarshalRefusesUnknownRefusal(t *testing.T) {
+	if _, err := json.Marshal(ApprovalAnswer{ID: "1", Decision: DecisionDeny, Refusal: "maybe"}); !errors.Is(err, ErrInvalidRefusal) {
+		t.Fatalf("marshal with unknown refusal error = %v, want ErrInvalidRefusal", err)
+	}
+}
+
+func TestApprovalAnswerUnmarshalRefusesUnknownRefusal(t *testing.T) {
+	var answer ApprovalAnswer
+	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"deny","Refusal":"maybe"}`), &answer)
+	if !errors.Is(err, ErrInvalidRefusal) {
+		t.Fatalf("unmarshal with unknown refusal error = %v, want ErrInvalidRefusal", err)
+	}
+}
+
+func TestApprovalAnswerRefusedAllowDoesNotAllow(t *testing.T) {
+	answer := ApprovalAnswer{ID: "1", Decision: DecisionAllow, Refusal: RefusalSendFailed}
+	if answer.Allowed() {
+		t.Fatalf("Allowed() with decision allow and refusal %q = true, want false", answer.Refusal)
 	}
 }

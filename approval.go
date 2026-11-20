@@ -51,6 +51,65 @@ func (d *ApprovalDecision) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// ApprovalRefusal names why the transport refused an approval itself, without an
+// asker's verdict. The closed set is the constants below. [ParseApprovalRefusal]
+// refuses any other text, the empty string included, so an absent refusal is an
+// empty field, never a value.
+type ApprovalRefusal string
+
+const (
+	// RefusalInvalid means the request or its answer was malformed.
+	RefusalInvalid ApprovalRefusal = "invalid"
+	// RefusalTooLarge means a message exceeded its size bound.
+	RefusalTooLarge ApprovalRefusal = "too_large"
+	// RefusalTooMany means the transport was already answering its maximum of connections.
+	RefusalTooMany ApprovalRefusal = "too_many"
+	// RefusalNoAsker means no asker was available to answer.
+	RefusalNoAsker ApprovalRefusal = "no_asker"
+	// RefusalCancelled means the request was cancelled before an answer.
+	RefusalCancelled ApprovalRefusal = "cancelled"
+	// RefusalDeadline means the request ran out of time before an answer.
+	RefusalDeadline ApprovalRefusal = "deadline"
+	// RefusalStreamClosed means the stream closed before an answer.
+	RefusalStreamClosed ApprovalRefusal = "stream_closed"
+	// RefusalSendFailed means the answer could not be sent back.
+	RefusalSendFailed ApprovalRefusal = "send_failed"
+)
+
+// ErrInvalidRefusal is returned for text, or a value, that names no approval
+// refusal. Match it with errors.Is.
+var ErrInvalidRefusal = errors.New("unknown approval refusal")
+
+// ParseApprovalRefusal reads a refusal from its text form. Any other text, the empty
+// string included, returns an error matching [ErrInvalidRefusal].
+func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
+	switch refusal := ApprovalRefusal(text); refusal {
+	case RefusalInvalid, RefusalTooLarge, RefusalTooMany, RefusalNoAsker,
+		RefusalCancelled, RefusalDeadline, RefusalStreamClosed, RefusalSendFailed:
+		return refusal, nil
+	}
+	return "", fmt.Errorf("%w: %q", ErrInvalidRefusal, text)
+}
+
+// MarshalText writes the text form of the refusal. A value that names no refusal
+// returns an error matching [ErrInvalidRefusal].
+func (r ApprovalRefusal) MarshalText() ([]byte, error) {
+	if _, err := ParseApprovalRefusal(string(r)); err != nil {
+		return nil, err
+	}
+	return []byte(r), nil
+}
+
+// UnmarshalText reads the text form of a refusal, as [ParseApprovalRefusal] does.
+func (r *ApprovalRefusal) UnmarshalText(text []byte) error {
+	parsed, err := ParseApprovalRefusal(string(text))
+	if err != nil {
+		return err
+	}
+	*r = parsed
+	return nil
+}
+
 // ApprovalRequest asks the daemon whether a tool may run during a turn. Tool names
 // the tool and Subject what it would act on, as the backend reports them. ID
 // correlates the request with its answer within one stream. It is not a secret.
@@ -62,16 +121,19 @@ type ApprovalRequest struct {
 	Subject string `json:"Subject"`
 }
 
-// ApprovalAnswer is the daemon's verdict on the request with the same ID. Reason is
-// free text the daemon supplies for the human. The contracts never translate it.
+// ApprovalAnswer is the verdict on the request with the same ID.
 type ApprovalAnswer struct {
 	ID       string           `json:"ID"`
 	Decision ApprovalDecision `json:"Decision"`
-	Reason   string           `json:"Reason"`
+	// Reason is free text the daemon supplies for the human. The contracts never translate it.
+	Reason string `json:"Reason"`
+	// Refusal is set only when the transport refused the approval itself. It is empty
+	// when an asker or the daemon decided.
+	Refusal ApprovalRefusal `json:"Refusal,omitempty"`
 }
 
-// Allowed reports whether the answer lets the tool run. Only DecisionAllow does, so
-// an empty, unknown or malformed decision fails closed.
+// Allowed reports whether the answer lets the tool run. Only DecisionAllow with no
+// Refusal does, so an empty, unknown, malformed or refused decision fails closed.
 func (a ApprovalAnswer) Allowed() bool {
-	return a.Decision == DecisionAllow
+	return a.Decision == DecisionAllow && a.Refusal == ""
 }
