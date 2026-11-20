@@ -414,19 +414,20 @@ socket on the same machine. The backend passes the socket path to the hook in
   `too_large`, `too_many` (the transport already had its maximum of approvals in
   flight), `no_asker`, `cancelled`, `deadline`, `stream_closed`, `send_failed` and
   `unclassified`. They are short stable codes, not catalogue keys. The field is
-  omitted from the JSON when empty, and an empty `Refusal` means the decision came
-  from an asker or the daemon.
+  omitted from the JSON when empty, and an empty `Refusal` means the decision
+  came from an asker or the daemon.
 - `Refusal` always goes with `Decision` `deny`. `MarshalJSON` refuses to write a
   refused answer with any other decision: an `allow` with a `Refusal` returns
   `ErrRefusedAllow`, and an empty or unknown `Decision` with a `Refusal` returns
-  `ErrInvalidDecision`. It never changes a value silently. `UnmarshalJSON` reads any
-  `Refusal` as `deny`, whatever valid `Decision` it holds, or no `Decision` at all, so for answers written by this
-  module, a reader from before v0.35.0, which decides on `Decision` alone, never
-  allows a refused answer. A `Decision` missing from the JSON, as in
-  `{"ID":"1","Refusal":"too_many"}`, reads as `deny`. A `Decision` that is present
-  that is an empty string or unknown fails to decode, as in v0.34; `null` reads as
-  missing. `RefusedAnswer(id, refusal)` builds
-  such an answer and returns `ErrInvalidRefusal` for an empty or unknown code.
+  `ErrInvalidDecision`. It never changes a value silently. `UnmarshalJSON` reads
+  any `Refusal` as `deny`, whatever valid `Decision` it holds, or no `Decision`
+  at all, so for answers written by this module, a reader from before v0.35.0,
+  which decides on `Decision` alone, never allows a refused answer. A `Decision`
+  missing from the JSON, as in `{"ID":"1","Refusal":"too_many"}`, reads as
+  `deny`. A `Decision` that is an empty string or unknown fails to decode, as in
+  v0.34. A `Decision` of `null` reads as missing. `RefusedAnswer(id, refusal)`
+  builds such an answer and returns `ErrInvalidRefusal` for an empty or unknown
+  code.
 - A JSON `null` leaves an `ApprovalAnswer` unchanged. `UnmarshalJSON` does not
   inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does not
   reject unknown keys inside an answer.
