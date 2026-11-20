@@ -52,9 +52,10 @@ func (d *ApprovalDecision) UnmarshalText(text []byte) error {
 }
 
 // ApprovalRefusal names why the transport refused an approval itself, without an
-// asker's verdict. The closed set is the constants below. [ParseApprovalRefusal]
-// refuses any other text, the empty string included, so an absent refusal is an
-// empty field, never a value.
+// asker's verdict. The known codes are the constants below. [ParseApprovalRefusal]
+// reads only those, and writes are strict for the same reason. Reading is tolerant:
+// [ApprovalRefusal.UnmarshalText] keeps any non-empty code a newer version sends,
+// and [ApprovalRefusal.Known] tells whether this version can translate it.
 type ApprovalRefusal string
 
 const (
@@ -62,7 +63,7 @@ const (
 	RefusalInvalid ApprovalRefusal = "invalid"
 	// RefusalTooLarge means a message exceeded its size bound.
 	RefusalTooLarge ApprovalRefusal = "too_large"
-	// RefusalTooMany means the transport was already answering its maximum of connections.
+	// RefusalTooMany means the transport already had its maximum of approvals in flight.
 	RefusalTooMany ApprovalRefusal = "too_many"
 	// RefusalNoAsker means no asker was available to answer.
 	RefusalNoAsker ApprovalRefusal = "no_asker"
@@ -78,12 +79,13 @@ const (
 	RefusalUnclassified ApprovalRefusal = "unclassified"
 )
 
-// ErrInvalidRefusal is returned for text, or a value, that names no approval
-// refusal. Match it with errors.Is.
+// ErrInvalidRefusal is returned for text that names no approval refusal: any text
+// through [ParseApprovalRefusal] that is not a known code, and an empty refusal
+// through the text forms. Match it with errors.Is.
 var ErrInvalidRefusal = errors.New("unknown approval refusal")
 
-// ParseApprovalRefusal reads a refusal from its text form. Any other text, the empty
-// string included, returns an error matching [ErrInvalidRefusal].
+// ParseApprovalRefusal reads a known refusal code from its text form. Any other text,
+// the empty string included, returns an error matching [ErrInvalidRefusal].
 func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
 	switch refusal := ApprovalRefusal(text); refusal {
 	case RefusalInvalid, RefusalTooLarge, RefusalTooMany, RefusalNoAsker,
@@ -94,22 +96,30 @@ func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
 	return "", fmt.Errorf("%w: %q", ErrInvalidRefusal, text)
 }
 
-// MarshalText writes the text form of the refusal. A value that names no refusal
-// returns an error matching [ErrInvalidRefusal].
+// Known reports whether the refusal is one of the codes this version defines. A
+// reader that finds an unknown code still treats the answer as refused.
+func (r ApprovalRefusal) Known() bool {
+	_, err := ParseApprovalRefusal(string(r))
+	return err == nil
+}
+
+// MarshalText writes the text form of the refusal. Any non-empty code is written as
+// it is, so an answer relayed from a newer version keeps its code. The empty refusal
+// returns an error matching [ErrInvalidRefusal]: an absent refusal is an omitted field.
 func (r ApprovalRefusal) MarshalText() ([]byte, error) {
-	if _, err := ParseApprovalRefusal(string(r)); err != nil {
-		return nil, err
+	if r == "" {
+		return nil, fmt.Errorf("%w: %q", ErrInvalidRefusal, string(r))
 	}
 	return []byte(r), nil
 }
 
-// UnmarshalText reads the text form of a refusal, as [ParseApprovalRefusal] does.
+// UnmarshalText reads the text form of a refusal. Any non-empty text is kept as the
+// refusal, known or not, and the empty text returns an error matching [ErrInvalidRefusal].
 func (r *ApprovalRefusal) UnmarshalText(text []byte) error {
-	parsed, err := ParseApprovalRefusal(string(text))
-	if err != nil {
-		return err
+	if len(text) == 0 {
+		return fmt.Errorf("%w: %q", ErrInvalidRefusal, "")
 	}
-	*r = parsed
+	*r = ApprovalRefusal(text)
 	return nil
 }
 
@@ -130,13 +140,22 @@ type ApprovalAnswer struct {
 	Decision ApprovalDecision `json:"Decision"`
 	// Reason is free text the daemon supplies for the human. The contracts never translate it.
 	Reason string `json:"Reason"`
-	// Refusal is set only when the transport refused the approval itself. It is empty
-	// when an asker or the daemon decided.
+	// Refusal is set only when the transport refused the approval itself, and then
+	// Decision is always DecisionDeny. It is empty when an asker or the daemon decided.
+	// A reader from before v0.35.0 ignores Refusal and decides on Decision alone.
 	Refusal ApprovalRefusal `json:"Refusal,omitempty"`
 }
 
-// Allowed reports whether the answer lets the tool run. Only DecisionAllow with no
-// Refusal does, so an empty, unknown, malformed or refused decision fails closed.
+// RefusedAnswer builds the answer to the request with id when the transport refused
+// it: Decision is DecisionDeny and Refusal names the cause. Pass a known code, the
+// constants or a result of [ParseApprovalRefusal].
+func RefusedAnswer(id string, refusal ApprovalRefusal) ApprovalAnswer {
+	return ApprovalAnswer{ID: id, Decision: DecisionDeny, Refusal: refusal}
+}
+
+// Allowed reports whether the answer lets the tool run. Only DecisionAllow with an
+// empty Refusal does, so an empty, unknown, malformed or refused decision fails
+// closed, and so does any answer that carries a refusal, known or not.
 func (a ApprovalAnswer) Allowed() bool {
 	return a.Decision == DecisionAllow && a.Refusal == ""
 }

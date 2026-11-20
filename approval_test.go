@@ -143,23 +143,96 @@ func TestParseApprovalRefusalRefusesUnknownValues(t *testing.T) {
 	}
 }
 
-func TestApprovalAnswerMarshalRefusesUnknownRefusal(t *testing.T) {
-	if _, err := json.Marshal(ApprovalAnswer{ID: "1", Decision: DecisionDeny, Refusal: "maybe"}); !errors.Is(err, ErrInvalidRefusal) {
-		t.Fatalf("marshal with unknown refusal error = %v, want ErrInvalidRefusal", err)
-	}
-}
-
-func TestApprovalAnswerUnmarshalRefusesUnknownRefusal(t *testing.T) {
-	var answer ApprovalAnswer
-	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"deny","Refusal":"maybe"}`), &answer)
-	if !errors.Is(err, ErrInvalidRefusal) {
-		t.Fatalf("unmarshal with unknown refusal error = %v, want ErrInvalidRefusal", err)
-	}
-}
-
 func TestApprovalAnswerRefusedAllowDoesNotAllow(t *testing.T) {
 	answer := ApprovalAnswer{ID: "1", Decision: DecisionAllow, Refusal: RefusalSendFailed}
 	if answer.Allowed() {
 		t.Fatalf("Allowed() with decision allow and refusal %q = true, want false", answer.Refusal)
+	}
+}
+
+func TestApprovalAnswerUnmarshalKeepsFutureRefusal(t *testing.T) {
+	var answer ApprovalAnswer
+	if err := json.Unmarshal([]byte(`{"ID":"1","Decision":"allow","Refusal":"quota_exceeded"}`), &answer); err != nil {
+		t.Fatalf("unmarshal with future refusal: %v", err)
+	}
+	if answer.Decision != DecisionAllow {
+		t.Fatalf("Decision = %q, want allow preserved", answer.Decision)
+	}
+	if answer.Refusal != "quota_exceeded" {
+		t.Fatalf("Refusal = %q, want quota_exceeded kept", answer.Refusal)
+	}
+	if answer.Refusal.Known() {
+		t.Fatalf("Known() for future refusal = true, want false")
+	}
+	if answer.Allowed() {
+		t.Fatalf("Allowed() with a future refusal = true, want false")
+	}
+}
+
+func TestApprovalRefusalRelaysFutureCode(t *testing.T) {
+	want := ApprovalAnswer{ID: "1", Decision: DecisionDeny, Refusal: "quota_exceeded"}
+	encoded, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("marshal with future refusal: %v", err)
+	}
+	var got ApprovalAnswer
+	if err := json.Unmarshal(encoded, &got); err != nil {
+		t.Fatalf("unmarshal relayed %s: %v", encoded, err)
+	}
+	if got != want {
+		t.Fatalf("relay = %+v, want %+v", got, want)
+	}
+}
+
+func TestApprovalRefusalTextFormRefusesEmpty(t *testing.T) {
+	if _, err := json.Marshal(ApprovalRefusal("")); !errors.Is(err, ErrInvalidRefusal) {
+		t.Fatalf("marshal of empty refusal error = %v, want ErrInvalidRefusal", err)
+	}
+	var refusal ApprovalRefusal
+	if err := json.Unmarshal([]byte(`""`), &refusal); !errors.Is(err, ErrInvalidRefusal) {
+		t.Fatalf("unmarshal of empty refusal error = %v, want ErrInvalidRefusal", err)
+	}
+	var answer ApprovalAnswer
+	if err := json.Unmarshal([]byte(`{"ID":"1","Decision":"deny","Refusal":""}`), &answer); !errors.Is(err, ErrInvalidRefusal) {
+		t.Fatalf("unmarshal of answer with empty refusal error = %v, want ErrInvalidRefusal", err)
+	}
+}
+
+func TestApprovalRefusalKnownReportsKnownCodes(t *testing.T) {
+	known := []ApprovalRefusal{RefusalInvalid, RefusalTooLarge, RefusalTooMany, RefusalNoAsker, RefusalCancelled, RefusalDeadline, RefusalStreamClosed, RefusalSendFailed, RefusalUnclassified}
+	for _, refusal := range known {
+		if !refusal.Known() {
+			t.Fatalf("Known() for %q = false, want true", refusal)
+		}
+	}
+	for _, refusal := range []ApprovalRefusal{"quota_exceeded", "Invalid", ""} {
+		if refusal.Known() {
+			t.Fatalf("Known() for %q = true, want false", refusal)
+		}
+	}
+}
+
+func TestRefusedAnswerDeniesAndCarriesRefusal(t *testing.T) {
+	got := RefusedAnswer("1", RefusalTooMany)
+	want := ApprovalAnswer{ID: "1", Decision: DecisionDeny, Refusal: RefusalTooMany}
+	if got != want {
+		t.Fatalf("RefusedAnswer = %+v, want %+v", got, want)
+	}
+	if got.Allowed() {
+		t.Fatalf("Allowed() of a refused answer = true, want false")
+	}
+}
+
+func TestApprovalAnswerWithoutRefusalDecodesUnchanged(t *testing.T) {
+	var got ApprovalAnswer
+	if err := json.Unmarshal([]byte(`{"ID":"1","Decision":"allow","Reason":"ok"}`), &got); err != nil {
+		t.Fatalf("unmarshal answer without refusal: %v", err)
+	}
+	want := ApprovalAnswer{ID: "1", Decision: DecisionAllow, Reason: "ok"}
+	if got != want {
+		t.Fatalf("decoded = %+v, want %+v", got, want)
+	}
+	if !got.Allowed() {
+		t.Fatalf("Allowed() = false, want true")
 	}
 }
