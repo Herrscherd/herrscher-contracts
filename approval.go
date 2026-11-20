@@ -169,8 +169,8 @@ func (a ApprovalAnswer) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON reads the answer. A null leaves it unchanged. A Refusal is read as
 // DecisionDeny, so an allow, or a Decision missing from the JSON, becomes a denial. A
-// Decision that is present but empty or unknown fails to decode, as in v0.34. It does not
-// inherit the caller's json.Decoder settings, so DisallowUnknownFields does not reject
+// Decision that is an empty string or unknown fails to decode; null reads as missing. It does
+// not inherit the caller's json.Decoder settings, so DisallowUnknownFields does not reject
 // unknown keys.
 func (a *ApprovalAnswer) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
