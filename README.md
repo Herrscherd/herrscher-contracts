@@ -412,9 +412,9 @@ socket on the same machine. The backend passes the socket path to the hook in
 - `Refusal` is an `ApprovalRefusal`, set only when the transport refused the
   approval itself, before any asker answered. The known codes are `invalid`,
   `too_large`, `too_many` (the transport already had its maximum of approvals in
-  flight), `no_asker`, `cancelled`, `deadline`, `stream_closed`, `send_failed` and
-  `unclassified`. They are short stable codes, not catalogue keys. The field is
-  omitted from the JSON when empty, and an empty `Refusal` means the decision
+  flight), `no_asker`, `cancelled`, `deadline`, `stream_closed`, `send_failed`
+  and `unclassified`. They are short stable codes, not catalogue keys. The field
+  is omitted from the JSON when empty, and an empty `Refusal` means the decision
   came from an asker or the daemon.
 - `Refusal` always goes with `Decision` `deny`. `MarshalJSON` refuses to write a
   refused answer with any other decision: an `allow` with a `Refusal` returns
@@ -429,15 +429,15 @@ socket on the same machine. The backend passes the socket path to the hook in
   builds such an answer and returns `ErrInvalidRefusal` for an empty or unknown
   code.
 - A JSON `null` leaves an `ApprovalAnswer` unchanged. `UnmarshalJSON` does not
-  inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does not
-  reject unknown keys inside an answer.
+  inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does
+  not reject unknown keys inside an answer.
 - Reading is tolerant. A code this version does not know is kept and relayed
-  unchanged, and `ApprovalRefusal.Known()` tells whether this version can translate
-  it, so a reader shows a generic reason for it. Such an answer is still refused:
-  `Allowed()` is false. An empty `Refusal` in JSON is read as no refusal, so
-  `{"Decision":"allow","Refusal":""}` is an allowance. The known codes are checked
-  by `ParseApprovalRefusal` and `RefusedAnswer`, not by the text marshaller, which
-  writes the code it holds.
+  unchanged, and `ApprovalRefusal.Known()` tells whether this version can
+  translate it, so a reader shows a generic reason for it. Such an answer is
+  still refused: `Allowed()` is false. An empty `Refusal` in JSON is read as no
+  refusal, so `{"Decision":"allow","Refusal":""}` is an allowance. The known
+  codes are checked by `ParseApprovalRefusal` and `RefusedAnswer`, not by the
+  text marshaller, which writes the code it holds.
 - `ID` correlates a request with its answer within one stream. It is not a
   secret. An answer whose ID is not the request's is refused.
 - `WithApprovalAsker` puts an `ApprovalAsker` on the turn's context, and
