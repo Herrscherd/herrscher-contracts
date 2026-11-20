@@ -123,7 +123,7 @@ func TestApprovalAnswerOmitsEmptyRefusal(t *testing.T) {
 }
 
 func TestParseApprovalRefusalAcceptsKnownValues(t *testing.T) {
-	known := []string{"invalid", "too_large", "too_many", "no_asker", "cancelled", "deadline", "stream_closed", "send_failed"}
+	known := []string{"invalid", "too_large", "too_many", "no_asker", "cancelled", "deadline", "stream_closed", "send_failed", "unclassified"}
 	for _, text := range known {
 		got, err := ParseApprovalRefusal(text)
 		if err != nil {

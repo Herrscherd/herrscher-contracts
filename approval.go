@@ -74,6 +74,8 @@ const (
 	RefusalStreamClosed ApprovalRefusal = "stream_closed"
 	// RefusalSendFailed means the answer could not be sent back.
 	RefusalSendFailed ApprovalRefusal = "send_failed"
+	// RefusalUnclassified means the transport refused for a cause it cannot name.
+	RefusalUnclassified ApprovalRefusal = "unclassified"
 )
 
 // ErrInvalidRefusal is returned for text, or a value, that names no approval
@@ -85,7 +87,8 @@ var ErrInvalidRefusal = errors.New("unknown approval refusal")
 func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
 	switch refusal := ApprovalRefusal(text); refusal {
 	case RefusalInvalid, RefusalTooLarge, RefusalTooMany, RefusalNoAsker,
-		RefusalCancelled, RefusalDeadline, RefusalStreamClosed, RefusalSendFailed:
+		RefusalCancelled, RefusalDeadline, RefusalStreamClosed, RefusalSendFailed,
+		RefusalUnclassified:
 		return refusal, nil
 	}
 	return "", fmt.Errorf("%w: %q", ErrInvalidRefusal, text)

@@ -411,7 +411,7 @@ socket on the same machine. The backend passes the socket path to the hook in
   malformed decision, or a refused one, is a denial.
 - `Refusal` is an `ApprovalRefusal` set only when the transport refused the
   approval itself, before any asker answered: `invalid`, `too_large`, `too_many`,
-  `no_asker`, `cancelled`, `deadline`, `stream_closed` or `send_failed`. These are
+  `no_asker`, `cancelled`, `deadline`, `stream_closed`, `send_failed` or `unclassified`. These are
   short stable codes, not catalogue keys. The field is omitted from the JSON when
   empty, and an empty `Refusal` means the decision came from an asker or the
   daemon. `ParseApprovalRefusal` refuses any other text with `ErrInvalidRefusal`.
