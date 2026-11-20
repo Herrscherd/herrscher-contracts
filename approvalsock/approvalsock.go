@@ -200,9 +200,8 @@ func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts
 // returns an error matching errors.ErrUnsupported. A request whose line exceeds 64
 // KiB matches ErrRequestTooLarge and is not sent. An answer that is not one JSON
 // line, or whose decision is unknown, matches ErrInvalidDecision. An answer whose
-// refusal is empty text matches ErrInvalidRefusal, and one whose refusal is a code
-// this version does not know is returned as it is. Such an answer is never an
-// allowance: Allowed reports false for any refusal. An answer whose ID is not req.ID
+// refusal is a code this version does not know is returned as it is, and it is never
+// an allowance: Allowed reports false for any refusal. An answer whose ID is not req.ID
 // matches ErrAnswerMismatch. Every error means the daemon was not reached, and the
 // caller must treat it as a denial.
 func Ask(ctx context.Context, path string, req contracts.ApprovalRequest) (contracts.ApprovalAnswer, error) {
