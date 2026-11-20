@@ -140,14 +140,14 @@ type ApprovalAnswer struct {
 	Refusal ApprovalRefusal `json:"Refusal,omitempty"`
 }
 
-// RefusedAnswer builds the answer to the request with id when the transport refused
+// RefusedAnswer builds the answer to the request with requestID when the transport refused
 // it: Decision is DecisionDeny and Refusal names the cause. It returns an error
 // matching [ErrInvalidRefusal] when refusal is empty or not a known code.
-func RefusedAnswer(id string, refusal ApprovalRefusal) (ApprovalAnswer, error) {
+func RefusedAnswer(requestID string, refusal ApprovalRefusal) (ApprovalAnswer, error) {
 	if _, err := ParseApprovalRefusal(string(refusal)); err != nil {
 		return ApprovalAnswer{}, err
 	}
-	return ApprovalAnswer{ID: id, Decision: DecisionDeny, Refusal: refusal}, nil
+	return ApprovalAnswer{ID: requestID, Decision: DecisionDeny, Refusal: refusal}, nil
 }
 
 // MarshalJSON writes the answer, with DecisionDeny in place of its decision whenever
@@ -166,14 +166,14 @@ func (a ApprovalAnswer) MarshalJSON() ([]byte, error) {
 // Refusal is set, as [ApprovalAnswer.MarshalJSON] writes it.
 func (a *ApprovalAnswer) UnmarshalJSON(data []byte) error {
 	type wire ApprovalAnswer
-	var in wire
-	if err := json.Unmarshal(data, &in); err != nil {
+	var incoming wire
+	if err := json.Unmarshal(data, &incoming); err != nil {
 		return err
 	}
-	if in.Refusal != "" {
-		in.Decision = DecisionDeny
+	if incoming.Refusal != "" {
+		incoming.Decision = DecisionDeny
 	}
-	*a = ApprovalAnswer(in)
+	*a = ApprovalAnswer(incoming)
 	return nil
 }
 
