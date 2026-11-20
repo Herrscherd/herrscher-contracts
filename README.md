@@ -416,17 +416,18 @@ socket on the same machine. The backend passes the socket path to the hook in
   `unclassified`. They are short stable codes, not catalogue keys. The field is
   omitted from the JSON when empty, and an empty `Refusal` means the decision came
   from an asker or the daemon.
-- `Refusal` always goes with `Decision` `deny`. A reader from before v0.35.0
-  ignores `Refusal` and decides on `Decision` alone, so the producer enforces the
-  pairing: `RefusedAnswer(id, refusal)` builds the refused answer with `deny`.
-- Reading is tolerant, writing is strict. A code this version does not know is
-  kept as it is and relayed unchanged, and `ApprovalRefusal.Known()` tells whether
-  this version can translate it, so a reader shows a generic reason for an unknown
-  code. Such an answer is still refused: `Allowed()` is false and `Decision` is
-  kept. Writes are strict only where the code is read from text: `ParseApprovalRefusal`
-  refuses any unknown code. `RefusedAnswer` takes the code as given and does not
-  check it, so the producer passes a known one. An empty refusal does not marshal or
-  unmarshal: `ErrInvalidRefusal`.
+- `Refusal` always goes with `Decision` `deny`. `MarshalJSON` writes `deny` whenever
+  `Refusal` is set, and `UnmarshalJSON` reads `deny` in the same case, so a reader
+  from before v0.35.0, which decides on `Decision` alone, never allows a refused
+  answer. `RefusedAnswer(id, refusal)` builds such an answer and returns
+  `ErrInvalidRefusal` for an empty or unknown code.
+- Reading is tolerant. A code this version does not know is kept and relayed
+  unchanged, and `ApprovalRefusal.Known()` tells whether this version can translate
+  it, so a reader shows a generic reason for it. Such an answer is still refused:
+  `Allowed()` is false. An empty `Refusal` in JSON is read as no refusal, so
+  `{"Decision":"allow","Refusal":""}` is an allowance. The known codes are checked
+  by `ParseApprovalRefusal` and `RefusedAnswer`, not by the text marshaller, which
+  writes the code it holds.
 - `ID` correlates a request with its answer within one stream. It is not a
   secret. An answer whose ID is not the request's is refused.
 - `WithApprovalAsker` puts an `ApprovalAsker` on the turn's context, and
