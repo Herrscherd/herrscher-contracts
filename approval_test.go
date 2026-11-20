@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -225,14 +226,120 @@ func TestApprovalAnswerReadsRefusedAllowAsDeny(t *testing.T) {
 	}
 }
 
-func TestApprovalAnswerWritesRefusedAllowAsDeny(t *testing.T) {
-	encoded, err := json.Marshal(ApprovalAnswer{ID: "1", Decision: DecisionAllow, Refusal: RefusalTooMany})
+func TestApprovalAnswerMarshalRefusesRefusedAllow(t *testing.T) {
+	if _, err := json.Marshal(ApprovalAnswer{ID: "1", Decision: DecisionAllow, Refusal: RefusalTooMany}); !errors.Is(err, ErrRefusedAllow) {
+		t.Fatalf("marshal of refused allow error = %v, want ErrRefusedAllow", err)
+	}
+}
+
+func TestApprovalAnswerMarshalRefusesUnknownDecisionWithRefusal(t *testing.T) {
+	for _, decision := range []ApprovalDecision{"", "maybe"} {
+		if _, err := json.Marshal(ApprovalAnswer{ID: "1", Decision: decision, Refusal: RefusalTooMany}); !errors.Is(err, ErrInvalidDecision) {
+			t.Fatalf("marshal with decision %q and refusal error = %v, want ErrInvalidDecision", decision, err)
+		}
+	}
+}
+
+func TestApprovalAnswerMarshalWritesDenyWithRefusalAsIs(t *testing.T) {
+	encoded, err := json.Marshal(ApprovalAnswer{ID: "1", Decision: DecisionDeny, Refusal: RefusalTooMany})
 	if err != nil {
-		t.Fatalf("marshal of refused allow: %v", err)
+		t.Fatalf("marshal of refused deny: %v", err)
 	}
-	if !strings.Contains(string(encoded), `"Decision":"deny"`) || strings.Contains(string(encoded), `"Decision":"allow"`) {
-		t.Fatalf("marshal = %s, want Decision deny for a refused answer", encoded)
+	if string(encoded) != `{"ID":"1","Decision":"deny","Reason":"","Refusal":"too_many"}` {
+		t.Fatalf("marshal = %s, want the deny written unchanged", encoded)
 	}
+}
+
+func TestApprovalAnswerReadRefusesMissingOrUnknownDecisionWithRefusal(t *testing.T) {
+	for _, input := range []string{`{"ID":"1","Refusal":"too_many"}`, `{"ID":"1","Decision":"","Refusal":"too_many"}`, `{"ID":"1","Decision":"maybe","Refusal":"too_many"}`} {
+		var answer ApprovalAnswer
+		if err := json.Unmarshal([]byte(input), &answer); !errors.Is(err, ErrInvalidDecision) {
+			t.Fatalf("unmarshal %s error = %v, want ErrInvalidDecision", input, err)
+		}
+	}
+}
+
+func TestApprovalAnswerNullLeavesAnswerUnchanged(t *testing.T) {
+	answer := ApprovalAnswer{ID: "1", Decision: DecisionAllow, Reason: "ok"}
+	if err := json.Unmarshal([]byte("null"), &answer); err != nil {
+		t.Fatalf("unmarshal null: %v", err)
+	}
+	want := ApprovalAnswer{ID: "1", Decision: DecisionAllow, Reason: "ok"}
+	if answer != want {
+		t.Fatalf("answer after null = %+v, want %+v unchanged", answer, want)
+	}
+}
+
+type approvalAnswerV034 struct {
+	ID       string           `json:"ID"`
+	Decision ApprovalDecision `json:"Decision"`
+	Reason   string           `json:"Reason"`
+}
+
+func TestApprovalAnswerOrdinaryBytesMatchV034(t *testing.T) {
+	reasons := []string{"", "ok", `quote " and backslash \`, "line\nbreak\tand tab", "accents é et <tags>&amp;", "  separator"}
+	for _, decision := range []ApprovalDecision{DecisionAllow, DecisionDeny} {
+		for _, reason := range reasons {
+			for _, id := range []string{"", "1", `a"b`} {
+				assertBytesMatchV034(t, ApprovalAnswer{ID: id, Decision: decision, Reason: reason})
+			}
+		}
+	}
+}
+
+func assertBytesMatchV034(t *testing.T, answer ApprovalAnswer) {
+	t.Helper()
+	got, err := json.Marshal(answer)
+	if err != nil {
+		t.Fatalf("marshal %+v: %v", answer, err)
+	}
+	want, err := json.Marshal(approvalAnswerV034{ID: answer.ID, Decision: answer.Decision, Reason: answer.Reason})
+	if err != nil {
+		t.Fatalf("marshal v0.34 of %+v: %v", answer, err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("bytes = %s, want v0.34 bytes %s", got, want)
+	}
+}
+
+func TestApprovalAnswerReadsRefusedAllowAsDenyInContainers(t *testing.T) {
+	const input = `{"ID":"1","Decision":"allow","Refusal":"too_many"}`
+	check := func(t *testing.T, decision ApprovalDecision) {
+		t.Helper()
+		if decision != DecisionDeny {
+			t.Fatalf("Decision inside container = %q, want deny", decision)
+		}
+	}
+	t.Run("pointer", func(t *testing.T) {
+		var got *ApprovalAnswer
+		if err := json.Unmarshal([]byte(input), &got); err != nil {
+			t.Fatalf("unmarshal pointer: %v", err)
+		}
+		check(t, got.Decision)
+	})
+	t.Run("slice", func(t *testing.T) {
+		var got []ApprovalAnswer
+		if err := json.Unmarshal([]byte("["+input+"]"), &got); err != nil {
+			t.Fatalf("unmarshal slice: %v", err)
+		}
+		check(t, got[0].Decision)
+	})
+	t.Run("struct field", func(t *testing.T) {
+		var got struct {
+			Answer ApprovalAnswer `json:"answer"`
+		}
+		if err := json.Unmarshal([]byte(`{"answer":`+input+`}`), &got); err != nil {
+			t.Fatalf("unmarshal struct field: %v", err)
+		}
+		check(t, got.Answer.Decision)
+	})
+	t.Run("map", func(t *testing.T) {
+		var got map[string]ApprovalAnswer
+		if err := json.Unmarshal([]byte(`{"k":`+input+`}`), &got); err != nil {
+			t.Fatalf("unmarshal map: %v", err)
+		}
+		check(t, got["k"].Decision)
+	})
 }
 
 func TestApprovalAnswerOrdinaryJSONUnchanged(t *testing.T) {

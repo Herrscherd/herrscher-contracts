@@ -85,6 +85,10 @@ const (
 // empty or unknown code. Match it with errors.Is.
 var ErrInvalidRefusal = errors.New("unknown approval refusal")
 
+// ErrRefusedAllow is returned when an answer carries a Refusal but its decision is
+// DecisionAllow. Match it with errors.Is.
+var ErrRefusedAllow = errors.New("approval answer allows a refused tool")
+
 // ParseApprovalRefusal reads a known refusal code from its text form. Any other text,
 // the empty string included, returns an error matching [ErrInvalidRefusal].
 func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
@@ -135,8 +139,8 @@ type ApprovalAnswer struct {
 	// Reason is free text the daemon supplies for the human. The contracts never translate it.
 	Reason string `json:"Reason"`
 	// Refusal is set only when the transport refused the approval itself. It is empty
-	// when an asker or the daemon decided. A non-empty Refusal is always written and
-	// read as DecisionDeny, see [ApprovalAnswer.MarshalJSON].
+	// when an asker or the daemon decided. A non-empty Refusal must come with
+	// DecisionDeny: [ApprovalAnswer.MarshalJSON] refuses to write any other decision.
 	Refusal ApprovalRefusal `json:"Refusal,omitempty"`
 }
 
@@ -150,27 +154,39 @@ func RefusedAnswer(requestID string, refusal ApprovalRefusal) (ApprovalAnswer, e
 	return ApprovalAnswer{ID: requestID, Decision: DecisionDeny, Refusal: refusal}, nil
 }
 
-// MarshalJSON writes the answer, with DecisionDeny in place of its decision whenever
-// Refusal is set. A reader from before v0.35.0 ignores Refusal and decides on Decision
-// alone, so it cannot read an allowance from a refused answer.
+// MarshalJSON writes the answer. A Refusal must come with DecisionDeny: an allow with a
+// Refusal returns ErrRefusedAllow, and an empty or unknown decision with a Refusal returns
+// ErrInvalidDecision. A reader from before v0.35.0 ignores Refusal and decides on Decision
+// alone, so it reads no allowance from an answer this module writes.
 func (a ApprovalAnswer) MarshalJSON() ([]byte, error) {
 	type wire ApprovalAnswer
 	out := wire(a)
-	if out.Refusal != "" {
-		out.Decision = DecisionDeny
+	if out.Refusal != "" && out.Decision != DecisionDeny {
+		if out.Decision == DecisionAllow {
+			return nil, ErrRefusedAllow
+		}
+		return nil, fmt.Errorf("%w: %q", ErrInvalidDecision, a.Decision)
 	}
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON reads the answer, with DecisionDeny in place of its decision whenever
-// Refusal is set, as [ApprovalAnswer.MarshalJSON] writes it.
+// UnmarshalJSON reads the answer. A null leaves it unchanged. A Refusal must come with a
+// valid decision, which is read as DecisionDeny, as [ApprovalAnswer.MarshalJSON] writes it.
+// It does not inherit the caller's json.Decoder settings, so DisallowUnknownFields does not
+// reject unknown keys.
 func (a *ApprovalAnswer) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
 	type wire ApprovalAnswer
 	var incoming wire
 	if err := json.Unmarshal(data, &incoming); err != nil {
 		return err
 	}
 	if incoming.Refusal != "" {
+		if _, err := ParseApprovalDecision(string(incoming.Decision)); err != nil {
+			return err
+		}
 		incoming.Decision = DecisionDeny
 	}
 	*a = ApprovalAnswer(incoming)
