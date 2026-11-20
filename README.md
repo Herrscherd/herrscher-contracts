@@ -82,7 +82,7 @@ it is absent.
 | `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | the model catalog a backend declares, its route, and the policy that bounds it, plus `ValidateModels`, `FilterModels`, `GatewayCreds` and `NewGatewayCreds` |
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
-| `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
+| `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalRefusal`, `ParseApprovalRefusal`, `ErrInvalidRefusal`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
 | `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
@@ -406,9 +406,15 @@ socket on the same machine. The backend passes the socket path to the hook in
 `HERRSCHER_APPROVAL_SOCKET` (`approvalsock.EnvApprovalSocket`).
 
 - `ApprovalRequest{ID, Tool, Subject}` asks about one tool. `ApprovalAnswer{ID,
-  Decision, Reason}` answers it. `Decision` is `allow` or `deny`, and
-  `Allowed()` is true only for `allow`: an empty, unknown or malformed decision
-  is a denial.
+  Decision, Reason, Refusal}` answers it. `Decision` is `allow` or `deny`, and
+  `Allowed()` is true only for `allow` with no `Refusal`: an empty, unknown or
+  malformed decision, or a refused one, is a denial.
+- `Refusal` is an `ApprovalRefusal` set only when the transport refused the
+  approval itself, before any asker answered: `invalid`, `too_large`, `too_many`,
+  `no_asker`, `cancelled`, `deadline`, `stream_closed` or `send_failed`. These are
+  short stable codes, not catalogue keys. The field is omitted from the JSON when
+  empty, and an empty `Refusal` means the decision came from an asker or the
+  daemon. `ParseApprovalRefusal` refuses any other text with `ErrInvalidRefusal`.
 - `ID` correlates a request with its answer within one stream. It is not a
   secret. An answer whose ID is not the request's is refused.
 - `WithApprovalAsker` puts an `ApprovalAsker` on the turn's context, and
