@@ -409,12 +409,24 @@ socket on the same machine. The backend passes the socket path to the hook in
   Decision, Reason, Refusal}` answers it. `Decision` is `allow` or `deny`, and
   `Allowed()` is true only for `allow` with no `Refusal`: an empty, unknown or
   malformed decision, or a refused one, is a denial.
-- `Refusal` is an `ApprovalRefusal` set only when the transport refused the
-  approval itself, before any asker answered: `invalid`, `too_large`, `too_many`,
-  `no_asker`, `cancelled`, `deadline`, `stream_closed`, `send_failed` or `unclassified`. These are
-  short stable codes, not catalogue keys. The field is omitted from the JSON when
-  empty, and an empty `Refusal` means the decision came from an asker or the
-  daemon. `ParseApprovalRefusal` refuses any other text with `ErrInvalidRefusal`.
+- `Refusal` is an `ApprovalRefusal`, set only when the transport refused the
+  approval itself, before any asker answered. The known codes are `invalid`,
+  `too_large`, `too_many` (the transport already had its maximum of approvals in
+  flight), `no_asker`, `cancelled`, `deadline`, `stream_closed`, `send_failed` and
+  `unclassified`. They are short stable codes, not catalogue keys. The field is
+  omitted from the JSON when empty, and an empty `Refusal` means the decision came
+  from an asker or the daemon.
+- `Refusal` always goes with `Decision` `deny`. A reader from before v0.35.0
+  ignores `Refusal` and decides on `Decision` alone, so the producer enforces the
+  pairing: `RefusedAnswer(id, refusal)` builds the refused answer with `deny`.
+- Reading is tolerant, writing is strict. A code this version does not know is
+  kept as it is and relayed unchanged, and `ApprovalRefusal.Known()` tells whether
+  this version can translate it, so a reader shows a generic reason for an unknown
+  code. Such an answer is still refused: `Allowed()` is false and `Decision` is
+  kept. Writes are strict only where the code is read from text: `ParseApprovalRefusal`
+  refuses any unknown code. `RefusedAnswer` takes the code as given and does not
+  check it, so the producer passes a known one. An empty refusal does not marshal or
+  unmarshal: `ErrInvalidRefusal`.
 - `ID` correlates a request with its answer within one stream. It is not a
   secret. An answer whose ID is not the request's is refused.
 - `WithApprovalAsker` puts an `ApprovalAsker` on the turn's context, and
