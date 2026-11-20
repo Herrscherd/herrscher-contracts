@@ -82,7 +82,7 @@ it is absent.
 | `ModelSpec`, `Route`, `RoutePolicy` | `models.go` | the model catalog a backend declares, its route, and the policy that bounds it, plus `ValidateModels`, `FilterModels`, `GatewayCreds` and `NewGatewayCreds` |
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
-| `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
+| `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalRefusal`, `ParseApprovalRefusal`, `ErrInvalidRefusal`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
 | `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
@@ -406,9 +406,38 @@ socket on the same machine. The backend passes the socket path to the hook in
 `HERRSCHER_APPROVAL_SOCKET` (`approvalsock.EnvApprovalSocket`).
 
 - `ApprovalRequest{ID, Tool, Subject}` asks about one tool. `ApprovalAnswer{ID,
-  Decision, Reason}` answers it. `Decision` is `allow` or `deny`, and
-  `Allowed()` is true only for `allow`: an empty, unknown or malformed decision
-  is a denial.
+  Decision, Reason, Refusal}` answers it. `Decision` is `allow` or `deny`, and
+  `Allowed()` is true only for `allow` with no `Refusal`: an empty, unknown or
+  malformed decision, or a refused one, is a denial.
+- `Refusal` is an `ApprovalRefusal`, set only when the transport refused the
+  approval itself, before any asker answered. The known codes are `invalid`,
+  `too_large`, `too_many` (the transport already had its maximum of approvals in
+  flight), `no_asker`, `cancelled`, `deadline`, `stream_closed`, `send_failed`
+  and `unclassified`. They are short stable codes, not catalogue keys. The field
+  is omitted from the JSON when empty, and an empty `Refusal` means the decision
+  came from an asker or the daemon.
+- `Refusal` always goes with `Decision` `deny`. `MarshalJSON` refuses to write a
+  refused answer with any other decision: an `allow` with a `Refusal` returns
+  `ErrRefusedAllow`, and an empty or unknown `Decision` with a `Refusal` returns
+  `ErrInvalidDecision`. It never changes a value silently. `UnmarshalJSON` reads
+  any `Refusal` as `deny`, whatever valid `Decision` it holds, or no `Decision`
+  at all, so for answers written by this module, a reader from before v0.35.0,
+  which decides on `Decision` alone, never allows a refused answer. A `Decision`
+  missing from the JSON, as in `{"ID":"1","Refusal":"too_many"}`, reads as
+  `deny`. A `Decision` that is an empty string or unknown fails to decode, as in
+  v0.34. A `Decision` of `null` reads as missing. `RefusedAnswer(id, refusal)`
+  builds such an answer and returns `ErrInvalidRefusal` for an empty or unknown
+  code.
+- A JSON `null` leaves an `ApprovalAnswer` unchanged. `UnmarshalJSON` does not
+  inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does
+  not reject unknown keys inside an answer.
+- Reading is tolerant. A code this version does not know is kept and relayed
+  unchanged, and `ApprovalRefusal.Known()` tells whether this version can
+  translate it, so a reader shows a generic reason for it. Such an answer is
+  still refused: `Allowed()` is false. An empty `Refusal` in JSON is read as no
+  refusal, so `{"Decision":"allow","Refusal":""}` is an allowance. The known
+  codes are checked by `ParseApprovalRefusal` and `RefusedAnswer`, not by the
+  text marshaller, which writes the code it holds.
 - `ID` correlates a request with its answer within one stream. It is not a
   secret. An answer whose ID is not the request's is refused.
 - `WithApprovalAsker` puts an `ApprovalAsker` on the turn's context, and
