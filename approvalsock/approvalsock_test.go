@@ -632,6 +632,10 @@ func TestServeRefusesConnectionsBeyondTheBound(t *testing.T) {
 		default:
 		}
 	}))
+	awaitReport(t, reports, func(err error) bool {
+		connectionErr, ok := errors.AsType[*approvalsock.ConnectionError](err)
+		return ok && connectionErr.Op == approvalsock.OpRead && errors.Is(err, io.ErrUnexpectedEOF)
+	})
 	held := make([]net.Conn, 0, approvalsock.MaxConcurrentConnections)
 	for range approvalsock.MaxConcurrentConnections {
 		held = append(held, sendRequest(t, path, "held"))
@@ -642,7 +646,9 @@ func TestServeRefusesConnectionsBeyondTheBound(t *testing.T) {
 		}
 	})
 	waitUntil(t, func() bool { return active.Load() == approvalsock.MaxConcurrentConnections })
-	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "extra"})
+	extraCtx, cancelExtra := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancelExtra()
+	_, err := approvalsock.Ask(extraCtx, path, contracts.ApprovalRequest{ID: "extra"})
 	if err == nil {
 		t.Fatal("Ask was answered beyond the connection bound")
 	}
