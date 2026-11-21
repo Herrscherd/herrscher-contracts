@@ -164,8 +164,12 @@ func awaitHolderAnswers(t *testing.T, holders []net.Conn) {
 		if err := connection.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			t.Fatalf("set holder deadline: %v", err)
 		}
-		if _, err := io.Copy(io.Discard, connection); err != nil {
+		answered, err := io.Copy(io.Discard, connection)
+		if err != nil {
 			t.Fatalf("read holder answer to its close: %v", err)
+		}
+		if answered == 0 {
+			t.Fatal("a holder was closed without an answer")
 		}
 	}
 }
