@@ -91,7 +91,7 @@ it is absent.
 | `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
 | `BackendKindTool`, `BackendKindToolDone`, `BackendEvent.ValidateToolCall` | `backend.go`, `tool_call.go` | the kinds that start and finish a tool call, and the check of the call's shape against its kind |
 | `DecodeEvent`, `ErrInvalidEvent` | `event.go` | the entry point that decodes an `Event` from its JSON, and the refusal of a field of the wrong type, named by its wire name |
-| `ErrInvalidApproval` | `approval.go` | the refusal of an `ApprovalRequest` or `ApprovalAnswer` field of the wrong JSON type or out of range, named by its wire name, and of an `ApprovalAnswer` whose `Decision` names no decision |
+| `ErrInvalidApproval` | `approval.go` | the refusal of an `ApprovalRequest` or `ApprovalAnswer` field of the wrong JSON type, named by its wire name, and of an `ApprovalAnswer` whose `Decision` names no decision |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
@@ -380,11 +380,12 @@ the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
 A reader of the wire must decode each line, that is each `Event`, with
-`DecodeEvent(data)`. It refuses a field of the wrong JSON type, or a number
-out of range, with `ErrInvalidEvent`. Its message names the wire field, such as `t` or
-`coordination`, and never the Go type or the value. A field nested in
-`coordination`, `todos`, `models` or `subagent` is named by its top-level field.
-A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, a document
+`DecodeEvent(data)`. It refuses a field of the wrong JSON type, or a number out
+of range, with `ErrInvalidEvent`. Its message names the wire field, such as `t`
+or `coordination`, and never the Go type or the value. A field nested in
+`coordination`, `todos`, `models` or `subagent` is named by its top-level
+field. A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, a
+document
 that is not valid JSON is returned as its `*json.SyntaxError`, and a `null`
 decodes to the zero `Event`.
 
@@ -478,8 +479,8 @@ other than `failed`, or a `detail` on a finished call (`succeeded` or `failed`).
 Each refusal matches `ErrInvalidToolCall` with `errors.Is`. A call whose fields
 have the wrong JSON type, whose state text names no state, or whose `at` is not
 an RFC 3339 time, is refused the same way. A state text that names no state also
-matches `ErrUnknownToolCallState`. A field of the wrong JSON type or out of range, and an `at`
-that is not an RFC 3339 time wrap no other cause: the message names the field,
+matches `ErrUnknownToolCallState`. A field of the wrong JSON type, and an `at`
+that is not an RFC 3339 time, wrap no other cause: the message names the field,
 never its value. A document that is not valid JSON is not a refused call:
 `encoding/json` returns its `*json.SyntaxError` before the call is decoded, and
 that error does not match `ErrInvalidToolCall`. `ToolCall.Validate` applies the
@@ -487,7 +488,7 @@ same rules to a call built in Go, and `ToolCall.MarshalJSON` runs it, so an
 invalid call never reaches the wire.
 
 No refusal echoes the input it refuses. A message names the rule that failed or
-the field that has the wrong JSON type or is out of range, never the text of `detail`, `error`,
+the field that has the wrong JSON type, never the text of `detail`, `error`,
 `state`, `at`, `tool` or `kind`, so a secret that lands in a malformed field
 stays out of logs. A field is named in its wire spelling from a fixed list, so a
 key the input wrote differently (`ID` for `id`) is never echoed either.
@@ -580,7 +581,7 @@ socket on the same machine. The backend passes the socket path to the hook in
 - A JSON `null` leaves an `ApprovalRequest` unchanged. `UnmarshalJSON` does not
   inherit the caller's `json.Decoder` settings either, so
   `DisallowUnknownFields` does not reject unknown keys inside a request.
-- A field of the wrong JSON type or a number out of range in an `ApprovalRequest` or an `ApprovalAnswer`
+- A field of the wrong JSON type in an `ApprovalRequest` or an `ApprovalAnswer`
   is refused with `ErrInvalidApproval`. Its message names the wire field, `ID`,
   `Tool`, `Subject`, `Decision`, `Reason` or `Refusal`, and never the Go type or
   the value.

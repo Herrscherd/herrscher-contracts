@@ -46,18 +46,17 @@ type ToolCall struct {
 // whose Detail differs from its call's Detail, a tool_done event that carries
 // Tool or Detail on the event itself, a kind other than tool or tool_done that
 // carries a call, or a call that carries a stamped At. A call is also refused
-// when it is decoded, and every such refusal matches ErrInvalidToolCall: a
-// field of the wrong JSON type or a number out of range, a state text that names
-// no state (which also matches ErrUnknownToolCallState), or an at that is not an
-// RFC 3339 time. For a field of the wrong JSON type or out of range, and for an
-// at that is not an RFC 3339 time, no
-// other cause is wrapped: the message names the field, and never the value. A
-// document that is not valid JSON is not a refused call: encoding/json reports
-// it as a *json.SyntaxError before any UnmarshalJSON runs, and that error does
-// not match ErrInvalidToolCall. No refusal echoes the input it refuses: its
-// message names the rule that failed or the field that has the wrong JSON type or
-// is out of range, never the text of detail, error, state, at, tool or kind, so a secret in one
-// of them stays out of logs. Two exceptions apply. The first is
+// when it is decoded, and every such refusal matches ErrInvalidToolCall: a field
+// of the wrong JSON type, a state text that names no state (which also matches
+// ErrUnknownToolCallState), or an at that is not an RFC 3339 time. For a field of
+// the wrong JSON type, and for an at that is not an RFC 3339 time, no other cause
+// is wrapped: the message names the field, and never the value. A document that
+// is not valid JSON is not a refused call: encoding/json reports it as a
+// *json.SyntaxError before any UnmarshalJSON runs, and that error does not match
+// ErrInvalidToolCall. No refusal echoes the input it refuses: its message names
+// the rule that failed or the field that has the wrong JSON type, never the text
+// of detail, error, state, at, tool or kind, so a secret in one of them stays out
+// of logs. Two exceptions apply. The first is
 // *json.SyntaxError, which may quote a character of the input, because it is
 // not a refusal of the contract: a logger that must keep the input out logs
 // only the type of the error. The second is the *json.MarshalerError that
