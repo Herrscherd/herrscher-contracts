@@ -379,8 +379,8 @@ each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
-Decode an `Event` from JSON with `DecodeEvent(data)`: every line of the wire
-decodes this way. It refuses a field of the wrong JSON type with
+A reader of the wire must decode each line, that is each `Event`, with
+`DecodeEvent(data)`. It refuses a field of the wrong JSON type with
 `ErrInvalidEvent`. Its message names the wire field, such as `t` or
 `coordination`, and never the Go type or the value. A field nested in
 `coordination`, `todos`, `models` or `subagent` is named by its top-level field.
@@ -388,11 +388,11 @@ A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, a document
 that is not valid JSON is returned as its `*json.SyntaxError`, and a `null`
 decodes to the zero `Event`.
 
-A type that embeds `Event` decodes the `Event` with `DecodeEvent`, then reads its
-own envelope fields apart. It never receives a promoted `UnmarshalJSON`: `Event`
-defines none, so no method is promoted into the envelope to replace its
-decoding. `json.Unmarshal` into an `Event` keeps the error of `encoding/json`,
-which names the Go type, so use `DecodeEvent` wherever the wire name matters.
+A type that embeds `Event` must decode its `Event` with `DecodeEvent` too, then
+read its own envelope fields apart. It never receives a promoted
+`UnmarshalJSON`, because `Event` defines none. `json.Unmarshal` into an `Event`
+keeps the error of `encoding/json`, which names the Go type, so use
+`DecodeEvent` wherever the wire name matters.
 
 `BackendEvent.ToolCall` and `Event.ToolCall` carry the lifecycle of one tool
 call, so a host can build a per-turn timeline with each call's start, duration
@@ -577,10 +577,13 @@ socket on the same machine. The backend passes the socket path to the hook in
 - A JSON `null` leaves an `ApprovalAnswer` unchanged. `UnmarshalJSON` does not
   inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does
   not reject unknown keys inside an answer.
+- A JSON `null` leaves an `ApprovalRequest` unchanged. `UnmarshalJSON` does not
+  inherit the caller's `json.Decoder` settings either, so
+  `DisallowUnknownFields` does not reject unknown keys inside a request.
 - A field of the wrong JSON type in an `ApprovalRequest` or an `ApprovalAnswer`
   is refused with `ErrInvalidApproval`. Its message names the wire field, `ID`,
   `Tool`, `Subject`, `Decision`, `Reason` or `Refusal`, and never the Go type or
-  the value. A JSON `null` leaves an `ApprovalRequest` unchanged.
+  the value.
 - Reading is tolerant. A code this version does not know is kept and relayed
   unchanged, and `ApprovalRefusal.Known()` tells whether this version can
   translate it, so a reader shows a generic reason for it. Such an answer is

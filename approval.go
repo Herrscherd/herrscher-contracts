@@ -149,7 +149,8 @@ type ApprovalRequest struct {
 // UnmarshalJSON reads the request. A null leaves it unchanged. A field of the wrong
 // JSON type is refused with [ErrInvalidApproval], whose message names the wire field
 // and never the Go type or the value. A document that is not valid JSON returns its
-// *json.SyntaxError unchanged.
+// *json.SyntaxError unchanged. It does not inherit the caller's json.Decoder
+// settings, so DisallowUnknownFields does not reject unknown keys in a request.
 func (r *ApprovalRequest) UnmarshalJSON(data []byte) error {
 	if string(data) == jsonNull {
 		return nil

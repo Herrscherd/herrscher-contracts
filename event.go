@@ -24,11 +24,12 @@ type CoordinationEvent struct {
 //
 // chunk carries assistant prose; status carries a tool/progress line.
 //
-// Each line of the wire decodes with [DecodeEvent], which names the wire field of
-// a wrong JSON type. A type that embeds Event decodes the Event with DecodeEvent,
-// then reads its own envelope fields apart. It must never receive a promoted
-// UnmarshalJSON, so Event defines none. json.Unmarshal into an Event reports a
-// wrong JSON type with the Go type instead.
+// A reader of the wire must decode each event with [DecodeEvent], which names
+// the wire field of a wrong JSON type. A type that embeds Event decodes its
+// Event with DecodeEvent too, then reads its own envelope fields apart, and
+// never receives a promoted UnmarshalJSON, since Event defines none.
+// json.Unmarshal into an Event reports a wrong JSON type with the Go type
+// instead.
 //
 //	{"t":"human","who":"alice","text":"refactor the env loader"}
 //	{"t":"status","text":"reading envfile.go"}

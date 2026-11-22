@@ -127,8 +127,10 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 		if _, ok := errors.AsType[*json.SyntaxError](err); ok {
 			return err
 		}
-		if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
-			return wrongJSONTypeError(ErrInvalidToolCall, "tool_call", toolCallWireFields(), typeErr)
+		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
+			return nameWrongJSONType(
+				err, ErrInvalidToolCall, "tool_call", toolCallWireFields(),
+			)
 		}
 		return fmt.Errorf("%w: %w", ErrInvalidToolCall, err)
 	}

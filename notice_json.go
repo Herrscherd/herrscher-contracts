@@ -79,16 +79,16 @@ func (a Arg) MarshalJSON() ([]byte, error) {
 	return json.Marshal(argWire{Name: a.name, Kind: uint8(a.kind), Value: value})
 }
 
-// UnmarshalJSON reads an argument. A null argument or a malformed shape is refused
-// with ErrNoticeArgs, and a wrong JSON type is named args, never the Go type or the
-// value.
+// UnmarshalJSON reads an argument. A null argument or a malformed shape is
+// refused with ErrNoticeArgs, and a wrong JSON type is named args, never the Go
+// type or the value.
 func (a *Arg) UnmarshalJSON(data []byte) error {
 	if string(data) == jsonNull {
 		return fmt.Errorf("notice argument is null: %w", ErrNoticeArgs)
 	}
 	var frame argWire
 	if err := json.Unmarshal(data, &frame); err != nil {
-		return nameWrongJSONTypeField(err, ErrNoticeArgs, noticeWireArgs)
+		return nameWrongJSONType(err, ErrNoticeArgs, noticeWireArgs, nil)
 	}
 	if len(frame.Name) > maxNoticeNameBytes {
 		return fmt.Errorf("argument name is longer than %d bytes: %w", maxNoticeNameBytes, ErrNoticeLimit)
@@ -129,13 +129,13 @@ func decodeValue(arg *Arg, raw json.RawMessage) error {
 	case ArgText, ArgRef:
 		var text string
 		if err := json.Unmarshal(raw, &text); err != nil {
-			return nameWrongJSONTypeField(err, ErrNoticeArgs, noticeWireArgs)
+			return nameWrongJSONType(err, ErrNoticeArgs, noticeWireArgs, nil)
 		}
 		arg.value = text
 	case ArgCount:
 		var count int
 		if err := json.Unmarshal(raw, &count); err != nil {
-			return nameWrongJSONTypeField(err, ErrNoticeArgs, noticeWireArgs)
+			return nameWrongJSONType(err, ErrNoticeArgs, noticeWireArgs, nil)
 		}
 		arg.value = count
 	default:

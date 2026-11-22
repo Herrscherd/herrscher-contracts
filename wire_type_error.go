@@ -14,34 +14,19 @@ func nameWrongJSONType(err, sentinel error, subject string, wireFields []string)
 	if !ok {
 		return err
 	}
-	return wrongJSONTypeError(sentinel, subject, wireFields, typeErr)
-}
-
-func nameWrongJSONTypeField(err, sentinel error, field string) error {
-	if _, ok := errors.AsType[*json.UnmarshalTypeError](err); !ok {
-		return err
-	}
-	return wrongWireType(sentinel, field)
-}
-
-func wrongJSONTypeError(sentinel error, subject string, wireFields []string, err *json.UnmarshalTypeError) error {
-	field, known := canonicalWireField(wireFields, err.Field)
-	if !known {
-		return wrongWireType(sentinel, subject)
-	}
-	return wrongWireType(sentinel, field)
+	return wrongWireType(sentinel, wireFieldOf(typeErr.Field, wireFields, subject))
 }
 
 func wrongWireType(sentinel error, field string) error {
 	return fmt.Errorf("%w: %s has the wrong JSON type", sentinel, field)
 }
 
-func canonicalWireField(wireFields []string, name string) (string, bool) {
-	topLevel, _, _ := strings.Cut(name, ".")
+func wireFieldOf(path string, wireFields []string, subject string) string {
+	topLevel, _, _ := strings.Cut(path, ".")
 	for _, field := range wireFields {
 		if strings.EqualFold(field, topLevel) {
-			return field, true
+			return field
 		}
 	}
-	return "", false
+	return subject
 }
