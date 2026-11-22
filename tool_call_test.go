@@ -3,6 +3,7 @@ package contracts
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -218,6 +219,30 @@ func TestToolCallMarshalRoundTripsValidCalls(t *testing.T) {
 func sameToolCall(a, b ToolCall) bool {
 	return a.ID == b.ID && a.Tool == b.Tool && a.Detail == b.Detail && a.State == b.State &&
 		a.Error == b.Error && a.At.Equal(b.At)
+}
+
+func TestToolCallRefusalsDoNotEchoDetail(t *testing.T) {
+	const secret = "token=sk-live-7f3a9c"
+	started := ToolCall{ID: "c1", Tool: "Bash", Detail: secret, State: ToolCallStarted}
+	cases := map[string]error{
+		"event detail differs from call": BackendEvent{Kind: BackendKindTool, Tool: "Bash", Detail: "ls", ToolCall: &started}.ValidateToolCall(),
+		"detail on a finished call":      ToolCall{ID: "c1", Tool: "Bash", Detail: secret, State: ToolCallSucceeded}.Validate(),
+		"tool_done carrying a detail":    BackendEvent{Kind: BackendKindToolDone, Detail: secret, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallSucceeded}}.ValidateToolCall(),
+		"unmarshal of a finished detail": unmarshalErr(`{"id":"c1","tool":"Bash","state":"succeeded","detail":"` + secret + `"}`),
+	}
+	for name, err := range cases {
+		if !errors.Is(err, ErrInvalidToolCall) {
+			t.Fatalf("%s: error = %v, want ErrInvalidToolCall", name, err)
+		}
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("%s: error %q echoes the detail", name, err)
+		}
+	}
+}
+
+func unmarshalErr(raw string) error {
+	var call ToolCall
+	return json.Unmarshal([]byte(raw), &call)
 }
 
 func TestToolCallUnmarshalRefusesUnknownStateWithBothSentinels(t *testing.T) {

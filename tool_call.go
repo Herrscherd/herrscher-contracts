@@ -198,7 +198,7 @@ func (e BackendEvent) validateToolCallStart() error {
 	case e.Tool != call.Tool:
 		return fmt.Errorf("%w: event tool %q differs from call tool %q", ErrInvalidToolCall, e.Tool, call.Tool)
 	case e.Detail != call.Detail:
-		return fmt.Errorf("%w: event detail %q differs from call detail %q", ErrInvalidToolCall, e.Detail, call.Detail)
+		return fmt.Errorf("%w: event detail differs from call detail", ErrInvalidToolCall)
 	case !call.At.IsZero():
 		return fmt.Errorf("%w: %s carries a stamped At", ErrInvalidToolCall, BackendKindTool)
 	}

@@ -395,11 +395,11 @@ transition, so a finished call can be labelled without its start.
 
 Backends follow the rule that they run `BackendEvent.ValidateToolCall` in their
 tests on every event they emit. It checks the shape each kind requires: a `tool`
-event carries a `started` call whose `Tool` and `Detail` equal the event's, a `tool_done`
-event carries a finished call with `Tool` and `Detail` empty on the event and no
-`Detail` on the call, no other kind carries a call, and neither kind carries a
-stamped `At`. A `tool` event without a call stays valid, and a `tool_done` event
-without a call is refused.
+event carries a `started` call whose `Tool` and `Detail` equal the event's, a
+`tool_done` event carries a finished call with `Tool` and `Detail` empty on the
+event and no `Detail` on the call, no other kind carries a call, and neither
+kind carries a stamped `At`. A `tool` event without a call stays valid, and a
+`tool_done` event without a call is refused.
 
 The host must run `BackendEvent.ValidateToolCall` on every `BackendEvent` it
 receives, before it copies the `ToolCall` to an `Event`. On a refusal the host must
