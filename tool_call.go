@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -8,16 +9,58 @@ import (
 
 // ToolCall is one transition of a tool call a backend follows through a turn. ID is
 // the backend's identifier of the call, unique within the turn: the started and
-// finished transitions of one call carry the same ID. Tool names the tool and Detail
-// describes the call in human words. State says which transition this is. At is when
-// the backend observed the transition, and its zero value means the host stamps it
-// on receipt.
+// finished transitions of one call carry the same ID. Tool names the tool and is set
+// on every transition, so a consumer can pair and label a finished call without its
+// start. Detail describes the call in human words (a command, a path, a query) and is
+// set on the start only. It is display text that can hold secrets, so an exporter must
+// not send it unless the operator opts in. State says which transition this is. Error
+// is a short human reason for a failed call and is empty otherwise. At is when the host
+// received the transition: backends leave it zero and the host stamps it, and it is
+// what travels on Event and in the journal.
 type ToolCall struct {
 	ID     string        `json:"id"`
 	Tool   string        `json:"tool"`
 	Detail string        `json:"detail,omitempty"`
 	State  ToolCallState `json:"state"`
 	At     time.Time     `json:"at,omitzero"`
+	Error  string        `json:"error,omitempty"`
+}
+
+// ErrInvalidToolCall is returned for a tool call that lacks its id, its tool or its
+// state, or that carries an error on a state other than failed. Match it with errors.Is.
+var ErrInvalidToolCall = errors.New("invalid tool call")
+
+// Validate reports whether the call is well formed: an ID, a Tool and a known State
+// are required, and Error is allowed only on a failed call. It returns an error
+// matching [ErrInvalidToolCall] otherwise.
+func (c ToolCall) Validate() error {
+	switch {
+	case c.ID == "":
+		return fmt.Errorf("%w: empty id", ErrInvalidToolCall)
+	case c.Tool == "":
+		return fmt.Errorf("%w: empty tool", ErrInvalidToolCall)
+	case !c.State.isKnown():
+		return fmt.Errorf("%w: state %v", ErrInvalidToolCall, c.State)
+	case c.Error != "" && c.State != ToolCallFailed:
+		return fmt.Errorf("%w: error on a %v call", ErrInvalidToolCall, c.State)
+	}
+	return nil
+}
+
+// UnmarshalJSON decodes a call and refuses it unless [ToolCall.Validate] accepts it.
+// Every refusal matches [ErrInvalidToolCall].
+func (c *ToolCall) UnmarshalJSON(data []byte) error {
+	type wire ToolCall
+	var decoded wire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidToolCall, err)
+	}
+	parsed := ToolCall(decoded)
+	if err := parsed.Validate(); err != nil {
+		return err
+	}
+	*c = parsed
+	return nil
 }
 
 // ToolCallState says where a tool call stands. It is a closed set whose zero value is

@@ -77,9 +77,7 @@ type Event struct {
 	Coordination *CoordinationEvent `json:"coordination,omitempty"`
 	Todos        []TodoItem         `json:"todos,omitempty"`
 	Subagent     *Subagent          `json:"subagent,omitempty"`
-	// ToolCall is one transition of a tool call, carried on the status event of the
-	// call's start and finish. Nil when the backend reports no tool call lifecycle.
-	ToolCall *ToolCall `json:"tool_call,omitempty"`
+	ToolCall     *ToolCall          `json:"tool_call,omitempty"`
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live

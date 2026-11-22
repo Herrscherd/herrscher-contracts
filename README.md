@@ -88,7 +88,7 @@ it is absent.
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
-| `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, and the closed set of states |
+| `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
@@ -378,12 +378,42 @@ totals stand alone.
 
 `BackendEvent.ToolCall` and `Event.ToolCall` carry the lifecycle of one tool
 call, so a host can build a per-turn timeline with each call's start, duration
-and outcome. A backend that can follow a call to its end emits the `tool`
-event twice: at the start, with `State` `started`, and when the result arrives,
-with `succeeded` or `failed`, both under the same `ID`. A backend that cannot
-follow a call emits the start only. `At` is when the backend observed the
-transition; its zero value means the host stamps it on receipt. On the wire,
-`Event.tool_call` is omitted when the backend reports no lifecycle.
+and outcome. Every transition has an `ID` that is unique within the turn, and
+`Tool` on every transition, so a finished call can be labelled without its start.
+
+- The start is a `tool` event with `ToolCall.State` `started`. It also keeps
+  `Tool` and `Detail` on the `BackendEvent`, so a host that only knows the kind
+  `tool` still shows the call.
+- The result is a `tool_done` event with `ToolCall.State` `succeeded` or
+  `failed`, under the same `ID`. Its `Tool` and `Detail` on the `BackendEvent`
+  stay empty, so a host that only knows `tool` never prints the call twice.
+- A backend that cannot follow a call to its end emits the start only.
+
+`ToolCall.At` is stamped by the host alone. A backend leaves it zero, and the
+host sets it when it receives the transition. It is the time that travels on
+`Event.tool_call` and in the journal, so the timeline has one clock. Its zero
+value on the wire is omitted.
+
+`ToolCall.Detail` is display text, a command, a path or a query, and it can hold
+secrets. It is set on the start only. An exporter must not send it outside the
+host unless the operator opts in.
+
+`ToolCall.Error` is a short human reason for a failed call. It is set only on a
+`failed` transition and empty otherwise. `Event.tool_call` is omitted when the
+backend reports no lifecycle. Failed on the wire looks like this:
+`{"t":"status","tool_call":{"id":"c1","tool":"Bash","state":"failed","error":"exit 1"}}`.
+
+A `ToolCall` is parsed once, at the boundary. Decoding refuses a call with no
+`state`, an unknown state, an empty `id`, an empty `tool`, or an `error` on a
+state other than `failed`. Each refusal matches `ErrInvalidToolCall` with
+`errors.Is`. `ToolCall.Validate` applies the same rules to a call built in Go,
+and the backends' tests use it on what they emit.
+
+Tokens are not a field of the call. The contract carries no per-call token
+count. The host attributes to each call the output tokens counted between the
+previous timeline entry and this call's start, computed from the cumulative
+counts backends already report. A per-call token field would duplicate that
+count and could disagree with it, so none is added.
 
 ## Who is asking
 
