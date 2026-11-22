@@ -256,17 +256,18 @@ func TestBackendEventValidateToolCallRefusesBrokenShapes(t *testing.T) {
 	started := ToolCall{ID: "c1", Tool: "Bash", State: ToolCallStarted}
 	finished := ToolCall{ID: "c1", Tool: "Bash", State: ToolCallSucceeded}
 	cases := map[string]BackendEvent{
-		"call that fails its own validation": {Kind: BackendKindTool, Tool: "Bash", ToolCall: &ToolCall{Tool: "Bash", State: ToolCallStarted}},
-		"start carrying a finished call":     {Kind: BackendKindTool, Tool: "Bash", ToolCall: &finished},
-		"start whose tool differs from call": {Kind: BackendKindTool, Tool: "Read", ToolCall: &started},
-		"start with a stamped at":            {Kind: BackendKindTool, Tool: "Bash", ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallStarted, At: time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)}},
-		"result without a call":              {Kind: BackendKindToolDone},
-		"result still started":               {Kind: BackendKindToolDone, ToolCall: &started},
-		"result with tool on the event":      {Kind: BackendKindToolDone, Tool: "Bash", ToolCall: &finished},
-		"result with detail on the event":    {Kind: BackendKindToolDone, Detail: "ls", ToolCall: &finished},
-		"result with detail on the call":     {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallSucceeded}},
-		"result with a stamped at":           {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallSucceeded, At: time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)}},
-		"text carrying a call":               {Kind: "text", ToolCall: &started},
+		"call that fails its own validation":   {Kind: BackendKindTool, Tool: "Bash", ToolCall: &ToolCall{Tool: "Bash", State: ToolCallStarted}},
+		"start carrying a finished call":       {Kind: BackendKindTool, Tool: "Bash", ToolCall: &finished},
+		"start whose tool differs from call":   {Kind: BackendKindTool, Tool: "Read", ToolCall: &started},
+		"start whose detail differs from call": {Kind: BackendKindTool, Tool: "Bash", Detail: "rm -rf x", ToolCall: &ToolCall{ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallStarted}},
+		"start with a stamped at":              {Kind: BackendKindTool, Tool: "Bash", ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallStarted, At: time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)}},
+		"result without a call":                {Kind: BackendKindToolDone},
+		"result still started":                 {Kind: BackendKindToolDone, ToolCall: &started},
+		"result with tool on the event":        {Kind: BackendKindToolDone, Tool: "Bash", ToolCall: &finished},
+		"result with detail on the event":      {Kind: BackendKindToolDone, Detail: "ls", ToolCall: &finished},
+		"result with detail on the call":       {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallSucceeded}},
+		"result with a stamped at":             {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallSucceeded, At: time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)}},
+		"text carrying a call":                 {Kind: "text", ToolCall: &started},
 	}
 	for name, event := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -279,11 +280,12 @@ func TestBackendEventValidateToolCallRefusesBrokenShapes(t *testing.T) {
 
 func TestBackendEventValidateToolCallAcceptsWellFormedShapes(t *testing.T) {
 	cases := map[string]BackendEvent{
-		"start without a call":           {Kind: BackendKindTool, Tool: "Bash", Detail: "ls"},
-		"start with its shim and a call": {Kind: BackendKindTool, Tool: "Bash", Detail: "ls", ToolCall: &ToolCall{ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallStarted}},
-		"result succeeded":               {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallSucceeded}},
-		"result failed with error":       {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallFailed, Error: "exit 1"}},
-		"text without a call":            {Kind: "text", Detail: "hello"},
+		"start without a call":                      {Kind: BackendKindTool, Tool: "Bash", Detail: "ls"},
+		"start with its shim and a call":            {Kind: BackendKindTool, Tool: "Bash", Detail: "ls", ToolCall: &ToolCall{ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallStarted}},
+		"start with matching shim and empty detail": {Kind: BackendKindTool, Tool: "Bash", ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallStarted}},
+		"result succeeded":                          {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallSucceeded}},
+		"result failed with error":                  {Kind: BackendKindToolDone, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallFailed, Error: "exit 1"}},
+		"text without a call":                       {Kind: "text", Detail: "hello"},
 	}
 	for name, event := range cases {
 		t.Run(name, func(t *testing.T) {

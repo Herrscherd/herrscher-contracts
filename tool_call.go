@@ -36,9 +36,10 @@ type ToolCall struct {
 // [BackendEvent.ValidateToolCall] when its kind and call do not match: a tool_done event
 // without a call, a call whose state does not fit its kind (not started on a tool event,
 // not finished on a tool_done event), a tool event whose Tool differs from its call's
-// Tool, a tool_done event that carries Tool or Detail on the event itself, a kind other
-// than tool or tool_done that carries a call, or a call that carries a stamped At. Malformed
-// JSON for a call is refused too, an unknown state text included. Match it with errors.Is.
+// Tool, a tool event whose Detail differs from its call's Detail, a tool_done event that
+// carries Tool or Detail on the event itself, a kind other than tool or tool_done that
+// carries a call, or a call that carries a stamped At. Malformed JSON for a call is
+// refused too, an unknown state text included. Match it with errors.Is.
 var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known State
@@ -164,11 +165,12 @@ func (s *ToolCallState) UnmarshalText(text []byte) error {
 }
 
 // ValidateToolCall reports whether the event's tool call follows the rules of its kind.
-// A [BackendKindTool] event may carry a started call whose Tool equals the event's Tool;
-// a [BackendKindToolDone] event must carry a finished call, with Tool and Detail empty on
-// the event and no Detail on the call; no other kind carries a call. A [BackendKindTool]
-// event without a call stays valid, for backends that cannot follow a call. Neither kind
-// may carry a stamped At, which the host sets. Every refusal matches [ErrInvalidToolCall].
+// A [BackendKindTool] event may carry a started call whose Tool and Detail equal the
+// event's Tool and Detail; a [BackendKindToolDone] event must carry a finished call, with
+// Tool and Detail empty on the event and no Detail on the call; no other kind carries a
+// call. A [BackendKindTool] event without a call stays valid, for backends that cannot
+// follow a call. Neither kind may carry a stamped At, which the host sets. Every refusal
+// matches [ErrInvalidToolCall].
 func (e BackendEvent) ValidateToolCall() error {
 	if e.ToolCall == nil {
 		if e.Kind == BackendKindToolDone {
@@ -195,6 +197,8 @@ func (e BackendEvent) validateToolCallStart() error {
 		return fmt.Errorf("%w: %s carries a %v call", ErrInvalidToolCall, BackendKindTool, call.State)
 	case e.Tool != call.Tool:
 		return fmt.Errorf("%w: event tool %q differs from call tool %q", ErrInvalidToolCall, e.Tool, call.Tool)
+	case e.Detail != call.Detail:
+		return fmt.Errorf("%w: event detail %q differs from call detail %q", ErrInvalidToolCall, e.Detail, call.Detail)
 	case !call.At.IsZero():
 		return fmt.Errorf("%w: %s carries a stamped At", ErrInvalidToolCall, BackendKindTool)
 	}
