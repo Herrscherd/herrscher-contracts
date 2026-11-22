@@ -63,13 +63,18 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 			field: "code",
 		},
 		{
+			name:  "code tiny fraction",
+			input: `{"code":1e-400}`,
+			field: "code",
+		},
+		{
 			name:  "argument name",
-			input: `{"code":1,"args":[{"name":5,"kind":1,"value":"x"}]}`,
+			input: fmt.Sprintf(`{"code":1,"args":[{"name":[%q],"kind":1,"value":"x"}]}`, receivedSecret),
 			field: noticeWireArgs,
 		},
 		{
 			name:  "argument kind",
-			input: `{"code":1,"args":[{"name":"n","kind":"x","value":"x"}]}`,
+			input: fmt.Sprintf(`{"code":1,"args":[{"name":"n","kind":%q,"value":"x"}]}`, receivedSecret),
 			field: noticeWireArgs,
 		},
 		{
@@ -105,6 +110,7 @@ func TestNoticeOutOfRangeNamesTheWireFieldNotTheNumber(t *testing.T) {
 		value string
 	}{
 		{name: "code", input: `{"code":70000}`, field: "code", value: "70000"},
+		{name: "code exponent", input: `{"code":1e5}`, field: "code", value: "1e5"},
 		{name: "code beyond int64", input: `{"code":99999999999999999999999}`, field: "code", value: "99999999999999999999999"},
 		{name: "kind", input: `{"code":1,"args":[{"name":"n","kind":300,"value":"x"}]}`, field: noticeWireArgs, value: "300"},
 		{name: "kind negative", input: `{"code":1,"args":[{"name":"n","kind":-1,"value":"x"}]}`, field: noticeWireArgs, value: "-1"},

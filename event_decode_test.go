@@ -89,6 +89,26 @@ func TestDecodeEventRefusesAWrongJSONTypeByItsWireName(t *testing.T) {
 	}
 }
 
+func TestDecodeEventNamesAnOutOfRangeNumberWithoutItsValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		field string
+		value string
+	}{
+		{name: "top level integer", input: `{"t":"x","tokens":99999999999999999999}`, field: "tokens", value: "99999999999999999999"},
+		{name: "nested integer", input: `{"t":"x","models":[{"model":"m","in":99999999999999999999}]}`, field: "models", value: "99999999999999999999"},
+		{name: "exponent integer", input: `{"t":"x","tokens":1e5}`, field: "tokens", value: "1e5"},
+		{name: "float beyond float64", input: `{"t":"reply","cost":1e400}`, field: "cost", value: "1e400"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := DecodeEvent([]byte(tt.input))
+			requireNamedWireRange(t, err, ErrInvalidEvent, tt.field, tt.value)
+		})
+	}
+}
+
 func TestDecodeEventNamesANonObjectAsEvent(t *testing.T) {
 	_, err := DecodeEvent([]byte(`"reply"`))
 	if !errors.Is(err, ErrInvalidEvent) {
