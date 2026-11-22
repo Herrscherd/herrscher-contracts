@@ -159,7 +159,7 @@ func approvalRequestWireFields() []string {
 }
 
 func approvalAnswerWireFields() []string {
-	return []string{"ID", "Decision", "Reason", "Refusal"}
+	return []string{"ID", "Decision", wireReason, "Refusal"}
 }
 
 // ApprovalAnswer is the verdict on the request with the same ID.

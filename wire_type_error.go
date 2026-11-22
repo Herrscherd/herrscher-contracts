@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const wireReason = "Reason"
+
 func nameWrongJSONType(err, sentinel error, subject string, wireFields []string) error {
 	typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err)
 	if !ok {

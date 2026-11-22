@@ -44,6 +44,7 @@ func TestEventRoundTripKeepsEveryField(t *testing.T) {
 
 type eventEnvelope struct {
 	Event
+
 	Session string `json:"session"`
 }
 

@@ -257,7 +257,7 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	case CodeSettingMissing:
 		return map[string]ArgKind{"Settings": ArgText}, true
 	case CodeCompactUnavailable:
-		return map[string]ArgKind{"Reason": ArgText}, true
+		return map[string]ArgKind{wireReason: ArgText}, true
 	case CodeAddressPlaintextRefused:
 		return map[string]ArgKind{"Address": ArgText}, true
 	case CodeNodeMerged, CodeCompacted,
@@ -293,7 +293,7 @@ func (c Code) params() (map[string]ArgKind, bool) {
 	case CodeHealthSignedInAs, CodeHealthEnvMissing, CodeHealthRemedyEnvRestart:
 		return map[string]ArgKind{nameParam: ArgText}, true
 	case CodeHealthUnreachable:
-		return map[string]ArgKind{"Reason": ArgText}, true
+		return map[string]ArgKind{wireReason: ArgText}, true
 	case CodeHealthRemedyRun:
 		return map[string]ArgKind{"Command": ArgText}, true
 	case CodeAccountFallback:
