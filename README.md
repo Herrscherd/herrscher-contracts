@@ -398,7 +398,13 @@ tests on every event they emit. It checks the shape each kind requires: a `tool`
 event carries a `started` call whose `Tool` equals the event's, a `tool_done`
 event carries a finished call with `Tool` and `Detail` empty on the event and no
 `Detail` on the call, no other kind carries a call, and neither kind carries a
-stamped `At`. A `tool` event without a call stays valid.
+stamped `At`. A `tool` event without a call stays valid, and a `tool_done` event
+without a call is refused.
+
+The host runs `BackendEvent.ValidateToolCall` on every `BackendEvent` it receives,
+before it copies the `ToolCall` to an `Event`. On a refusal it drops the `ToolCall`
+from that event and logs the refusal. The rest of the event, its text and its
+tokens, still flows.
 
 `ToolCall.At` is stamped by the host alone. A backend leaves it zero, and the
 host sets it when it receives the transition. It is the time that travels on
@@ -409,9 +415,17 @@ value on the wire is omitted.
 secrets. It is set on the start only. An exporter must not send it outside the
 host unless the operator opts in.
 
+Gateways are host plugins, so they sit inside the boundary. They already render
+`Tool` and `Detail` as the status line, so `Event.ToolCall.Detail` reaching a
+gateway changes nothing. The opt-in rule concerns exporters that send data out of
+the host to a telemetry backend.
+
 `ToolCall.Error` is a short human reason for a failed call. It is set only on a
-`failed` transition and empty otherwise. `Event.tool_call` is omitted when the
-backend reports no lifecycle. Failed on the wire looks like this:
+`failed` transition and empty otherwise. It can carry the same content as
+`Detail` (stderr, a command, a token), so an exporter does not send it outside
+the host unless the operator opts in. For OpenTelemetry, `error.type` takes the
+closed value `tool_failed`, never the `Error` text. `Event.tool_call` is omitted
+when the backend reports no lifecycle. Failed on the wire looks like this:
 `{"t":"status","tool_call":{"id":"c1","tool":"Bash","state":"failed","error":"exit 1"}}`.
 
 A `ToolCall` is parsed once, at the boundary. Decoding refuses a call with no

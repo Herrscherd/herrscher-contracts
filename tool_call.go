@@ -14,9 +14,12 @@ import (
 // start. Detail describes the call in human words (a command, a path, a query) and is
 // set on the start only. It is display text that can hold secrets, so an exporter must
 // not send it unless the operator opts in. State says which transition this is. Error
-// is a short human reason for a failed call and is empty otherwise. At is when the host
-// received the transition: backends leave it zero and the host stamps it, and it is
-// what travels on Event and in the journal.
+// is a short human reason for a failed call and is empty otherwise. It can carry the
+// same content as Detail (stderr, a command, a token), so an exporter must not send it
+// unless the operator opts in, and an OpenTelemetry error.type takes the closed value
+// tool_failed instead of its text. At is when the host received the transition:
+// backends leave it zero and the host stamps it, and it is what travels on Event and
+// in the journal.
 type ToolCall struct {
 	ID     string        `json:"id"`
 	Tool   string        `json:"tool"`
