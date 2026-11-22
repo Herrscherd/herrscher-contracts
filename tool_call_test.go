@@ -70,6 +70,7 @@ func TestToolCallValidateRefusesMalformedCalls(t *testing.T) {
 		"succeeded with detail":     {ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallSucceeded},
 		"failed with detail":        {ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallFailed, Error: "exit 1"},
 		"unknown state value":       {ID: "c1", Tool: "Bash", State: ToolCallState(42)},
+		"sub-minute offset":         {ID: "c1", Tool: "Bash", State: ToolCallStarted, At: time.Date(2026, 11, 22, 10, 0, 0, 0, time.FixedZone("lmt", 19*60+32))},
 	}
 	for name, call := range cases {
 		if err := call.Validate(); !errors.Is(err, ErrInvalidToolCall) {
@@ -180,6 +181,7 @@ func TestToolCallMarshalRefusesMalformedCallsInEvent(t *testing.T) {
 		"error on a succeeded call": {ID: "c1", Tool: "Bash", State: ToolCallSucceeded, Error: "exit 1"},
 		"succeeded with detail":     {ID: "c1", Tool: "Bash", State: ToolCallSucceeded, Detail: "ls"},
 		"failed with detail":        {ID: "c1", Tool: "Bash", State: ToolCallFailed, Detail: "ls"},
+		"sub-minute offset":         {ID: "c1", Tool: "Bash", State: ToolCallStarted, At: time.Date(2026, 11, 22, 10, 0, 0, 0, time.FixedZone("lmt", 19*60+32))},
 	}
 	for name, call := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -194,10 +196,12 @@ func TestToolCallMarshalRefusesMalformedCallsInEvent(t *testing.T) {
 func TestToolCallMarshalRoundTripsValidCalls(t *testing.T) {
 	at := time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)
 	cases := map[string]ToolCall{
-		"started":                {ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallStarted},
-		"succeeded":              {ID: "c1", Tool: "Bash", State: ToolCallSucceeded},
-		"failed with error":      {ID: "c1", Tool: "Bash", State: ToolCallFailed, Error: "exit 1"},
-		"failed with stamped at": {ID: "c1", Tool: "Bash", State: ToolCallFailed, At: at, Error: "exit 1"},
+		"started":                            {ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallStarted},
+		"succeeded":                          {ID: "c1", Tool: "Bash", State: ToolCallSucceeded},
+		"failed with error":                  {ID: "c1", Tool: "Bash", State: ToolCallFailed, Error: "exit 1"},
+		"failed with stamped at":             {ID: "c1", Tool: "Bash", State: ToolCallFailed, At: at, Error: "exit 1"},
+		"stamped at +02:00 with nanoseconds": {ID: "c1", Tool: "Bash", State: ToolCallFailed, At: time.Date(2026, 11, 22, 12, 0, 0, 123456789, time.FixedZone("cest", 2*60*60)), Error: "exit 1"},
+		"stamped at -05:30":                  {ID: "c1", Tool: "Bash", State: ToolCallFailed, At: time.Date(2026, 11, 22, 4, 30, 0, 0, time.FixedZone("ist", -(5*60+30)*60)), Error: "exit 1"},
 	}
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -217,8 +221,10 @@ func TestToolCallMarshalRoundTripsValidCalls(t *testing.T) {
 }
 
 func sameToolCall(a, b ToolCall) bool {
+	_, aOffset := a.At.Zone()
+	_, bOffset := b.At.Zone()
 	return a.ID == b.ID && a.Tool == b.Tool && a.Detail == b.Detail && a.State == b.State &&
-		a.Error == b.Error && a.At.Equal(b.At)
+		a.Error == b.Error && a.At.Equal(b.At) && aOffset == bOffset
 }
 
 func TestToolCallRefusalsDoNotEchoDetail(t *testing.T) {
@@ -329,8 +335,7 @@ func TestEventRefusesMalformedToolCallWire(t *testing.T) {
 	}
 	const truncated = `{"t":"status","tool_call":{"id":"c1"`
 	err := json.Unmarshal([]byte(truncated), &got)
-	var syntaxErr *json.SyntaxError
-	if !errors.As(err, &syntaxErr) {
+	if _, ok := errors.AsType[*json.SyntaxError](err); !ok {
 		t.Fatalf("Unmarshal(%s) error = %v, want *json.SyntaxError", truncated, err)
 	}
 	if errors.Is(err, ErrInvalidToolCall) {
@@ -342,12 +347,21 @@ func TestToolCallUnmarshalMethodReturnsSyntaxErrorUnwrapped(t *testing.T) {
 	const truncated = `{"id":"c1"`
 	var call ToolCall
 	err := call.UnmarshalJSON([]byte(truncated))
-	var syntaxErr *json.SyntaxError
-	if !errors.As(err, &syntaxErr) {
+	if _, ok := errors.AsType[*json.SyntaxError](err); !ok {
 		t.Fatalf("UnmarshalJSON(%s) error = %v, want *json.SyntaxError", truncated, err)
 	}
 	if errors.Is(err, ErrInvalidToolCall) {
 		t.Fatalf("UnmarshalJSON(%s) error = %v, a syntax error must not match ErrInvalidToolCall", truncated, err)
+	}
+}
+
+func assertRefusalHidesSecret(t *testing.T, name string, err error, secret string) {
+	t.Helper()
+	if !errors.Is(err, ErrInvalidToolCall) {
+		t.Fatalf("%s: error = %v, want ErrInvalidToolCall", name, err)
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("%s: error %q echoes the secret", name, err)
 	}
 }
 
@@ -379,6 +393,15 @@ func TestToolCallRefusalsDoNotEchoWireText(t *testing.T) {
 				t.Fatalf("Unmarshal(%s) error %q echoes the wire text", tc.raw, err)
 			}
 		})
+	}
+	refusals := map[string]error{
+		"tool on a start":         BackendEvent{Kind: BackendKindTool, Tool: secret, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallStarted}}.ValidateToolCall(),
+		"tool on tool_done":       BackendEvent{Kind: BackendKindToolDone, Tool: secret, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallSucceeded}}.ValidateToolCall(),
+		"error on a started call": ToolCall{ID: "c1", Tool: "Bash", State: ToolCallStarted, Error: secret}.Validate(),
+		"kind of the event":       BackendEvent{Kind: secret, ToolCall: &ToolCall{ID: "c1", Tool: "Bash", State: ToolCallStarted}}.ValidateToolCall(),
+	}
+	for name, err := range refusals {
+		assertRefusalHidesSecret(t, name, err, secret)
 	}
 	if _, err := ParseToolCallState(secret); !errors.Is(err, ErrUnknownToolCallState) || strings.Contains(err.Error(), secret) {
 		t.Fatalf("ParseToolCallState(secret) error = %v, want ErrUnknownToolCallState without the text", err)

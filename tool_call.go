@@ -19,7 +19,8 @@ import (
 // unless the operator opts in, and an exporter will map error.type to the closed value
 // tool_failed instead of its text. At is when the host received the transition:
 // backends leave it zero and the host stamps it, and it is what travels on Event and
-// in the journal. The zero value is not a valid call: its ID is empty and its State is
+// in the journal. Its zone offset must be a whole number of minutes, since the wire form
+// writes no seconds. The zero value is not a valid call: its ID is empty and its State is
 // zero, and [ToolCall.Validate] refuses it.
 type ToolCall struct {
 	ID     string        `json:"id"`
@@ -32,7 +33,8 @@ type ToolCall struct {
 
 // ErrInvalidToolCall is returned for every refusal of a tool call. A call is refused when
 // it breaks a ToolCall rule: no id, no tool, no known state, an error on a call that did
-// not fail, or a detail on a finished call. A BackendEvent is refused by
+// not fail, a detail on a finished call, or an At whose zone offset has seconds. A
+// BackendEvent is refused by
 // [BackendEvent.ValidateToolCall] when its kind and call do not match: a tool_done event
 // without a call, a call whose state does not fit its kind (not started on a tool event,
 // not finished on a tool_done event), a tool event whose Tool differs from its call's
@@ -49,7 +51,9 @@ var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known State
 // are required, Error is allowed only on a failed call, and Detail is refused on a
-// finished call. It returns an error matching [ErrInvalidToolCall] otherwise.
+// finished call. A non-zero At must have a zone offset of whole minutes, because the
+// wire form writes no seconds and would drop them. It returns an error matching
+// [ErrInvalidToolCall] otherwise.
 func (c ToolCall) Validate() error {
 	switch {
 	case c.ID == "":
@@ -62,8 +66,18 @@ func (c ToolCall) Validate() error {
 		return fmt.Errorf("%w: error on a %v call", ErrInvalidToolCall, c.State)
 	case c.Detail != "" && c.State.Finished():
 		return fmt.Errorf("%w: detail on a %v call", ErrInvalidToolCall, c.State)
+	case c.hasSecondsOffset():
+		return fmt.Errorf("%w: at has an offset with seconds", ErrInvalidToolCall)
 	}
 	return nil
+}
+
+func (c ToolCall) hasSecondsOffset() bool {
+	if c.At.IsZero() {
+		return false
+	}
+	_, offset := c.At.Zone()
+	return offset%60 != 0
 }
 
 // MarshalJSON writes the call as its wire form, refusing it unless [ToolCall.Validate]
@@ -81,8 +95,7 @@ func (c ToolCall) MarshalJSON() ([]byte, error) {
 func (c *ToolCall) UnmarshalJSON(data []byte) error {
 	var decoded toolCallInput
 	if err := json.Unmarshal(data, &decoded); err != nil {
-		var syntaxErr *json.SyntaxError
-		if errors.As(err, &syntaxErr) {
+		if _, ok := errors.AsType[*json.SyntaxError](err); ok {
 			return err
 		}
 		return fmt.Errorf("%w: %w", ErrInvalidToolCall, err)

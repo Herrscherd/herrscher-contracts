@@ -409,7 +409,9 @@ event, its text and its tokens, must still flow.
 `ToolCall.At` is stamped by the host alone. A backend leaves it zero, and the
 host sets it when it receives the transition. It is the time that travels on
 `Event.tool_call` and in the journal, so the timeline has one clock. Its zero
-value on the wire is omitted.
+value on the wire is omitted. Its zone offset must be a whole number of minutes: the
+wire form writes the offset to the minute, so `ToolCall.Validate` and
+`ToolCall.MarshalJSON` refuse a call whose offset has seconds rather than drop them.
 
 `ToolCall.Detail` is display text, a command, a path or a query, and it can hold
 secrets. It is set on the start only. An exporter must not send it outside the
@@ -427,6 +429,7 @@ the host unless the operator opts in. The OpenTelemetry mapping is future work:
 an exporter will map `error.type` to the closed value `tool_failed`, never to
 the `Error` text. `Event.tool_call` is omitted when the backend reports no
 lifecycle.
+
 A failed call on the wire, pretty-printed for reading:
 
 ```json
