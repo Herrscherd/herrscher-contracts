@@ -12,21 +12,21 @@ import (
 // ID is the backend's identifier of the call, unique within one execution of
 // the backend: the started and finished transitions of one call carry the same
 // ID. A reset opens a new execution within the turn, so the ID of a call may
-// come back after one. Tool names the tool and is set on every transition, so
-// a consumer can pair and label a
-// finished call without its start. Detail describes the call in human words (a
-// command, a path, a query) and is set on the start only. It is display text
-// that can hold secrets, so an exporter must not send it unless the operator
-// opts in. State says which transition this is. Error is a short human reason
-// for a failed call and is empty otherwise. It can carry the same content as
-// Detail (stderr, a command, a token), so an exporter must not send it unless
-// the operator opts in, and an exporter will map error.type to the closed value
-// tool_failed instead of its text. At is when the host received the transition:
-// backends leave it zero and the host stamps it, and it is what travels on
-// Event and in the journal. Its zone offset must be a whole number of minutes,
-// since the wire form writes no seconds, and its year must be from 0 to 9999,
-// the years the wire form writes. The zero value is not a valid call: its ID is
-// empty and its State is zero, and [ToolCall.Validate] refuses it.
+// come back after one. Tool names the tool and is set on every transition, so a
+// consumer can pair and label a finished call without its start. Detail
+// describes the call in human words (a command, a path, a query) and is set on
+// the start only. It is display text that can hold secrets, so an exporter must
+// not send it unless the operator opts in. State says which transition this is.
+// Error is a short human reason for a failed call and is empty otherwise. It
+// can carry the same content as Detail (stderr, a command, a token), so an
+// exporter must not send it unless the operator opts in, and an exporter will
+// map error.type to the closed value tool_failed instead of its text. At is
+// when the host received the transition: backends leave it zero and the host
+// stamps it, and it is what travels on Event and in the journal. Its zone
+// offset must be a whole number of minutes, since the wire form writes no
+// seconds, and its year must be from 0 to 9999, the years the wire form writes.
+// The zero value is not a valid call: its ID is empty and its State is zero,
+// and [ToolCall.Validate] refuses it.
 type ToolCall struct {
 	ID     string        `json:"id"`
 	Tool   string        `json:"tool"`

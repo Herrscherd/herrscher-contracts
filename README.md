@@ -500,9 +500,9 @@ top. The contract says the output streamed so far is discarded, not that the
 tokens spent on it are. The host attributes to each call the cumulative count at
 its start transition, minus that count at the previous tool-call transition of
 the same turn (the start or the end of any call), or minus zero for the first
-call of the turn. A `tool_done` that the host ignores after a reset is not a
-transition, so it moves no count. A per-call token field would duplicate that
-count and could disagree with it, so none is added.
+call of the turn. A `tool_done` that the host ignores is not a transition, so
+it moves no count. A per-call token field would duplicate that count and could
+disagree with it, so none is added.
 
 ## Who is asking
 
