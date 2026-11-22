@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestDecodeNoticeArgsNamesAMalformedListWithTheSentinel(t *testing.T) {
+func TestDecodeNoticeArgsNamesMalformedArgsWithTheSentinel(t *testing.T) {
 	tests := []struct {
 		name string
 		raw  string
