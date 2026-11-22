@@ -52,27 +52,29 @@ type Prompt struct {
 // human in its Notice field, such as a resume the backend had to drop.
 const BackendKindNotice = "notice"
 
-// BackendKindTool is the Kind of a BackendEvent that starts a tool call: its name in
-// Tool, its detail in Detail, and the started transition in ToolCall.
+// BackendKindTool is the Kind of a BackendEvent that starts a tool call: its name
+// in Tool, its detail in Detail, and the started transition in ToolCall.
 const BackendKindTool = "tool"
 
-// BackendKindToolDone is the Kind of a BackendEvent that reports the result of a tool
-// call: the finished transition in ToolCall, with Tool and Detail left empty.
+// BackendKindToolDone is the Kind of a BackendEvent that reports the result of a
+// tool call: the finished transition in ToolCall, with Tool and Detail left empty.
 const BackendKindToolDone = "tool_done"
 
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
 // progress consumer, and Kind says which one it is. The kinds are:
 //   - "text": a text block of the assistant reply, in Detail.
 //   - "thinking": a thinking block of the assistant, in Detail.
-//   - "tool": a tool invocation, its name in Tool and its detail in Detail. A backend
-//     that can follow a call emits this kind at the start, with ToolCall set (State
-//     [ToolCallStarted]), and keeps Tool and Detail filled so a consumer that only
-//     knows this kind still shows the call. It is BackendKindTool.
-//   - "tool_done": the result of a call that "tool" started, with ToolCall set (State
-//     [ToolCallSucceeded] or [ToolCallFailed], Tool repeated in ToolCall.Tool). Tool and
-//     Detail are left empty, so a consumer that only knows "tool" never shows the call
-//     twice. Both transitions carry the same ToolCall.ID. A backend that cannot follow a
-//     call emits the start only. It is BackendKindToolDone.
+//   - "tool": a tool invocation, its name in Tool and its detail in Detail. A
+//     backend that can follow a call emits this kind at the start, with ToolCall
+//     set (State [ToolCallStarted]), and keeps Tool and Detail filled so a
+//     consumer that only knows this kind still shows the call. It is
+//     BackendKindTool.
+//   - "tool_done": the result of a call that "tool" started, with ToolCall set
+//     (State [ToolCallSucceeded] or [ToolCallFailed], Tool repeated in
+//     ToolCall.Tool). Tool and Detail are left empty, so a consumer that only
+//     knows "tool" never shows the call twice. Both transitions carry the same
+//     ToolCall.ID. A backend that cannot follow a call emits the start only. It
+//     is BackendKindToolDone.
 //   - "todos": a task list written by the assistant, in Todos.
 //   - "subagent": a child agent started (State active) or finished (State done), in Subagent.
 //   - "usage": the token usage reported with one assistant message, in the token fields.

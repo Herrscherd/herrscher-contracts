@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -72,8 +73,10 @@ func (c ToolCall) Validate() error {
 		return fmt.Errorf("%w: empty id", ErrInvalidToolCall)
 	case c.Tool == "":
 		return fmt.Errorf("%w: empty tool", ErrInvalidToolCall)
+	case c.State == 0:
+		return fmt.Errorf("%w: state is missing", ErrInvalidToolCall)
 	case !c.State.isKnown():
-		return fmt.Errorf("%w: state %v", ErrInvalidToolCall, c.State)
+		return fmt.Errorf("%w: state is not a known state", ErrInvalidToolCall)
 	case c.Error != "" && c.State != ToolCallFailed:
 		return fmt.Errorf("%w: error on a %v call", ErrInvalidToolCall, c.State)
 	case c.Detail != "" && c.State.Finished():
@@ -139,10 +142,20 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 }
 
 func wrongJSONTypeError(err *json.UnmarshalTypeError) error {
-	if err.Field == "" {
+	field, known := canonicalWireField(err.Field)
+	if !known {
 		return fmt.Errorf("%w: the call has the wrong JSON type", ErrInvalidToolCall)
 	}
-	return fmt.Errorf("%w: %s has the wrong JSON type", ErrInvalidToolCall, err.Field)
+	return fmt.Errorf("%w: %s has the wrong JSON type", ErrInvalidToolCall, field)
+}
+
+func canonicalWireField(name string) (string, bool) {
+	for _, field := range []string{"id", "tool", "detail", "state", "error", "at"} {
+		if strings.EqualFold(field, name) {
+			return field, true
+		}
+	}
+	return "", false
 }
 
 type toolCallWire ToolCall

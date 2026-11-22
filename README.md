@@ -463,7 +463,8 @@ invalid call never reaches the wire.
 No refusal echoes the input it refuses. A message names the rule that failed or
 the field that has the wrong JSON type, never the text of `detail`, `error`,
 `state`, `at`, `tool` or `kind`, so a secret that lands in a malformed field
-stays out of logs. `ParseToolCallState` does not quote the text it was given
+stays out of logs. A field is named in its wire spelling from a fixed list, so a
+key the input wrote differently (`ID` for `id`) is never echoed either. `ParseToolCallState` does not quote the text it was given
 either. The one exception is the `*json.SyntaxError` of a document that is not
 valid JSON: it is not a refusal of the contract, so it may quote a character of
 the input. A logger that must keep the input out logs only the type of the
@@ -475,12 +476,19 @@ refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
 module, released only after every host reads it.
 
 Tokens are not a field of the call. The contract carries no per-call token
-count. The host attributes to each call the turn's cumulative output-token count
-at its start transition, minus that count at the previous tool-call transition
-of the same turn (the start or the end of any call), or minus zero for the first
-call of the turn. The cumulative counts are the ones backends already report. A
-per-call token field would duplicate that count and could disagree with it, so
-none is added.
+count. Each `usage` event carries the output tokens of one assistant message,
+and the host adds them up: the cumulative count of a turn is the sum of the
+`OutTokens` of the `usage` events received so far in that turn. A `result` event
+is authoritative: when it arrives, its `OutTokens` replaces that sum. A `reset`
+event leaves the sum unchanged. The contract says the output streamed so far is
+discarded, not that the tokens spent on it are, and the herrscher host's
+`turnUsage.absorb` (`core/bridge/hub.go`) has no case for `reset`, so the sum
+keeps the discarded process's output tokens and adds the new process's usage on
+top. The host attributes to each call the cumulative count at its start
+transition, minus that count at the previous tool-call transition of the same
+turn (the start or the end of any call), or minus zero for the first call of the
+turn. A per-call token field would duplicate that count and could disagree with
+it, so none is added.
 
 ## Who is asking
 
