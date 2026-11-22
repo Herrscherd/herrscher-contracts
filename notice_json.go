@@ -17,7 +17,10 @@ const (
 	maxNoticeNameBytes = 256
 )
 
-const jsonNull = "null"
+const (
+	jsonNull       = "null"
+	noticeWireArgs = "args"
+)
 
 type argWire struct {
 	Name  string          `json:"name"`
@@ -35,6 +38,10 @@ type noticeWireIn struct {
 	Args json.RawMessage `json:"args"`
 }
 
+func noticeWireFields() []string {
+	return []string{"code", noticeWireArgs}
+}
+
 // MarshalJSON encodes the notice as {"code":N,"args":[...]}, args omitted when empty.
 func (n Notice) MarshalJSON() ([]byte, error) {
 	if len(n.Args) > maxNoticeArgs {
@@ -50,7 +57,7 @@ func (n *Notice) UnmarshalJSON(data []byte) error {
 	}
 	var envelope noticeWireIn
 	if err := json.Unmarshal(data, &envelope); err != nil {
-		return shapeError(err)
+		return nameWrongJSONType(err, ErrNoticeArgs, "notice", noticeWireFields())
 	}
 	args, err := decodeNoticeArgs(envelope.Args)
 	if err != nil {
@@ -72,24 +79,24 @@ func (a Arg) MarshalJSON() ([]byte, error) {
 	return json.Marshal(argWire{Name: a.name, Kind: uint8(a.kind), Value: value})
 }
 
-// UnmarshalJSON reads an argument; a null argument, a wrong JSON type or a malformed shape is refused with ErrNoticeArgs.
+// UnmarshalJSON reads an argument. A null argument or a malformed shape is refused with ErrNoticeArgs, and a wrong JSON type is named args, never the Go type or the value.
 func (a *Arg) UnmarshalJSON(data []byte) error {
 	if string(data) == jsonNull {
 		return fmt.Errorf("notice argument is null: %w", ErrNoticeArgs)
 	}
 	var frame argWire
 	if err := json.Unmarshal(data, &frame); err != nil {
-		return shapeError(err)
+		return nameWrongJSONType(err, ErrNoticeArgs, noticeWireArgs, nil)
 	}
 	if len(frame.Name) > maxNoticeNameBytes {
 		return fmt.Errorf("argument name is longer than %d bytes: %w", maxNoticeNameBytes, ErrNoticeLimit)
 	}
 	decoded := Arg{name: frame.Name, kind: ArgKind(frame.Kind)}
 	if err := decodeValue(&decoded, frame.Value); err != nil {
-		return fmt.Errorf("argument %q: %w", frame.Name, err)
+		return err
 	}
 	if _, err := encodeValue(decoded.value); err != nil {
-		return fmt.Errorf("argument %q: %w", frame.Name, err)
+		return err
 	}
 	*a = decoded
 	return nil
@@ -106,13 +113,6 @@ func encodeValue(value any) ([]byte, error) {
 	return encoded, nil
 }
 
-func shapeError(err error) error {
-	if _, ok := errors.AsType[*json.SyntaxError](err); ok {
-		return err
-	}
-	return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
-}
-
 func decodeValue(arg *Arg, raw json.RawMessage) error {
 	if isNullOrAbsent(raw) {
 		if arg.kind == ArgText || arg.kind == ArgCount || arg.kind == ArgRef {
@@ -127,13 +127,13 @@ func decodeValue(arg *Arg, raw json.RawMessage) error {
 	case ArgText, ArgRef:
 		var text string
 		if err := json.Unmarshal(raw, &text); err != nil {
-			return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
+			return nameWrongJSONType(err, ErrNoticeArgs, noticeWireArgs, nil)
 		}
 		arg.value = text
 	case ArgCount:
 		var count int
 		if err := json.Unmarshal(raw, &count); err != nil {
-			return fmt.Errorf("%w: %w", ErrNoticeArgs, err)
+			return nameWrongJSONType(err, ErrNoticeArgs, noticeWireArgs, nil)
 		}
 		arg.value = count
 	default:
@@ -153,10 +153,10 @@ func decodeNoticeArgs(raw json.RawMessage) ([]Arg, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	open, err := decoder.Token()
 	if err != nil {
-		return nil, shapeError(err)
+		return nil, err
 	}
 	if open != json.Delim('[') {
-		return nil, fmt.Errorf("notice arguments are not a list: %w", ErrNoticeArgs)
+		return nil, wrongWireType(ErrNoticeArgs, noticeWireArgs)
 	}
 	var args []Arg
 	for decoder.More() {

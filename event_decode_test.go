@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestEventRoundTripKeepsEveryField(t *testing.T) {
-	when := time.Date(2026, time.November, 22, 10, 30, 15, 250000000, time.FixedZone("CET", 3600))
-	want := Event{
+func richEvent() Event {
+	return Event{
 		T: "reply", Who: "alice", Text: "done", Value: "2", Done: true, Cost: 0.0042,
 		Tokens: 55, TokensIn: 30, CacheRead: 12, CacheCreate: 3,
 		Models: []ModelUsage{{Model: "opus", In: 30, Out: 55, Cost: 0.004}},
@@ -20,15 +20,18 @@ func TestEventRoundTripKeepsEveryField(t *testing.T) {
 		Coordination: &CoordinationEvent{Kind: "delegated", SourceSession: "lead", Agent: "roblox-scripter"},
 		Todos:        []TodoItem{{Text: "write the test", State: "doing"}},
 		Subagent:     &Subagent{ID: "sub-1", Name: "scout", Kind: "explore", State: "active"},
-		ToolCall:     &ToolCall{ID: "call-1", Tool: "bash", Detail: "go test", State: ToolCallStarted, At: when},
+		ToolCall:     &ToolCall{ID: "call-1", Tool: "bash", Detail: "go test", State: ToolCallStarted, At: time.Date(2026, time.November, 22, 10, 30, 15, 250000000, time.FixedZone("CET", 3600))},
 	}
-	encoded, err := json.Marshal(want)
+}
+
+func TestEventRoundTripKeepsEveryField(t *testing.T) {
+	encoded, err := json.Marshal(richEvent())
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
-	var got Event
-	if err = json.Unmarshal(encoded, &got); err != nil {
-		t.Fatalf("Unmarshal(%s) error = %v", encoded, err)
+	got, err := DecodeEvent(encoded)
+	if err != nil {
+		t.Fatalf("DecodeEvent(%s) error = %v", encoded, err)
 	}
 	again, err := json.Marshal(got)
 	if err != nil {
@@ -39,7 +42,25 @@ func TestEventRoundTripKeepsEveryField(t *testing.T) {
 	}
 }
 
-func TestEventRefusesAWrongJSONTypeByItsWireName(t *testing.T) {
+type eventEnvelope struct {
+	Event
+	Session string `json:"session"`
+}
+
+func TestEmbeddingEventKeepsTheOuterDecoding(t *testing.T) {
+	var envelope eventEnvelope
+	if err := json.Unmarshal([]byte(`{"t":"reply","session":"s1"}`), &envelope); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if envelope.Session != "s1" {
+		t.Fatalf("Session = %q, want %q: the embedded Event must not capture the decoding", envelope.Session, "s1")
+	}
+	if envelope.T != "reply" {
+		t.Fatalf("T = %q, want %q", envelope.T, "reply")
+	}
+}
+
+func TestDecodeEventRefusesAWrongJSONTypeByItsWireName(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -52,10 +73,9 @@ func TestEventRefusesAWrongJSONTypeByItsWireName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var e Event
-			err := json.Unmarshal([]byte(tt.input), &e)
+			_, err := DecodeEvent([]byte(tt.input))
 			if !errors.Is(err, ErrInvalidEvent) {
-				t.Fatalf("Unmarshal(%s) = %v, want ErrInvalidEvent", tt.input, err)
+				t.Fatalf("DecodeEvent(%s) = %v, want ErrInvalidEvent", tt.input, err)
 			}
 			msg := err.Error()
 			if !strings.Contains(msg, tt.field+" has the wrong JSON type") {
@@ -68,48 +88,108 @@ func TestEventRefusesAWrongJSONTypeByItsWireName(t *testing.T) {
 	}
 }
 
-func TestEventRefusesANonObjectByItsWireName(t *testing.T) {
-	var e Event
-	err := json.Unmarshal([]byte(`"reply"`), &e)
+func TestDecodeEventNamesANonObjectAsEvent(t *testing.T) {
+	_, err := DecodeEvent([]byte(`"reply"`))
 	if !errors.Is(err, ErrInvalidEvent) {
-		t.Fatalf("Unmarshal() = %v, want ErrInvalidEvent", err)
+		t.Fatalf("DecodeEvent() = %v, want ErrInvalidEvent", err)
 	}
-	if msg := err.Error(); strings.Contains(msg, "Event") || strings.Contains(msg, "contracts.") {
-		t.Fatalf("message %q names a Go type", msg)
+	if msg := err.Error(); msg != "invalid event: event has the wrong JSON type" {
+		t.Fatalf("message = %q, want the event wire name", msg)
 	}
 }
 
-func TestEventKeepsAToolCallRefusal(t *testing.T) {
-	var e Event
-	err := json.Unmarshal([]byte(`{"t":"reply","tool_call":{"id":5}}`), &e)
+func TestDecodeEventKeepsAToolCallRefusal(t *testing.T) {
+	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":{"id":5}}`))
 	if !errors.Is(err, ErrInvalidToolCall) {
-		t.Fatalf("Unmarshal() = %v, want ErrInvalidToolCall", err)
+		t.Fatalf("DecodeEvent() = %v, want ErrInvalidToolCall", err)
 	}
 	if errors.Is(err, ErrInvalidEvent) {
-		t.Fatalf("Unmarshal() = %v, a tool call refusal must not become ErrInvalidEvent", err)
+		t.Fatalf("DecodeEvent() = %v, a tool call refusal must not become ErrInvalidEvent", err)
 	}
 	if !strings.Contains(err.Error(), "id has the wrong JSON type") {
 		t.Fatalf("message %q does not name the call field", err)
 	}
 }
 
-func TestEventLeavesASyntaxErrorUnwrapped(t *testing.T) {
-	var e Event
-	err := json.Unmarshal([]byte(`{"t":"reply"`), &e)
-	if _, ok := errors.AsType[*json.SyntaxError](err); !ok {
-		t.Fatalf("Unmarshal() = %v, want a *json.SyntaxError", err)
+func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
+	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":"s3cret-received-text"}`))
+	if !errors.Is(err, ErrInvalidToolCall) {
+		t.Fatalf("DecodeEvent() = %v, want ErrInvalidToolCall", err)
 	}
-	if errors.Is(err, ErrInvalidEvent) {
-		t.Fatalf("Unmarshal() = %v, a syntax error must not match ErrInvalidEvent", err)
+	msg := err.Error()
+	if !strings.Contains(msg, "tool_call has the wrong JSON type") {
+		t.Fatalf("message %q does not name tool_call", msg)
+	}
+	if strings.Contains(msg, "s3cret-received-text") {
+		t.Fatalf("message %q echoes the received text", msg)
 	}
 }
 
-func TestEventNullLeavesItUnchanged(t *testing.T) {
-	e := Event{T: "reply"}
-	if err := json.Unmarshal([]byte(`null`), &e); err != nil {
-		t.Fatalf("Unmarshal(null) error = %v", err)
+func TestDecodeEventLeavesASyntaxErrorUnwrapped(t *testing.T) {
+	_, err := DecodeEvent([]byte(`{"t":"reply"`))
+	if _, ok := errors.AsType[*json.SyntaxError](err); !ok {
+		t.Fatalf("DecodeEvent() = %v, want a *json.SyntaxError", err)
 	}
-	if e.T != "reply" {
-		t.Fatalf("Unmarshal(null) reset the event to T = %q", e.T)
+	if errors.Is(err, ErrInvalidEvent) {
+		t.Fatalf("DecodeEvent() = %v, a syntax error must not match ErrInvalidEvent", err)
+	}
+}
+
+func TestDecodeEventNullIsTheZeroEvent(t *testing.T) {
+	got, err := DecodeEvent([]byte(`null`))
+	if err != nil {
+		t.Fatalf("DecodeEvent(null) error = %v", err)
+	}
+	if got.T != "" || got.ToolCall != nil || len(got.Models) != 0 {
+		t.Fatalf("DecodeEvent(null) = %+v, want the zero Event", got)
+	}
+}
+
+func TestUnmarshalIntoEventKeepsTheGoTypeError(t *testing.T) {
+	var e Event
+	err := json.Unmarshal([]byte(`{"t":5}`), &e)
+	if _, ok := errors.AsType[*json.UnmarshalTypeError](err); !ok {
+		t.Fatalf("json.Unmarshal() = %v, want the *json.UnmarshalTypeError of encoding/json", err)
+	}
+	if errors.Is(err, ErrInvalidEvent) {
+		t.Fatalf("json.Unmarshal() = %v, must not match ErrInvalidEvent: only DecodeEvent names the field", err)
+	}
+}
+
+func TestDecodeEventNamesEveryWireFieldOfAWrongJSONType(t *testing.T) {
+	encoded, err := json.Marshal(richEvent())
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatalf("Unmarshal(fields) error = %v", err)
+	}
+	for key, value := range fields {
+		t.Run(key, func(t *testing.T) {
+			input := fmt.Sprintf("{%q:%s}", key, wrongJSONValueFor(value))
+			_, err := DecodeEvent([]byte(input))
+			wantSentinel := ErrInvalidEvent
+			if key == "tool_call" {
+				wantSentinel = ErrInvalidToolCall
+			}
+			if !errors.Is(err, wantSentinel) {
+				t.Fatalf("DecodeEvent(%s) = %v, want %v", input, err, wantSentinel)
+			}
+			if want := key + " has the wrong JSON type"; !strings.Contains(err.Error(), want) {
+				t.Fatalf("DecodeEvent(%s) = %q, want it to contain %q", input, err, want)
+			}
+		})
+	}
+}
+
+func wrongJSONValueFor(value json.RawMessage) string {
+	switch value[0] {
+	case '"':
+		return "5"
+	case '[':
+		return "{}"
+	default:
+		return `"x"`
 	}
 }

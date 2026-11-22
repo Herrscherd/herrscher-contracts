@@ -24,9 +24,9 @@ type CoordinationEvent struct {
 //
 // chunk carries assistant prose; status carries a tool/progress line.
 //
-// Decoding an Event refuses a field of the wrong JSON type with
-// [ErrInvalidEvent], whose message names the wire field and never the Go type
-// or the value.
+// Decode an Event with [DecodeEvent]: it is the entry point that names the wire
+// field of a wrong JSON type. json.Unmarshal into an Event reports that error
+// with the Go type instead.
 //
 //	{"t":"human","who":"alice","text":"refactor the env loader"}
 //	{"t":"status","text":"reading envfile.go"}
@@ -100,24 +100,19 @@ var ErrInvalidEvent = errors.New("invalid event")
 
 type eventWire Event
 
-// UnmarshalJSON decodes an event. A null leaves it unchanged, as encoding/json
-// does for a struct. A field of the wrong JSON type is refused with
-// [ErrInvalidEvent], and a tool_call refused inside it with
+// DecodeEvent decodes one event from its JSON form. A field of the wrong JSON
+// type is refused with [ErrInvalidEvent], whose message names the wire field and
+// never the Go type or the value, and a tool_call refused inside the event keeps
 // [ErrInvalidToolCall]. A document that is not valid JSON returns its
-// *json.SyntaxError unchanged.
-func (e *Event) UnmarshalJSON(data []byte) error {
-	if string(data) == jsonNull {
-		return nil
-	}
+// *json.SyntaxError unchanged. A null decodes to the zero Event. This is the
+// entry point that names the wire field: json.Unmarshal into an Event keeps the
+// error of encoding/json, which names the Go type.
+func DecodeEvent(data []byte) (Event, error) {
 	var decoded eventWire
 	if err := json.Unmarshal(data, &decoded); err != nil {
-		if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
-			return wrongJSONTypeError(ErrInvalidEvent, "event", eventWireFields(), typeErr)
-		}
-		return err
+		return Event{}, nameWrongJSONType(err, ErrInvalidEvent, "event", eventWireFields())
 	}
-	*e = Event(decoded)
-	return nil
+	return Event(decoded), nil
 }
 
 func eventWireFields() []string {

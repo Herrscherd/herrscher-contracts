@@ -89,6 +89,11 @@ var ErrInvalidRefusal = errors.New("unknown approval refusal")
 // DecisionAllow. Match it with errors.Is.
 var ErrRefusedAllow = errors.New("approval answer allows a refused tool")
 
+// ErrInvalidApproval is returned when a field of an approval request or answer has
+// the wrong JSON type. The message names the wire field, such as ID or Decision, and
+// never the Go type or the value. Match it with errors.Is.
+var ErrInvalidApproval = errors.New("invalid approval")
+
 // ParseApprovalRefusal reads a known refusal code from its text form. Any other text,
 // the empty string included, returns an error matching [ErrInvalidRefusal].
 func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
@@ -132,6 +137,31 @@ type ApprovalRequest struct {
 	Subject string `json:"Subject"`
 }
 
+// UnmarshalJSON reads the request. A null leaves it unchanged. A field of the wrong
+// JSON type is refused with [ErrInvalidApproval], whose message names the wire field
+// and never the Go type or the value. A document that is not valid JSON returns its
+// *json.SyntaxError unchanged.
+func (r *ApprovalRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == jsonNull {
+		return nil
+	}
+	type wire ApprovalRequest
+	var decoded wire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return nameWrongJSONType(err, ErrInvalidApproval, "request", approvalRequestWireFields())
+	}
+	*r = ApprovalRequest(decoded)
+	return nil
+}
+
+func approvalRequestWireFields() []string {
+	return []string{"ID", "Tool", "Subject"}
+}
+
+func approvalAnswerWireFields() []string {
+	return []string{"ID", "Decision", "Reason", "Refusal"}
+}
+
 // ApprovalAnswer is the verdict on the request with the same ID.
 type ApprovalAnswer struct {
 	ID       string           `json:"ID"`
@@ -170,16 +200,18 @@ func (a ApprovalAnswer) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON reads the answer. A null leaves it unchanged. A Refusal is read as
 // DecisionDeny, so an allow, or a Decision missing from the JSON, becomes a denial. A
 // Decision that is an empty string or unknown fails to decode; a Decision of null
-// reads as missing. It does not inherit the caller's json.Decoder settings, so
-// DisallowUnknownFields does not reject unknown keys.
+// reads as missing. A field of the wrong JSON type is refused with [ErrInvalidApproval],
+// whose message names the wire field and never the Go type or the value. It does not
+// inherit the caller's json.Decoder settings, so DisallowUnknownFields does not reject
+// unknown keys.
 func (a *ApprovalAnswer) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+	if string(data) == jsonNull {
 		return nil
 	}
 	type wire ApprovalAnswer
 	var incoming wire
 	if err := json.Unmarshal(data, &incoming); err != nil {
-		return err
+		return nameWrongJSONType(err, ErrInvalidApproval, "answer", approvalAnswerWireFields())
 	}
 	if incoming.Refusal != "" {
 		incoming.Decision = DecisionDeny

@@ -90,7 +90,8 @@ it is absent.
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
 | `BackendKindTool`, `BackendKindToolDone`, `BackendEvent.ValidateToolCall` | `backend.go`, `tool_call.go` | the kinds that start and finish a tool call, and the check of the call's shape against its kind |
-| `ErrInvalidEvent` | `event.go` | the refusal of an `Event` whose JSON has a field of the wrong type, named by its wire name |
+| `DecodeEvent`, `ErrInvalidEvent` | `event.go` | the entry point that decodes an `Event` from its JSON, and the refusal of a field of the wrong type, named by its wire name |
+| `ErrInvalidApproval` | `approval.go` | the refusal of an `ApprovalRequest` or `ApprovalAnswer` field of the wrong type, named by its wire name |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
@@ -378,12 +379,16 @@ each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
-Decoding an `Event` from JSON refuses a field of the wrong JSON type with
-`ErrInvalidEvent`. Its message names the wire field, such as `t` or
-`coordination`, and never the Go type or the value. A field nested in
+Decode an `Event` from JSON with `DecodeEvent(data)`. It refuses a field of the
+wrong JSON type with `ErrInvalidEvent`. Its message names the wire field, such
+as `t` or `coordination`, and never the Go type or the value. A field nested in
 `coordination`, `todos`, `models` or `subagent` is named by its top-level field.
-A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, and a
-document that is not valid JSON is returned as its `*json.SyntaxError`.
+A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, a document
+that is not valid JSON is returned as its `*json.SyntaxError`, and a `null`
+decodes to the zero `Event`. `Event` has no `UnmarshalJSON` of its own: a type
+that embeds `Event` would inherit it and lose its own fields, so `json.Unmarshal`
+into an `Event` keeps the error of `encoding/json`, which names the Go type. Use
+`DecodeEvent` wherever the wire name matters.
 
 `BackendEvent.ToolCall` and `Event.ToolCall` carry the lifecycle of one tool
 call, so a host can build a per-turn timeline with each call's start, duration
@@ -568,6 +573,10 @@ socket on the same machine. The backend passes the socket path to the hook in
 - A JSON `null` leaves an `ApprovalAnswer` unchanged. `UnmarshalJSON` does not
   inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does
   not reject unknown keys inside an answer.
+- A field of the wrong JSON type in an `ApprovalRequest` or an `ApprovalAnswer`
+  is refused with `ErrInvalidApproval`. Its message names the wire field, `ID`,
+  `Tool`, `Subject`, `Decision`, `Reason` or `Refusal`, and never the Go type or
+  the value. A JSON `null` leaves an `ApprovalRequest` unchanged.
 - Reading is tolerant. A code this version does not know is kept and relayed
   unchanged, and `ApprovalRefusal.Known()` tells whether this version can
   translate it, so a reader shows a generic reason for it. Such an answer is
@@ -816,7 +825,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   in the same shape. The decoder reads that form and the v0.30.0 form
   (`{"Code":1,"Args":[{}]}`), ignores unknown fields and keeps a code outside `Codes` for
   `Renderer` to refuse. A value of kind 1 to 3 that is absent, `null` or of the wrong JSON
-  type is refused with `ErrNoticeArgs`; `null` is reserved for the zero argument (kind 0).
+  type is refused with `ErrNoticeArgs`; `null` is reserved for the zero argument (kind 0). A wrong JSON type in a notice
+is named `code` or `args`, the wire field, and never the Go type or the value.
   A value whose kind is unknown is kept as its JSON, and it encodes back in an equivalent
   compact form: spaces are removed, and the HTML characters `<`, `>` and `&` are written
   in their escaped form (`\u003c`, `\u003e` and `\u0026`), as `encoding/json` does.

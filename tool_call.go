@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -129,7 +128,7 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
-			return wrongJSONTypeError(ErrInvalidToolCall, "call", toolCallWireFields(), typeErr)
+			return wrongJSONTypeError(ErrInvalidToolCall, "tool_call", toolCallWireFields(), typeErr)
 		}
 		return fmt.Errorf("%w: %w", ErrInvalidToolCall, err)
 	}
@@ -150,24 +149,6 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 
 func toolCallWireFields() []string {
 	return []string{"id", "tool", "detail", "state", "error", "at"}
-}
-
-func wrongJSONTypeError(sentinel error, subject string, wireFields []string, err *json.UnmarshalTypeError) error {
-	field, known := canonicalWireField(wireFields, err.Field)
-	if !known {
-		return fmt.Errorf("%w: the %s has the wrong JSON type", sentinel, subject)
-	}
-	return fmt.Errorf("%w: %s has the wrong JSON type", sentinel, field)
-}
-
-func canonicalWireField(wireFields []string, name string) (string, bool) {
-	topLevel, _, _ := strings.Cut(name, ".")
-	for _, field := range wireFields {
-		if strings.EqualFold(field, topLevel) {
-			return field, true
-		}
-	}
-	return "", false
 }
 
 type toolCallWire ToolCall
