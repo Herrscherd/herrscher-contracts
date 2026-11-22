@@ -18,9 +18,9 @@ func TestBudgetErrorMessageAndAs(t *testing.T) {
 		}
 	}
 
-	var be *contracts.BudgetError
-	if !errors.As(err, &be) {
-		t.Fatal("errors.As failed to match *BudgetError")
+	be, ok := errors.AsType[*contracts.BudgetError](err)
+	if !ok {
+		t.Fatal("errors.AsType failed to match *BudgetError")
 	}
 	if be.Runes != 2100 || be.Limit != 2000 {
 		t.Fatalf("unexpected fields: %+v", be)
@@ -30,8 +30,8 @@ func TestBudgetErrorMessageAndAs(t *testing.T) {
 func TestEnforceBudgetOverReturnsBudgetError(t *testing.T) {
 	body := strings.Repeat("é", 100)
 	err := contracts.EnforceBudget("user:alice", body, 50)
-	var be *contracts.BudgetError
-	if !errors.As(err, &be) {
+	be, ok := errors.AsType[*contracts.BudgetError](err)
+	if !ok {
 		t.Fatalf("want *BudgetError, got %T (%v)", err, err)
 	}
 	if be.Runes != 100 || be.Limit != 50 || be.Key != "user:alice" {

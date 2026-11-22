@@ -412,6 +412,8 @@ host sets it when it receives the transition. It is the time that travels on
 value on the wire is omitted. Its zone offset must be a whole number of minutes: the
 wire form writes the offset to the minute, so `ToolCall.Validate` and
 `ToolCall.MarshalJSON` refuse a call whose offset has seconds rather than drop them.
+Its year must be from 0 to 9999, the years the wire form writes, and both refuse a
+year outside that range the same way.
 
 `ToolCall.Detail` is display text, a command, a path or a query, and it can hold
 secrets. It is set on the start only. An exporter must not send it outside the
@@ -456,9 +458,12 @@ call is decoded, and that error does not match `ErrInvalidToolCall`.
 `ToolCall.MarshalJSON` runs it, so an invalid call never reaches the wire.
 
 No refusal echoes the input it refuses. A message names the rule that failed,
-never the text of `detail`, `error`, `state`, `at` or `tool`, so a secret that
-lands in a malformed field stays out of logs. `ParseToolCallState` does not
-quote the text it was given either.
+never the text of `detail`, `error`, `state`, `at`, `tool` or `kind`, so a secret
+that lands in a malformed field stays out of logs. `ParseToolCallState` does not
+quote the text it was given either. The one exception is the `*json.SyntaxError`
+of a document that is not valid JSON: it is not a refusal of the contract, so it
+may quote a character of the input. A logger that must keep the input out logs
+only the type of the error.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and

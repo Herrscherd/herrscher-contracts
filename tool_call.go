@@ -20,8 +20,9 @@ import (
 // tool_failed instead of its text. At is when the host received the transition:
 // backends leave it zero and the host stamps it, and it is what travels on Event and
 // in the journal. Its zone offset must be a whole number of minutes, since the wire form
-// writes no seconds. The zero value is not a valid call: its ID is empty and its State is
-// zero, and [ToolCall.Validate] refuses it.
+// writes no seconds, and its year must be from 0 to 9999, the years the wire form writes.
+// The zero value is not a valid call: its ID is empty and its State is zero, and
+// [ToolCall.Validate] refuses it.
 type ToolCall struct {
 	ID     string        `json:"id"`
 	Tool   string        `json:"tool"`
@@ -33,27 +34,30 @@ type ToolCall struct {
 
 // ErrInvalidToolCall is returned for every refusal of a tool call. A call is refused when
 // it breaks a ToolCall rule: no id, no tool, no known state, an error on a call that did
-// not fail, a detail on a finished call, or an At whose zone offset has seconds. A
-// BackendEvent is refused by
-// [BackendEvent.ValidateToolCall] when its kind and call do not match: a tool_done event
-// without a call, a call whose state does not fit its kind (not started on a tool event,
-// not finished on a tool_done event), a tool event whose Tool differs from its call's
-// Tool, a tool event whose Detail differs from its call's Detail, a tool_done event that
-// carries Tool or Detail on the event itself, a kind other than tool or tool_done that
-// carries a call, or a call that carries a stamped At. A call whose fields have the wrong
-// JSON type, or whose state text names no state, is refused when it is decoded, and the
-// error matches ErrInvalidToolCall as well as its cause. A document that is not valid JSON
-// is not a refused call: encoding/json reports it as a *json.SyntaxError before any
-// UnmarshalJSON runs, and that error does not match ErrInvalidToolCall. No refusal echoes
-// the input it refuses: its message names the rule that failed, never the text of a field,
-// so a secret in Detail, Error, State or At stays out of logs. Match a refusal with errors.Is.
+// not fail, a detail on a finished call, an At whose year is outside 0 to 9999, or an At
+// whose zone offset has seconds. A BackendEvent is refused by [BackendEvent.ValidateToolCall]
+// when its kind and call do not match: a tool_done event without a call, a call whose state
+// does not fit its kind (not started on a tool event, not finished on a tool_done event), a
+// tool event whose Tool differs from its call's Tool, a tool event whose Detail differs from
+// its call's Detail, a tool_done event that carries Tool or Detail on the event itself, a
+// kind other than tool or tool_done that carries a call, or a call that carries a stamped
+// At. A call whose fields have the wrong JSON type, whose state text names no state, or
+// whose at is not an RFC 3339 time, is refused when it is decoded, and the error matches
+// ErrInvalidToolCall as well as its cause. A document that is not valid JSON is not a
+// refused call: encoding/json reports it as a *json.SyntaxError before any UnmarshalJSON
+// runs, and that error does not match ErrInvalidToolCall. No refusal echoes the input it
+// refuses: its message names the rule that failed, never the text of detail, error, state,
+// at, tool or kind, so a secret in one of them stays out of logs. The one exception is that
+// *json.SyntaxError, which may quote a character of the input, because it is not a refusal
+// of the contract: a logger that must keep the input out logs only the type of the error.
+// Match a refusal with errors.Is.
 var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known State
 // are required, Error is allowed only on a failed call, and Detail is refused on a
 // finished call. A non-zero At must have a zone offset of whole minutes, because the
-// wire form writes no seconds and would drop them. It returns an error matching
-// [ErrInvalidToolCall] otherwise.
+// wire form writes no seconds and would drop them, and a year from 0 to 9999, the years
+// the wire form writes. It returns an error matching [ErrInvalidToolCall] otherwise.
 func (c ToolCall) Validate() error {
 	switch {
 	case c.ID == "":
@@ -68,6 +72,8 @@ func (c ToolCall) Validate() error {
 		return fmt.Errorf("%w: detail on a %v call", ErrInvalidToolCall, c.State)
 	case c.hasSecondsOffset():
 		return fmt.Errorf("%w: at has an offset with seconds", ErrInvalidToolCall)
+	case c.hasYearOutOfRange():
+		return fmt.Errorf("%w: at has a year outside 0 to 9999", ErrInvalidToolCall)
 	}
 	return nil
 }
@@ -78,6 +84,11 @@ func (c ToolCall) hasSecondsOffset() bool {
 	}
 	_, offset := c.At.Zone()
 	return offset%60 != 0
+}
+
+func (c ToolCall) hasYearOutOfRange() bool {
+	year := c.At.Year()
+	return year < 0 || year > 9999
 }
 
 // MarshalJSON writes the call as its wire form, refusing it unless [ToolCall.Validate]
@@ -91,7 +102,8 @@ func (c ToolCall) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON decodes a call and refuses it unless [ToolCall.Validate] accepts it.
 // Every refusal matches [ErrInvalidToolCall]. A document that is not valid JSON is not a
-// refusal: its *json.SyntaxError is returned unchanged.
+// refusal: its *json.SyntaxError is returned unchanged, and it may quote a character of
+// the input (see [ErrInvalidToolCall]).
 func (c *ToolCall) UnmarshalJSON(data []byte) error {
 	var decoded toolCallInput
 	if err := json.Unmarshal(data, &decoded); err != nil {
@@ -143,7 +155,8 @@ func ToolCallStates() []ToolCallState {
 }
 
 // String renders the state as its text form, the one [ParseToolCallState] reads back.
-// A value that names no state prints its raw number.
+// A value that names no state prints as ToolCallState(N), where N is its number, such as
+// ToolCallState(42).
 func (s ToolCallState) String() string {
 	switch s {
 	case ToolCallStarted:
