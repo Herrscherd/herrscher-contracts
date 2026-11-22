@@ -8,7 +8,11 @@ import (
 	"testing"
 )
 
-const receivedSecret = "s3cret-received-text"
+const (
+	receivedSecret      = "s3cret-received-text"
+	oversizedValueBytes = 70000
+	unknownArgKind      = 9
+)
 
 func requireNamedWireType(t *testing.T, err, sentinel error, field string) {
 	t.Helper()
@@ -97,6 +101,73 @@ func TestApprovalAnswerWrongJSONTypeNamesTheWireField(t *testing.T) {
 			var a ApprovalAnswer
 			err := json.Unmarshal([]byte(tt.input), &a)
 			requireNamedWireType(t, err, ErrInvalidApproval, tt.field)
+		})
+	}
+}
+
+func TestApprovalAnswerUnknownDecisionNamesTheFieldNotTheText(t *testing.T) {
+	var answer ApprovalAnswer
+	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"`+receivedSecret+`"}`), &answer)
+	if !errors.Is(err, ErrInvalidDecision) || !errors.Is(err, ErrInvalidApproval) {
+		t.Fatalf("error = %v, want it to match ErrInvalidDecision and ErrInvalidApproval", err)
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "Decision") {
+		t.Fatalf("message %q does not name Decision", msg)
+	}
+	if strings.Contains(msg, receivedSecret) {
+		t.Fatalf("message %q echoes the received text", msg)
+	}
+}
+
+func TestApprovalDecisionUnknownTextIsNotEchoed(t *testing.T) {
+	var decision ApprovalDecision
+	err := json.Unmarshal([]byte(`"`+receivedSecret+`"`), &decision)
+	if !errors.Is(err, ErrInvalidDecision) {
+		t.Fatalf("error = %v, want ErrInvalidDecision", err)
+	}
+	if strings.Contains(err.Error(), receivedSecret) {
+		t.Fatalf("message %q echoes the received text", err)
+	}
+}
+
+func TestNoticeArgumentErrorNamesTheArgumentNotTheValue(t *testing.T) {
+	oversized := `"` + receivedSecret + strings.Repeat("a", oversizedValueBytes) + `"`
+	tests := []struct {
+		name     string
+		input    string
+		sentinel error
+	}{
+		{
+			name:     "value required",
+			input:    `{"code":1,"args":[{"name":"nom-fil","kind":1}]}`,
+			sentinel: ErrNoticeArgs,
+		},
+		{
+			name:     "wrong JSON type",
+			input:    fmt.Sprintf(`{"code":1,"args":[{"name":"nom-fil","kind":%d,"value":5}]}`, ArgText),
+			sentinel: ErrNoticeArgs,
+		},
+		{
+			name:     "value too long to encode",
+			input:    fmt.Sprintf(`{"code":1,"args":[{"name":"nom-fil","kind":%d,"value":%s}]}`, unknownArgKind, oversized),
+			sentinel: ErrNoticeLimit,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var n Notice
+			err := json.Unmarshal([]byte(tt.input), &n)
+			if !errors.Is(err, tt.sentinel) {
+				t.Fatalf("error = %v, want it to match %v", err, tt.sentinel)
+			}
+			msg := err.Error()
+			if !strings.HasPrefix(msg, `argument "nom-fil": `) {
+				t.Fatalf("message %q does not name the argument", msg)
+			}
+			if strings.Contains(msg, receivedSecret) || strings.Contains(msg, "aaa") {
+				t.Fatalf("message %q echoes the received value", msg)
+			}
 		})
 	}
 }

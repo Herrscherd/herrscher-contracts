@@ -146,7 +146,7 @@ func TestDecodeEventNullIsTheZeroEvent(t *testing.T) {
 	}
 }
 
-func TestUnmarshalIntoEventKeepsTheGoTypeError(t *testing.T) {
+func TestPlainUnmarshalKeepsTheStandardLibraryTypeError(t *testing.T) {
 	var e Event
 	err := json.Unmarshal([]byte(`{"t":5}`), &e)
 	if _, ok := errors.AsType[*json.UnmarshalTypeError](err); !ok {
