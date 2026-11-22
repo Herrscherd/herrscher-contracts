@@ -52,21 +52,49 @@ type Prompt struct {
 // human in its Notice field, such as a resume the backend had to drop.
 const BackendKindNotice = "notice"
 
+// BackendKindTool is the Kind of a BackendEvent that starts a tool call: its
+// name in Tool, its detail in Detail, and the started transition in ToolCall.
+const BackendKindTool = "tool"
+
+// BackendKindToolDone is the Kind of a BackendEvent that reports the result of
+// a tool call: the finished transition in ToolCall, with Tool and Detail left
+// empty.
+const BackendKindToolDone = "tool_done"
+
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
 // progress consumer, and Kind says which one it is. The kinds are:
 //   - "text": a text block of the assistant reply, in Detail.
 //   - "thinking": a thinking block of the assistant, in Detail.
-//   - "tool": a tool invocation, its name in Tool and its detail in Detail.
+//   - "tool": a tool invocation, its name in Tool and its detail in Detail. A
+//     backend that can follow a call emits this kind at the start, with
+//     ToolCall set (State [ToolCallStarted]), and keeps Tool and Detail filled
+//     so a consumer that only knows this kind still shows the call. It is
+//     BackendKindTool.
+//   - "tool_done": the result of a call that "tool" started, with ToolCall set
+//     (State [ToolCallSucceeded] or [ToolCallFailed], Tool repeated in
+//     ToolCall.Tool). Tool and Detail are left empty, so a consumer that only
+//     knows "tool" never shows the call twice. Both transitions carry the same
+//     ToolCall.ID. A backend that cannot follow a call emits the start only. It
+//     is BackendKindToolDone.
 //   - "todos": a task list written by the assistant, in Todos.
 //   - "subagent": a child agent started (State active) or finished (State done), in Subagent.
 //   - "usage": the token usage reported with one assistant message, in the token fields.
 //   - "result": the terminal result of the turn, with its cost in Cost and its total tokens.
-//   - "reset": the backend started a new process mid-turn, and the output streamed so far is discarded:
-//     the same prompt runs again on the new process, which may still fail. It is emitted every time the
-//     backend relaunches a process mid-turn. The notice CodeResumeLost accompanies it only when the resumed
-//     session was given up (refused before any line, no line yet accepted by the backend, or two silent
-//     deaths in a row). A resumed session that dies after accepting its turn is resumed without a notice,
-//     but with a reset.
+//   - "reset": the backend started a new process mid-turn, and the output
+//     streamed so far is discarded: the same prompt runs again on the new
+//     process, which may still fail. It is emitted every time the backend
+//     relaunches a process mid-turn. The notice CodeResumeLost accompanies it
+//     only when the resumed session was given up (refused before any line, no
+//     line yet accepted by the backend, or two silent deaths in a row). A
+//     resumed session that dies after accepting its turn is resumed without a
+//     notice, but with a reset. The host keeps usage tokens received before a
+//     reset in the turn's sum. A reset opens a new execution of the backend
+//     within the same turn. A ToolCall.ID is unique within one execution, so
+//     the new process may reuse an ID from before the reset. A call started
+//     before the reset and not closed stays unfinished, with no duration and no
+//     outcome: the host forgets it at the reset. A tool_done whose ID matches
+//     no call started in the current execution is ignored for the timeline and
+//     closes nothing, even when that ID comes from before the reset.
 //   - "notice": a notice for the human, in Notice, such as a resume the backend had to drop. It is BackendKindNotice.
 //
 // Models splits the usage of the terminal result by model, empty when the backend
@@ -84,6 +112,7 @@ type BackendEvent struct {
 	Models      []ModelUsage
 	Todos       []TodoItem
 	Subagent    *Subagent
+	ToolCall    *ToolCall
 	Notice      *Notice
 }
 
