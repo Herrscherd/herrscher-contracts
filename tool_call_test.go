@@ -66,6 +66,8 @@ func TestToolCallValidateRefusesMalformedCalls(t *testing.T) {
 		"empty tool":                {ID: "c1", State: ToolCallSucceeded},
 		"error on a started call":   {ID: "c1", Tool: "Bash", State: ToolCallStarted, Error: "exit 1"},
 		"error on a succeeded call": {ID: "c1", Tool: "Bash", State: ToolCallSucceeded, Error: "exit 1"},
+		"succeeded with detail":     {ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallSucceeded},
+		"failed with detail":        {ID: "c1", Tool: "Bash", Detail: "ls", State: ToolCallFailed, Error: "exit 1"},
 		"unknown state value":       {ID: "c1", Tool: "Bash", State: ToolCallState(42)},
 	}
 	for name, call := range cases {
@@ -88,13 +90,15 @@ func TestToolCallValidateAcceptsFinishedCallWithTool(t *testing.T) {
 
 func TestToolCallUnmarshalRefusesMalformedWire(t *testing.T) {
 	cases := map[string]string{
-		"absent state":       `{"id":"c1","tool":"Bash"}`,
-		"zero state":         `{"id":"c1","tool":"Bash","state":""}`,
-		"empty id":           `{"id":"","tool":"Bash","state":"started"}`,
-		"absent id":          `{"tool":"Bash","state":"started"}`,
-		"empty tool":         `{"id":"c1","tool":"","state":"started"}`,
-		"absent tool":        `{"id":"c1","state":"started"}`,
-		"error on succeeded": `{"id":"c1","tool":"Bash","state":"succeeded","error":"exit 1"}`,
+		"absent state":          `{"id":"c1","tool":"Bash"}`,
+		"zero state":            `{"id":"c1","tool":"Bash","state":""}`,
+		"empty id":              `{"id":"","tool":"Bash","state":"started"}`,
+		"absent id":             `{"tool":"Bash","state":"started"}`,
+		"empty tool":            `{"id":"c1","tool":"","state":"started"}`,
+		"absent tool":           `{"id":"c1","state":"started"}`,
+		"error on succeeded":    `{"id":"c1","tool":"Bash","state":"succeeded","error":"exit 1"}`,
+		"succeeded with detail": `{"id":"c1","tool":"Bash","state":"succeeded","detail":"ls"}`,
+		"failed with detail":    `{"id":"c1","tool":"Bash","state":"failed","detail":"ls","error":"exit 1"}`,
 	}
 	for name, raw := range cases {
 		var call ToolCall

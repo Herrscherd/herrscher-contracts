@@ -401,10 +401,10 @@ event carries a finished call with `Tool` and `Detail` empty on the event and no
 stamped `At`. A `tool` event without a call stays valid, and a `tool_done` event
 without a call is refused.
 
-The host runs `BackendEvent.ValidateToolCall` on every `BackendEvent` it receives,
-before it copies the `ToolCall` to an `Event`. On a refusal it drops the `ToolCall`
-from that event and logs the refusal. The rest of the event, its text and its
-tokens, still flows.
+The host must run `BackendEvent.ValidateToolCall` on every `BackendEvent` it
+receives, before it copies the `ToolCall` to an `Event`. On a refusal the host must
+drop the `ToolCall` from that event and log the refusal. The rest of the event, its
+text and its tokens, must still flow.
 
 `ToolCall.At` is stamped by the host alone. A backend leaves it zero, and the
 host sets it when it receives the transition. It is the time that travels on
@@ -429,10 +429,11 @@ when the backend reports no lifecycle. Failed on the wire looks like this:
 `{"t":"status","tool_call":{"id":"c1","tool":"Bash","state":"failed","error":"exit 1"}}`.
 
 A `ToolCall` is parsed once, at the boundary. Decoding refuses a call with no
-`state`, an unknown state, an empty `id`, an empty `tool`, or an `error` on a
-state other than `failed`. Each refusal matches `ErrInvalidToolCall` with
-`errors.Is`. `ToolCall.Validate` applies the same rules to a call built in Go,
-and `ToolCall.MarshalJSON` runs it, so an invalid call never reaches the wire.
+`state`, an unknown state, an empty `id`, an empty `tool`, an `error` on a state
+other than `failed`, or a `detail` on a finished call (`succeeded` or `failed`).
+Each refusal matches `ErrInvalidToolCall` with `errors.Is`. `ToolCall.Validate`
+applies the same rules to a call built in Go, and `ToolCall.MarshalJSON` runs it,
+so an invalid call never reaches the wire.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and

@@ -19,7 +19,8 @@ import (
 // unless the operator opts in, and an OpenTelemetry error.type takes the closed value
 // tool_failed instead of its text. At is when the host received the transition:
 // backends leave it zero and the host stamps it, and it is what travels on Event and
-// in the journal.
+// in the journal. The zero value is not a valid call: its ID is empty and its State is
+// zero, and [ToolCall.Validate] refuses it.
 type ToolCall struct {
 	ID     string        `json:"id"`
 	Tool   string        `json:"tool"`
@@ -29,13 +30,16 @@ type ToolCall struct {
 	Error  string        `json:"error,omitempty"`
 }
 
-// ErrInvalidToolCall is returned for a tool call that lacks its id, its tool or its
-// state, or that carries an error on a state other than failed. Match it with errors.Is.
+// ErrInvalidToolCall is returned for every refusal of a tool call: a call that breaks a
+// ToolCall rule (no id, no tool, no known state, an error on a call that did not fail,
+// a detail on a finished call), a BackendEvent whose kind and call do not match, as
+// [BackendEvent.ValidateToolCall] reports, and malformed JSON for a call. Match it with
+// errors.Is.
 var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known State
-// are required, and Error is allowed only on a failed call. It returns an error
-// matching [ErrInvalidToolCall] otherwise.
+// are required, Error is allowed only on a failed call, and Detail is refused on a
+// finished call. It returns an error matching [ErrInvalidToolCall] otherwise.
 func (c ToolCall) Validate() error {
 	switch {
 	case c.ID == "":
@@ -46,6 +50,8 @@ func (c ToolCall) Validate() error {
 		return fmt.Errorf("%w: state %v", ErrInvalidToolCall, c.State)
 	case c.Error != "" && c.State != ToolCallFailed:
 		return fmt.Errorf("%w: error on a %v call", ErrInvalidToolCall, c.State)
+	case c.Detail != "" && c.State.Finished():
+		return fmt.Errorf("%w: detail on a %v call", ErrInvalidToolCall, c.State)
 	}
 	return nil
 }
@@ -200,8 +206,6 @@ func (e BackendEvent) validateToolCallResult() error {
 		return fmt.Errorf("%w: %s carries tool %q", ErrInvalidToolCall, BackendKindToolDone, e.Tool)
 	case e.Detail != "":
 		return fmt.Errorf("%w: %s carries a detail", ErrInvalidToolCall, BackendKindToolDone)
-	case call.Detail != "":
-		return fmt.Errorf("%w: %s call carries a detail", ErrInvalidToolCall, BackendKindToolDone)
 	case !call.At.IsZero():
 		return fmt.Errorf("%w: %s carries a stamped At", ErrInvalidToolCall, BackendKindToolDone)
 	}
