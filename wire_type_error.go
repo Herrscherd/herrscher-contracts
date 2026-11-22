@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func nameWrongJSONType(err error, sentinel error, subject string, wireFields []string) error {
+func nameWrongJSONType(err, sentinel error, subject string, wireFields []string) error {
 	typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err)
 	if !ok {
 		return err

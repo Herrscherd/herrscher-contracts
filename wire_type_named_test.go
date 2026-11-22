@@ -10,7 +10,7 @@ import (
 
 const receivedSecret = "s3cret-received-text"
 
-func requireNamedWireType(t *testing.T, err error, sentinel error, field string) {
+func requireNamedWireType(t *testing.T, err, sentinel error, field string) {
 	t.Helper()
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("error = %v, want it to match %v", err, sentinel)
