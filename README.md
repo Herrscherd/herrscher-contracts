@@ -392,6 +392,9 @@ transition, so a finished call can be labelled without its start.
   `Detail` on the `BackendEvent` stay empty, so a host that only knows `tool`
   never prints the call twice.
 - A backend that cannot follow a call to its end emits the start only.
+- A call whose start comes before a `reset` and that no `tool_done` closes
+  before it is unfinished: the host treats it as such, with no duration and no
+  outcome.
 
 Backends follow the rule that they run `BackendEvent.ValidateToolCall` in their
 tests on every event they emit. It checks the shape each kind requires: a `tool`
@@ -480,15 +483,14 @@ count. Each `usage` event carries the output tokens of one assistant message,
 and the host adds them up: the cumulative count of a turn is the sum of the
 `OutTokens` of the `usage` events received so far in that turn. A `result` event
 is authoritative: when it arrives, its `OutTokens` replaces that sum. A `reset`
-event leaves the sum unchanged. The contract says the output streamed so far is
-discarded, not that the tokens spent on it are, and the herrscher host's
-`turnUsage.absorb` (`core/bridge/hub.go`) has no case for `reset`, so the sum
-keeps the discarded process's output tokens and adds the new process's usage on
-top. The host attributes to each call the cumulative count at its start
-transition, minus that count at the previous tool-call transition of the same
-turn (the start or the end of any call), or minus zero for the first call of the
-turn. A per-call token field would duplicate that count and could disagree with
-it, so none is added.
+event leaves the sum unchanged: the host keeps the output tokens already counted
+in the turn, since they were spent, and adds the usage of the new process on
+top. The contract says the output streamed so far is discarded, not that the
+tokens spent on it are. The host attributes to each call the cumulative count at
+its start transition, minus that count at the previous tool-call transition of
+the same turn (the start or the end of any call), or minus zero for the first
+call of the turn. A per-call token field would duplicate that count and could
+disagree with it, so none is added.
 
 ## Who is asking
 

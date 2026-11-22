@@ -85,6 +85,7 @@ const BackendKindToolDone = "tool_done"
 //     session was given up (refused before any line, no line yet accepted by the backend, or two silent
 //     deaths in a row). A resumed session that dies after accepting its turn is resumed without a notice,
 //     but with a reset.
+//     The host keeps usage tokens received before a reset in the turn's sum.
 //   - "notice": a notice for the human, in Notice, such as a resume the backend had to drop. It is BackendKindNotice.
 //
 // Models splits the usage of the terminal result by model, empty when the backend
