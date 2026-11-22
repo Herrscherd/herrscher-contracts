@@ -56,7 +56,10 @@ const BackendKindNotice = "notice"
 // progress consumer, and Kind says which one it is. The kinds are:
 //   - "text": a text block of the assistant reply, in Detail.
 //   - "thinking": a thinking block of the assistant, in Detail.
-//   - "tool": a tool invocation, its name in Tool and its detail in Detail.
+//   - "tool": a tool invocation, its name in Tool and its detail in Detail. A backend that can follow a call
+//     to its end emits it with ToolCall set at the start (State [ToolCallStarted]) and again when the result
+//     arrives (State [ToolCallSucceeded] or [ToolCallFailed]), both with the same ID. A backend that cannot
+//     follow a call emits the start only. The start event keeps Tool and Detail filled for older consumers.
 //   - "todos": a task list written by the assistant, in Todos.
 //   - "subagent": a child agent started (State active) or finished (State done), in Subagent.
 //   - "usage": the token usage reported with one assistant message, in the token fields.
@@ -84,6 +87,7 @@ type BackendEvent struct {
 	Models      []ModelUsage
 	Todos       []TodoItem
 	Subagent    *Subagent
+	ToolCall    *ToolCall
 	Notice      *Notice
 }
 
