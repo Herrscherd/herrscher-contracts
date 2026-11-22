@@ -155,7 +155,7 @@ func decodeNoticeArgs(raw json.RawMessage) ([]Arg, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	open, err := decoder.Token()
 	if err != nil {
-		return nil, err
+		return nil, nameWrongArgJSONType(err, ErrNoticeArgs)
 	}
 	if open != json.Delim('[') {
 		return nil, wrongWireType(ErrNoticeArgs, noticeWireArgs)

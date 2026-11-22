@@ -386,7 +386,8 @@ or `coordination`, and never the Go type or the value. A number is out of range
 when it is a nonzero integer written with digits only, an optional minus sign
 in front, that its integer field cannot hold, or when it is beyond `float64`.
 Any other number refused by an integer field, such as `1.5`, `1.0` or `1e2`, has
-the wrong JSON type. A field nested in `coordination`, `todos`, `models` or
+the wrong JSON type, and so has `-0` for an unsigned field, while a signed field
+accepts it as zero. A field nested in `coordination`, `todos`, `models` or
 `subagent` is named by its top-level field. A `tool_call` refused inside the
 event keeps `ErrInvalidToolCall`, a document that is not valid JSON is returned
 as its `*json.SyntaxError`, and a `null` decodes to the zero `Event`.
@@ -838,16 +839,17 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `Codes` for `Renderer` to refuse. A value of kind 1 to 3 that is absent,
   `null` or of the wrong JSON type is refused with `ErrNoticeArgs`; `null` is
   reserved for the zero argument (kind 0). A wrong JSON type or a number out of
-  range in a notice, by the rule of `DecodeEvent`, is named `code` or `args`,
-  the wire field, with `has the wrong JSON type` or `is out of range`, and never
-  the Go type or the value. A value whose kind is unknown is kept as its JSON, and it encodes back in an
-  equivalent compact form: spaces are removed, and the HTML characters `<`, `>`
-  and `&` are written in their escaped form (`\u003c`, `\u003e` and `\u0026`),
-  as `encoding/json` does. `Renderer` refuses such an argument. A `null`
-  argument, an argument that is not an object, a name or a kind of the wrong
-  type, a kind outside `uint8`, a code outside `uint16` and an argument list
-  that is not a list are all refused with `ErrNoticeArgs`. A malformed JSON text
-  is not a shape error: it is returned as the `*json.SyntaxError` of
+  range in a notice, `args` itself included, is refused with `ErrNoticeArgs`
+  by the rule of `DecodeEvent`, named `code` or `args`, the wire field, with
+  `has the wrong JSON type` or `is out of range`, and never the Go type or the
+  value. A value whose kind is unknown is kept as its JSON, and it encodes back
+  in an equivalent compact form: spaces are removed, and the HTML characters
+  `<`, `>` and `&` are written in their escaped form (`\u003c`, `\u003e` and
+  `\u0026`), as `encoding/json` does. `Renderer` refuses such an argument.
+  A `null` argument, an argument that is not an object, a name or a kind of the
+  wrong type, a kind outside `uint8`, a code outside `uint16` and an argument
+  list that is not a list are all refused with `ErrNoticeArgs`. A malformed JSON
+  text is not a shape error: it is returned as the `*json.SyntaxError` of
   `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is false for it. A `null`
   notice changes nothing, as in v0.30.0: decoding it into a `Notice` leaves the
   `Notice` as it was. A `null` argument is refused with `ErrNoticeArgs`, since

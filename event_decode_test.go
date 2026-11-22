@@ -215,3 +215,13 @@ func wrongJSONValueFor(value json.RawMessage) string {
 		return `"x"`
 	}
 }
+
+func TestDecodeEventAcceptsNegativeZeroOnASignedField(t *testing.T) {
+	event, err := DecodeEvent([]byte(`{"t":"x","tokens":-0}`))
+	if err != nil {
+		t.Fatalf("DecodeEvent = %v, want -0 accepted on a signed field", err)
+	}
+	if event.Tokens != 0 {
+		t.Fatalf("Tokens = %d, want 0", event.Tokens)
+	}
+}

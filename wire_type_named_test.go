@@ -39,7 +39,7 @@ func requireNamedWireRange(t *testing.T, err, sentinel error, field, value strin
 	if want := field + " is out of range"; !strings.Contains(msg, want) {
 		t.Fatalf("message %q does not contain %q", msg, want)
 	}
-	for _, leak := range []string{value, "contracts.", "Go", "of type", "uint16", "uint8", "int64"} {
+	for _, leak := range []string{value, "contracts.", "Go", "of type", "uint16", "uint8", "int64", "float64"} {
 		if strings.Contains(msg, leak) {
 			t.Fatalf("message %q leaks %q: it must name the wire field only", msg, leak)
 		}
@@ -93,6 +93,11 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 			field: "code",
 		},
 		{
+			name:  "code negative zero",
+			input: `{"code":-0}`,
+			field: "code",
+		},
+		{
 			name:  "argument name",
 			input: fmt.Sprintf(`{"code":1,"args":[{"name":[%q],"kind":1,"value":"x"}]}`, receivedSecret),
 			field: noticeWireArgs,
@@ -138,6 +143,8 @@ func TestNoticeOutOfRangeNamesTheWireFieldNotTheNumber(t *testing.T) {
 		{name: "code beyond int64", input: `{"code":99999999999999999999999}`, field: "code", value: "99999999999999999999999"},
 		{name: "kind", input: `{"code":1,"args":[{"name":"n","kind":300,"value":"x"}]}`, field: noticeWireArgs, value: "300"},
 		{name: "kind negative", input: `{"code":1,"args":[{"name":"n","kind":-1,"value":"x"}]}`, field: noticeWireArgs, value: "-1"},
+		{name: "args beyond float64", input: `{"code":1,"args":1e400}`, field: noticeWireArgs, value: "1e400"},
+		{name: "args integer beyond float64", input: `{"code":1,"args":` + strings.Repeat("9", 400) + `}`, field: noticeWireArgs, value: strings.Repeat("9", 400)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
