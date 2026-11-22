@@ -89,6 +89,7 @@ it is absent.
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
+| `BackendKindTool`, `BackendKindToolDone`, `BackendEvent.ValidateToolCall` | `backend.go`, `tool_call.go` | the kinds that start and finish a tool call, and the check of the call's shape against its kind |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
@@ -378,16 +379,26 @@ totals stand alone.
 
 `BackendEvent.ToolCall` and `Event.ToolCall` carry the lifecycle of one tool
 call, so a host can build a per-turn timeline with each call's start, duration
-and outcome. Every transition has an `ID` that is unique within the turn, and
-`Tool` on every transition, so a finished call can be labelled without its start.
+and outcome. Every transition has an `ID`, which the backend takes from its own
+protocol's call id and which is unique within the turn, and `Tool` on every
+transition, so a finished call can be labelled without its start.
 
-- The start is a `tool` event with `ToolCall.State` `started`. It also keeps
-  `Tool` and `Detail` on the `BackendEvent`, so a host that only knows the kind
-  `tool` still shows the call.
-- The result is a `tool_done` event with `ToolCall.State` `succeeded` or
-  `failed`, under the same `ID`. Its `Tool` and `Detail` on the `BackendEvent`
-  stay empty, so a host that only knows `tool` never prints the call twice.
+- The start is a `tool` event (`BackendKindTool`) with `ToolCall.State`
+  `started`. It also keeps `Tool` and `Detail` on the `BackendEvent`: that
+  duplication is the compatibility shim for hosts that predate `ToolCall`, so
+  they still show the call.
+- The result is a `tool_done` event (`BackendKindToolDone`) with
+  `ToolCall.State` `succeeded` or `failed`, under the same `ID`. Its `Tool` and
+  `Detail` on the `BackendEvent` stay empty, so a host that only knows `tool`
+  never prints the call twice.
 - A backend that cannot follow a call to its end emits the start only.
+
+Backends follow the rule that they run `BackendEvent.ValidateToolCall` in their
+tests on every event they emit. It checks the shape each kind requires: a `tool`
+event carries a `started` call whose `Tool` equals the event's, a `tool_done`
+event carries a finished call with `Tool` and `Detail` empty on the event and no
+`Detail` on the call, no other kind carries a call, and neither kind carries a
+stamped `At`. A `tool` event without a call stays valid.
 
 `ToolCall.At` is stamped by the host alone. A backend leaves it zero, and the
 host sets it when it receives the transition. It is the time that travels on
@@ -407,13 +418,20 @@ A `ToolCall` is parsed once, at the boundary. Decoding refuses a call with no
 `state`, an unknown state, an empty `id`, an empty `tool`, or an `error` on a
 state other than `failed`. Each refusal matches `ErrInvalidToolCall` with
 `errors.Is`. `ToolCall.Validate` applies the same rules to a call built in Go,
-and the backends' tests use it on what they emit.
+and `ToolCall.MarshalJSON` runs it, so an invalid call never reaches the wire.
+
+Unknown states are refused, not skipped. A reader that meets an unknown state
+refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
+`ErrUnknownToolCallState`. Adding a state is therefore a breaking change of this
+module, released only after every host reads it.
 
 Tokens are not a field of the call. The contract carries no per-call token
-count. The host attributes to each call the output tokens counted between the
-previous timeline entry and this call's start, computed from the cumulative
-counts backends already report. A per-call token field would duplicate that
-count and could disagree with it, so none is added.
+count. The host attributes to each call the turn's cumulative output-token count
+at its start transition, minus that count at the previous tool-call transition
+of the same turn (the start or the end of any call), or minus zero for the first
+call of the turn. The cumulative counts are the ones backends already report. A
+per-call token field would duplicate that count and could disagree with it, so
+none is added.
 
 ## Who is asking
 

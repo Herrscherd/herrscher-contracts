@@ -52,6 +52,14 @@ type Prompt struct {
 // human in its Notice field, such as a resume the backend had to drop.
 const BackendKindNotice = "notice"
 
+// BackendKindTool is the Kind of a BackendEvent that starts a tool call: its name in
+// Tool, its detail in Detail, and the started transition in ToolCall.
+const BackendKindTool = "tool"
+
+// BackendKindToolDone is the Kind of a BackendEvent that reports the result of a tool
+// call: the finished transition in ToolCall, with Tool and Detail left empty.
+const BackendKindToolDone = "tool_done"
+
 // BackendEvent is one intermediate occurrence a backend surfaces mid-turn for a
 // progress consumer, and Kind says which one it is. The kinds are:
 //   - "text": a text block of the assistant reply, in Detail.

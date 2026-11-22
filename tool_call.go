@@ -47,11 +47,19 @@ func (c ToolCall) Validate() error {
 	return nil
 }
 
+// MarshalJSON writes the call as its wire form, refusing it unless [ToolCall.Validate]
+// accepts it. A refusal matches [ErrInvalidToolCall].
+func (c ToolCall) MarshalJSON() ([]byte, error) {
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+	return json.Marshal(toolCallWire(c))
+}
+
 // UnmarshalJSON decodes a call and refuses it unless [ToolCall.Validate] accepts it.
 // Every refusal matches [ErrInvalidToolCall].
 func (c *ToolCall) UnmarshalJSON(data []byte) error {
-	type wire ToolCall
-	var decoded wire
+	var decoded toolCallWire
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidToolCall, err)
 	}
@@ -62,6 +70,8 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 	*c = parsed
 	return nil
 }
+
+type toolCallWire ToolCall
 
 // ToolCallState says where a tool call stands. It is a closed set whose zero value is
 // not a state: [ParseToolCallState] never returns it, and the zero value does not
@@ -137,5 +147,60 @@ func (s *ToolCallState) UnmarshalText(text []byte) error {
 		return err
 	}
 	*s = parsed
+	return nil
+}
+
+// ValidateToolCall reports whether the event's tool call follows the rules of its kind.
+// A [BackendKindTool] event may carry a started call whose Tool equals the event's Tool;
+// a [BackendKindToolDone] event must carry a finished call, with Tool and Detail empty on
+// the event and no Detail on the call; no other kind carries a call. A [BackendKindTool]
+// event without a call stays valid, for backends that cannot follow a call. Neither kind
+// may carry a stamped At, which the host sets. Every refusal matches [ErrInvalidToolCall].
+func (e BackendEvent) ValidateToolCall() error {
+	if e.ToolCall == nil {
+		if e.Kind == BackendKindToolDone {
+			return fmt.Errorf("%w: %s without a call", ErrInvalidToolCall, BackendKindToolDone)
+		}
+		return nil
+	}
+	if err := e.ToolCall.Validate(); err != nil {
+		return err
+	}
+	switch e.Kind {
+	case BackendKindTool:
+		return e.validateToolCallStart()
+	case BackendKindToolDone:
+		return e.validateToolCallResult()
+	}
+	return fmt.Errorf("%w: kind %q carries a call", ErrInvalidToolCall, e.Kind)
+}
+
+func (e BackendEvent) validateToolCallStart() error {
+	call := e.ToolCall
+	switch {
+	case call.State != ToolCallStarted:
+		return fmt.Errorf("%w: %s carries a %v call", ErrInvalidToolCall, BackendKindTool, call.State)
+	case e.Tool != call.Tool:
+		return fmt.Errorf("%w: event tool %q differs from call tool %q", ErrInvalidToolCall, e.Tool, call.Tool)
+	case !call.At.IsZero():
+		return fmt.Errorf("%w: %s carries a stamped At", ErrInvalidToolCall, BackendKindTool)
+	}
+	return nil
+}
+
+func (e BackendEvent) validateToolCallResult() error {
+	call := e.ToolCall
+	switch {
+	case !call.State.Finished():
+		return fmt.Errorf("%w: %s carries a %v call", ErrInvalidToolCall, BackendKindToolDone, call.State)
+	case e.Tool != "":
+		return fmt.Errorf("%w: %s carries tool %q", ErrInvalidToolCall, BackendKindToolDone, e.Tool)
+	case e.Detail != "":
+		return fmt.Errorf("%w: %s carries a detail", ErrInvalidToolCall, BackendKindToolDone)
+	case call.Detail != "":
+		return fmt.Errorf("%w: %s call carries a detail", ErrInvalidToolCall, BackendKindToolDone)
+	case !call.At.IsZero():
+		return fmt.Errorf("%w: %s carries a stamped At", ErrInvalidToolCall, BackendKindToolDone)
+	}
 	return nil
 }
