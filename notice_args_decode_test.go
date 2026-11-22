@@ -7,13 +7,15 @@ import (
 	"testing"
 )
 
-func TestDecodeNoticeArgsNamesACutStreamWithTheSentinel(t *testing.T) {
+func TestDecodeNoticeArgsNamesAMalformedListWithTheSentinel(t *testing.T) {
 	tests := []struct {
 		name string
 		raw  string
 	}{
 		{name: "blank", raw: " "},
 		{name: "list cut inside an argument", raw: "[{"},
+		{name: "invalid token in the list", raw: "[x"},
+		{name: "invalid key in an argument", raw: "[{x}]"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -21,8 +23,8 @@ func TestDecodeNoticeArgsNamesACutStreamWithTheSentinel(t *testing.T) {
 			if !errors.Is(err, ErrNoticeArgs) {
 				t.Fatalf("decodeNoticeArgs(%q) = %v, want ErrNoticeArgs", tt.raw, err)
 			}
-			if !strings.Contains(err.Error(), noticeWireArgs) {
-				t.Fatalf("message %q does not name %q", err.Error(), noticeWireArgs)
+			if !strings.HasSuffix(err.Error(), noticeWireArgs+" is malformed") {
+				t.Fatalf("message %q, want it to end with %q", err.Error(), noticeWireArgs+" is malformed")
 			}
 		})
 	}

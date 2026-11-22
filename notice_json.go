@@ -185,5 +185,5 @@ func noticeArgsError(err error) error {
 	if _, isType := errors.AsType[*json.UnmarshalTypeError](err); isType {
 		return nameWrongArgJSONType(err, ErrNoticeArgs)
 	}
-	return fmt.Errorf("%w: args is truncated", ErrNoticeArgs)
+	return fmt.Errorf("%w: args is malformed", ErrNoticeArgs)
 }
