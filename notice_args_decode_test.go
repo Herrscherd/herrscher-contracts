@@ -28,7 +28,7 @@ func TestDecodeNoticeArgsNamesACutStreamWithTheSentinel(t *testing.T) {
 	}
 }
 
-func TestDecodeNoticeArgsKeepsTheLimitSentinelAlone(t *testing.T) {
+func TestDecodeNoticeArgsReportsTooManyArgumentsWithoutErrNoticeArgs(t *testing.T) {
 	raw := "[" + strings.Repeat(`{"name":"n","kind":0,"value":null},`, maxNoticeArgs) + `{"name":"n","kind":0,"value":null}]`
 	_, err := decodeNoticeArgs(json.RawMessage(raw))
 	if !errors.Is(err, ErrNoticeLimit) {

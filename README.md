@@ -839,22 +839,21 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `Codes` for `Renderer` to refuse. A value of kind 1 to 3 that is absent,
   `null` or of the wrong JSON type is refused with `ErrNoticeArgs`; `null` is
   reserved for the zero argument (kind 0). A wrong JSON type or a number out of
-  range in a notice, `args` itself included, is refused with `ErrNoticeArgs`
-  by the rule of `DecodeEvent`, named `code` or `args`, the wire field, with
-  `has the wrong JSON type` or `is out of range`, and never the Go type or the
-  value. A value whose kind is unknown is kept as its JSON, and it encodes back
-  in an equivalent compact form: spaces are removed, and the HTML characters
-  `<`, `>` and `&` are written in their escaped form (`\u003c`, `\u003e` and
-  `\u0026`), as `encoding/json` does. `Renderer` refuses such an argument.
-  A `null` argument, an argument that is not an object, a name or a kind of the
-  wrong type, a kind outside `uint8`, a code outside `uint16` and an argument
-  list that is not a list are all refused with `ErrNoticeArgs`. A malformed JSON
-  text is not a shape error: `json.Unmarshal` returns it as the
-  `*json.SyntaxError` of `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is
-  false for it. A `json.Decoder` reports a stream cut short as
-  `io.ErrUnexpectedEOF` before the notice is decoded, so that error is not a
-  shape error either. A `null`
-  notice changes nothing, as in v0.30.0: decoding it into a `Notice` leaves the
+  range in a notice, `args` itself included, is refused with `ErrNoticeArgs` by
+  the rule of `DecodeEvent`, named `code` or `args`, the wire field, with `has
+  the wrong JSON type` or `is out of range`, and never the Go type or the value.
+  A value whose kind is unknown is kept as its JSON, and it encodes back in an
+  equivalent compact form: spaces are removed, and the HTML characters `<`, `>`
+  and `&` are written in their escaped form (`\u003c`, `\u003e` and `\u0026`),
+  as `encoding/json` does. `Renderer` refuses such an argument. A `null`
+  argument, an argument that is not an object, a name or a kind of the wrong
+  type, a kind outside `uint8`, a code outside `uint16` and an argument list
+  that is not a list are all refused with `ErrNoticeArgs`. A malformed JSON text
+  is not a shape error: `json.Unmarshal` returns it as the `*json.SyntaxError`
+  of `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is false for it. A
+  `json.Decoder` reports a stream cut short as `io.ErrUnexpectedEOF` before the
+  notice is decoded, so that error is not a shape error either. A `null` notice
+  changes nothing, as in v0.30.0: decoding it into a `Notice` leaves the
   `Notice` as it was. A `null` argument is refused with `ErrNoticeArgs`, since
   an argument has no absent value. A notice takes at most 16 arguments and a
   name at most 256 bytes of the decoded name, not of its escaped form. A value

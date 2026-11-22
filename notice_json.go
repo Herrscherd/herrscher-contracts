@@ -182,9 +182,6 @@ func noticeArgsError(err error) error {
 	if errors.Is(err, ErrNoticeArgs) || errors.Is(err, ErrNoticeLimit) {
 		return err
 	}
-	if _, isSyntax := errors.AsType[*json.SyntaxError](err); isSyntax {
-		return err
-	}
 	if _, isType := errors.AsType[*json.UnmarshalTypeError](err); isType {
 		return nameWrongArgJSONType(err, ErrNoticeArgs)
 	}
