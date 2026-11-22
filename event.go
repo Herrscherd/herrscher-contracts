@@ -1,5 +1,10 @@
 package contracts
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // CoordinationEvent reports a handoff between sessions: one session delegates work to
 // another, or reports its result back to its parent. The session fields name the
 // sessions involved, Agent names the agent that acted, and Summary is the outcome in
@@ -18,6 +23,13 @@ type CoordinationEvent struct {
 // the bridge. One Event encodes to exactly one JSON line on the wire.
 //
 // chunk carries assistant prose; status carries a tool/progress line.
+//
+// A reader of the wire must decode each event with [DecodeEvent], which names
+// the wire field of a wrong JSON type. A type that embeds Event decodes its
+// Event with DecodeEvent too, then reads its own envelope fields apart, and
+// never receives a promoted UnmarshalJSON, since Event defines none.
+// json.Unmarshal into an Event reports a wrong JSON type with the Go type
+// instead.
 //
 //	{"t":"human","who":"alice","text":"refactor the env loader"}
 //	{"t":"status","text":"reading envfile.go"}
@@ -78,6 +90,41 @@ type Event struct {
 	Todos        []TodoItem         `json:"todos,omitempty"`
 	Subagent     *Subagent          `json:"subagent,omitempty"`
 	ToolCall     *ToolCall          `json:"tool_call,omitempty"`
+}
+
+// ErrInvalidEvent is returned when a field of an event's JSON has the wrong
+// JSON type or a number out of range. The message names the wire field, such as
+// t or coordination, and never the Go type or the value. A field nested in
+// coordination, todos, models or subagent is named by its top-level field. A
+// tool_call refused inside the event keeps [ErrInvalidToolCall], and a document
+// that is not valid JSON is returned as its *json.SyntaxError, which does not
+// match this error. Match it with errors.Is.
+var ErrInvalidEvent = errors.New("invalid event")
+
+type eventWire Event
+
+// DecodeEvent decodes one event from its JSON form. A field of the wrong JSON
+// type or a number out of range is refused with [ErrInvalidEvent], whose
+// message names the wire field and never the Go type or the value. A tool_call
+// refused inside the event keeps [ErrInvalidToolCall]. A document that is not
+// valid JSON returns its *json.SyntaxError unchanged. A null decodes to the
+// zero Event. This is the entry point that names the wire field: json.Unmarshal
+// into an Event keeps the error of encoding/json, which names the Go type.
+func DecodeEvent(data []byte) (Event, error) {
+	var decoded eventWire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return Event{}, nameWrongJSONType(err, ErrInvalidEvent, "event", eventWireFields())
+	}
+	return Event(decoded), nil
+}
+
+func eventWireFields() []string {
+	return []string{
+		"t", "who", "text", "value", "done", "cost", "tokens", "tokens_in",
+		"cache_read", "cache_create", "models", "resume", "project",
+		"attachments", "session_incarnation", "turn_id", "agent",
+		"coordination", "todos", "subagent", "tool_call",
+	}
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live

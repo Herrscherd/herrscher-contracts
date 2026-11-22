@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -50,14 +49,14 @@ type ToolCall struct {
 // when it is decoded, and every such refusal matches ErrInvalidToolCall: a
 // field of the wrong JSON type, a state text that names no state (which also
 // matches ErrUnknownToolCallState), or an at that is not an RFC 3339 time. For
-// a field of the wrong JSON type and for an at that is not an RFC 3339 time, no
-// other cause is wrapped: the message names the field, and never the value. A
-// document that is not valid JSON is not a refused call: encoding/json reports
-// it as a *json.SyntaxError before any UnmarshalJSON runs, and that error does
-// not match ErrInvalidToolCall. No refusal echoes the input it refuses: its
-// message names the rule that failed or the field that has the wrong JSON type,
-// never the text of detail, error, state, at, tool or kind, so a secret in one
-// of them stays out of logs. Two exceptions apply. The first is
+// a field of the wrong JSON type, and for an at that is not an RFC 3339 time,
+// no other cause is wrapped: the message names the field, and never the value.
+// A document that is not valid JSON is not a refused call: encoding/json
+// reports it as a *json.SyntaxError before any UnmarshalJSON runs, and that
+// error does not match ErrInvalidToolCall. No refusal echoes the input it
+// refuses: its message names the rule that failed or the field that has the
+// wrong JSON type, never the text of detail, error, state, at, tool or kind, so
+// a secret in one of them stays out of logs. Two exceptions apply. The first is
 // *json.SyntaxError, which may quote a character of the input, because it is
 // not a refusal of the contract: a logger that must keep the input out logs
 // only the type of the error. The second is the *json.MarshalerError that
@@ -128,8 +127,10 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 		if _, ok := errors.AsType[*json.SyntaxError](err); ok {
 			return err
 		}
-		if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
-			return wrongJSONTypeError(typeErr)
+		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
+			return nameWrongJSONType(
+				err, ErrInvalidToolCall, "tool_call", toolCallWireFields(),
+			)
 		}
 		return fmt.Errorf("%w: %w", ErrInvalidToolCall, err)
 	}
@@ -148,21 +149,8 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func wrongJSONTypeError(err *json.UnmarshalTypeError) error {
-	field, known := canonicalWireField(err.Field)
-	if !known {
-		return fmt.Errorf("%w: the call has the wrong JSON type", ErrInvalidToolCall)
-	}
-	return fmt.Errorf("%w: %s has the wrong JSON type", ErrInvalidToolCall, field)
-}
-
-func canonicalWireField(name string) (string, bool) {
-	for _, field := range []string{"id", "tool", "detail", "state", "error", "at"} {
-		if strings.EqualFold(field, name) {
-			return field, true
-		}
-	}
-	return "", false
+func toolCallWireFields() []string {
+	return []string{"id", "tool", "detail", "state", "error", "at"}
 }
 
 type toolCallWire ToolCall

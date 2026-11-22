@@ -269,6 +269,30 @@ func TestApprovalAnswerReadRefusesPresentUnknownDecisionWithRefusal(t *testing.T
 	}
 }
 
+func TestApprovalRequestDecoderUnknownKeyIsNotRefused(t *testing.T) {
+	decoder := json.NewDecoder(strings.NewReader(`{"ID":"1","Tool":"Bash","Subject":"ls","Extra":true}`))
+	decoder.DisallowUnknownFields()
+	var request ApprovalRequest
+	if err := decoder.Decode(&request); err != nil {
+		t.Fatalf("Decode() error = %v, want the unknown key ignored", err)
+	}
+	if request.ID != "1" || request.Tool != "Bash" || request.Subject != "ls" {
+		t.Fatalf("Decode() = %+v, want the known fields read", request)
+	}
+}
+
+func TestApprovalAnswerDecoderUnknownKeyIsNotRefused(t *testing.T) {
+	decoder := json.NewDecoder(strings.NewReader(`{"ID":"1","Decision":"allow","Extra":true}`))
+	decoder.DisallowUnknownFields()
+	var answer ApprovalAnswer
+	if err := decoder.Decode(&answer); err != nil {
+		t.Fatalf("Decode() error = %v, want the unknown key ignored", err)
+	}
+	if answer.ID != "1" || answer.Decision != DecisionAllow {
+		t.Fatalf("Decode() = %+v, want the known fields read", answer)
+	}
+}
+
 func TestApprovalAnswerNullLeavesAnswerUnchanged(t *testing.T) {
 	answer := ApprovalAnswer{ID: "1", Decision: DecisionAllow, Reason: "ok"}
 	if err := json.Unmarshal([]byte("null"), &answer); err != nil {

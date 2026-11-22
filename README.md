@@ -90,6 +90,8 @@ it is absent.
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
 | `BackendKindTool`, `BackendKindToolDone`, `BackendEvent.ValidateToolCall` | `backend.go`, `tool_call.go` | the kinds that start and finish a tool call, and the check of the call's shape against its kind |
+| `DecodeEvent`, `ErrInvalidEvent` | `event.go` | the entry point that decodes an `Event` from its JSON, and the refusal of a field of the wrong type, named by its wire name |
+| `ErrInvalidApproval` | `approval.go` | the refusal of an `ApprovalRequest` or `ApprovalAnswer` field of the wrong JSON type, named by its wire name, and of an `ApprovalAnswer` whose `Decision` names no decision |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
@@ -377,6 +379,25 @@ each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
+A reader of the wire must decode each line, that is each `Event`, with
+`DecodeEvent(data)`. It refuses a field of the wrong JSON type, or a number out
+of range, with `ErrInvalidEvent`. Its message names the wire field, such as `t`
+or `coordination`, and never the Go type or the value. A number is out of range
+when it is a nonzero integer written with digits only, an optional minus sign
+in front, that its integer field cannot hold, or when it is beyond `float64`.
+Any other number refused by an integer field, such as `1.5`, `1.0` or `1e2`, has
+the wrong JSON type, and so has `-0` for an unsigned field, while a signed field
+accepts it as zero. A field nested in `coordination`, `todos`, `models` or
+`subagent` is named by its top-level field. A `tool_call` refused inside the
+event keeps `ErrInvalidToolCall`, a document that is not valid JSON is returned
+as its `*json.SyntaxError`, and a `null` decodes to the zero `Event`.
+
+A type that embeds `Event` must decode its `Event` with `DecodeEvent` too, then
+read its own envelope fields apart. It never receives a promoted
+`UnmarshalJSON`, because `Event` defines none. `json.Unmarshal` into an `Event`
+keeps the error of `encoding/json`, which names the Go type, so use
+`DecodeEvent` wherever the wire name matters.
+
 `BackendEvent.ToolCall` and `Event.ToolCall` carry the lifecycle of one tool
 call, so a host can build a per-turn timeline with each call's start, duration
 and outcome. Every transition has an `ID`, which the backend takes from its own
@@ -461,8 +482,8 @@ other than `failed`, or a `detail` on a finished call (`succeeded` or `failed`).
 Each refusal matches `ErrInvalidToolCall` with `errors.Is`. A call whose fields
 have the wrong JSON type, whose state text names no state, or whose `at` is not
 an RFC 3339 time, is refused the same way. A state text that names no state also
-matches `ErrUnknownToolCallState`. A field of the wrong JSON type and an `at`
-that is not an RFC 3339 time wrap no other cause: the message names the field,
+matches `ErrUnknownToolCallState`. A field of the wrong JSON type, and an `at`
+that is not an RFC 3339 time, wrap no other cause: the message names the field,
 never its value. A document that is not valid JSON is not a refused call:
 `encoding/json` returns its `*json.SyntaxError` before the call is decoded, and
 that error does not match `ErrInvalidToolCall`. `ToolCall.Validate` applies the
@@ -560,6 +581,13 @@ socket on the same machine. The backend passes the socket path to the hook in
 - A JSON `null` leaves an `ApprovalAnswer` unchanged. `UnmarshalJSON` does not
   inherit the caller's `json.Decoder` settings, so `DisallowUnknownFields` does
   not reject unknown keys inside an answer.
+- A JSON `null` leaves an `ApprovalRequest` unchanged. `UnmarshalJSON` does not
+  inherit the caller's `json.Decoder` settings either, so
+  `DisallowUnknownFields` does not reject unknown keys inside a request.
+- A field of the wrong JSON type in an `ApprovalRequest` or an `ApprovalAnswer`
+  is refused with `ErrInvalidApproval`. Its message names the wire field, `ID`,
+  `Tool`, `Subject`, `Decision`, `Reason` or `Refusal`, and never the Go type or
+  the value.
 - Reading is tolerant. A code this version does not know is kept and relayed
   unchanged, and `ApprovalRefusal.Known()` tells whether this version can
   translate it, so a reader shows a generic reason for it. Such an answer is
@@ -801,32 +829,41 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   compaction that cannot run. It sits inside a sentence, so a gateway must
   neutralise it like every other `Text` argument. The Discord gateway does so from
   v0.24.0 on, for each `Text` of a notice.
-- `Notice` and `Arg` have a JSON form owned by contracts, the form compactwire uses
-  for a compaction notice. A notice without arguments is `{"code":47}`, such as
-  `CodeTurnInterrupted`. Otherwise it is `{"code":1,"args":[{"name":"Name","kind":1,"value":"lead"}]}`,
-  where `kind` is 1 for `Text`, 2 for `Count` and 3 for `Ref`, and `Arg` encodes alone
-  in the same shape. The decoder reads that form and the v0.30.0 form
-  (`{"Code":1,"Args":[{}]}`), ignores unknown fields and keeps a code outside `Codes` for
-  `Renderer` to refuse. A value of kind 1 to 3 that is absent, `null` or of the wrong JSON
-  type is refused with `ErrNoticeArgs`; `null` is reserved for the zero argument (kind 0).
-  A value whose kind is unknown is kept as its JSON, and it encodes back in an equivalent
-  compact form: spaces are removed, and the HTML characters `<`, `>` and `&` are written
-  in their escaped form (`\u003c`, `\u003e` and `\u0026`), as `encoding/json` does.
-  `Renderer` refuses such an argument. A `null` argument, an argument that is not an
-  object, a name or a kind of the wrong type, a kind outside `uint8`, a code outside
-  `uint16` and an argument list that is not a list are all refused with `ErrNoticeArgs`. A
-  malformed JSON text is not a shape error: it is returned as the `*json.SyntaxError` of
-  `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is false for it. A `null` notice
-  changes nothing, as in v0.30.0: decoding it into a `Notice` leaves the `Notice` as it
-  was. A `null` argument is refused with `ErrNoticeArgs`, since an argument has no absent
-  value.
-  A notice takes at most 16 arguments and a name at most 256 bytes of the decoded name, not
-  of its escaped form. A value takes at most 64 KiB of JSON as it is encoded, and the raw
-  JSON of a value is refused above 256 KiB before it is compacted. `encoding/json` reads the
-  whole JSON notice once, argument list included, before these limits apply. The size of a
-  value is measured on that encoded form, escapes included, on both encoding and decoding: a
-  value that would exceed it is refused with `ErrNoticeLimit` when it is encoded and when it
-  is decoded, so a relay never receives a notice it cannot send back.
+- `Notice` and `Arg` have a JSON form owned by contracts, the form compactwire
+  uses for a compaction notice. A notice without arguments is `{"code":47}`,
+  such as `CodeTurnInterrupted`. Otherwise it is
+  `{"code":1,"args":[{"name":"Name","kind":1,"value":"lead"}]}`, where `kind` is
+  1 for `Text`, 2 for `Count` and 3 for `Ref`, and `Arg` encodes alone in the
+  same shape. The decoder reads that form and the v0.30.0 form
+  (`{"Code":1,"Args":[{}]}`), ignores unknown fields and keeps a code outside
+  `Codes` for `Renderer` to refuse. A value of kind 1 to 3 that is absent,
+  `null` or of the wrong JSON type is refused with `ErrNoticeArgs`; `null` is
+  reserved for the zero argument (kind 0). A wrong JSON type or a number out of
+  range in a notice, `args` itself included, is refused with `ErrNoticeArgs` by
+  the rule of `DecodeEvent`, named `code` or `args`, the wire field, with
+  `has the wrong JSON type` or `is out of range`, and never the Go type or the
+  value. A value whose kind is unknown is kept as its JSON, and it encodes back
+  in an equivalent compact form: spaces are removed, and the HTML characters
+  `<`, `>` and `&` are written in their escaped form (`\u003c`, `\u003e` and
+  `\u0026`), as `encoding/json` does. `Renderer` refuses such an argument. A
+  `null` argument, an argument that is not an object, a name or a kind of the
+  wrong type, a kind outside `uint8`, a code outside `uint16` and an argument
+  list that is not a list are all refused with `ErrNoticeArgs`. A malformed JSON
+  text is not a shape error: `json.Unmarshal` returns it as the
+  `*json.SyntaxError` of `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is
+  false for it. A `json.Decoder` reports a stream cut short as
+  `io.ErrUnexpectedEOF` before the notice is decoded, so that error is not a
+  shape error either. A `null` notice changes nothing, as in v0.30.0: decoding
+  it into a `Notice` leaves the `Notice` as it was. A `null` argument is refused
+  with `ErrNoticeArgs`, since an argument has no absent value. A notice takes at
+  most 16 arguments and a name at most 256 bytes of the decoded name, not of its
+  escaped form. A value takes at most 64 KiB of JSON as it is encoded, and the
+  raw JSON of a value is refused above 256 KiB before it is compacted.
+  `encoding/json` reads the whole JSON notice once, argument list included,
+  before these limits apply. The size of a value is measured on that encoded
+  form, escapes included, on both encoding and decoding: a value that would
+  exceed it is refused with `ErrNoticeLimit` when it is encoded and when it is
+  decoded, so a relay never receives a notice it cannot send back.
 - Compatibility with v0.30.0. The keys move from `Code` and `Args` to `code` and `args`.
   The compatibility holds only for a case-insensitive reader, such as Go's `encoding/json`,
   which reads `code` and `args` into a v0.30.0 `Code` and `Args`. A case-sensitive reader
