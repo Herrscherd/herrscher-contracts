@@ -88,7 +88,7 @@ func (a *Arg) UnmarshalJSON(data []byte) error {
 	}
 	var frame argWire
 	if err := json.Unmarshal(data, &frame); err != nil {
-		return nameWrongJSONTypeOf(err, ErrNoticeArgs, noticeWireArgs)
+		return nameWrongArgJSONType(err, ErrNoticeArgs)
 	}
 	if len(frame.Name) > maxNoticeNameBytes {
 		return fmt.Errorf("argument name is longer than %d bytes: %w", maxNoticeNameBytes, ErrNoticeLimit)
@@ -129,13 +129,13 @@ func decodeValue(arg *Arg, raw json.RawMessage) error {
 	case ArgText, ArgRef:
 		var text string
 		if err := json.Unmarshal(raw, &text); err != nil {
-			return nameWrongJSONTypeOf(err, ErrNoticeArgs, noticeWireArgs)
+			return nameWrongArgJSONType(err, ErrNoticeArgs)
 		}
 		arg.value = text
 	case ArgCount:
 		var count int
 		if err := json.Unmarshal(raw, &count); err != nil {
-			return nameWrongJSONTypeOf(err, ErrNoticeArgs, noticeWireArgs)
+			return nameWrongArgJSONType(err, ErrNoticeArgs)
 		}
 		arg.value = count
 	default:

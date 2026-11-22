@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 )
@@ -18,8 +19,12 @@ func nameWrongJSONType(err, sentinel error, subject string, wireFields []string)
 	return wireTypeError(sentinel, wireFieldOf(typeErr.Field, wireFields, subject), typeErr)
 }
 
-func nameWrongJSONTypeOf(err, sentinel error, field string) error {
-	return nameWrongJSONType(err, sentinel, field, nil)
+func nameWrongArgJSONType(err, sentinel error) error {
+	typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err)
+	if !ok {
+		return err
+	}
+	return wireTypeError(sentinel, noticeWireArgs, typeErr)
 }
 
 func wireTypeError(sentinel error, field string, typeErr *json.UnmarshalTypeError) error {
@@ -34,8 +39,15 @@ func isOutOfRange(typeErr *json.UnmarshalTypeError) bool {
 	if !isNumber {
 		return false
 	}
-	_, parseErr := strconv.ParseInt(number, 10, 64)
-	return parseErr == nil || errors.Is(parseErr, strconv.ErrRange)
+	if _, err := strconv.ParseFloat(number, 64); errors.Is(err, strconv.ErrRange) {
+		return true
+	}
+	value, _, err := big.ParseFloat(number, 10, decimalPrecision(number), big.ToNearestEven)
+	return err == nil && value.IsInt() && value.Sign() != 0
+}
+
+func decimalPrecision(number string) uint {
+	return uint(4*len(number) + 64)
 }
 
 func wrongWireType(sentinel error, field string) error {
