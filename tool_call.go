@@ -9,9 +9,11 @@ import (
 )
 
 // ToolCall is one transition of a tool call a backend follows through a turn.
-// ID is the backend's identifier of the call, unique within the turn: the
-// started and finished transitions of one call carry the same ID. Tool names
-// the tool and is set on every transition, so a consumer can pair and label a
+// ID is the backend's identifier of the call, unique within one execution of
+// the backend: the started and finished transitions of one call carry the same
+// ID. A reset opens a new execution within the turn, so the ID of a call may
+// come back after one. Tool names the tool and is set on every transition, so
+// a consumer can pair and label a
 // finished call without its start. Detail describes the call in human words (a
 // command, a path, a query) and is set on the start only. It is display text
 // that can hold secrets, so an exporter must not send it unless the operator
@@ -55,10 +57,15 @@ type ToolCall struct {
 // not match ErrInvalidToolCall. No refusal echoes the input it refuses: its
 // message names the rule that failed or the field that has the wrong JSON type,
 // never the text of detail, error, state, at, tool or kind, so a secret in one
-// of them stays out of logs. The one exception is that *json.SyntaxError, which
-// may quote a character of the input, because it is not a refusal of the
-// contract: a logger that must keep the input out logs only the type of the
-// error. Match a refusal with errors.Is.
+// of them stays out of logs. Two exceptions apply. The first is
+// *json.SyntaxError, which may quote a character of the input, because it is
+// not a refusal of the contract: a logger that must keep the input out logs
+// only the type of the error. The second is the *json.MarshalerError that
+// json.Marshal wraps around a refusal of ToolCall.MarshalJSON, whose message
+// names the Go type *contracts.ToolCall. errors.Is still matches
+// ErrInvalidToolCall through that wrap. A direct call to ToolCall.MarshalJSON
+// or to ToolCall.Validate gives the message without it. Match a refusal with
+// errors.Is.
 var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known

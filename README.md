@@ -380,8 +380,9 @@ totals stand alone.
 `BackendEvent.ToolCall` and `Event.ToolCall` carry the lifecycle of one tool
 call, so a host can build a per-turn timeline with each call's start, duration
 and outcome. Every transition has an `ID`, which the backend takes from its own
-protocol's call id and which is unique within the turn, and `Tool` on every
-transition, so a finished call can be labelled without its start.
+protocol's call id and which is unique within one execution of the backend (a
+`reset` starts a new one, see below), and `Tool` on every transition, so a
+finished call can be labelled without its start.
 
 - The start is a `tool` event (`BackendKindTool`) with `ToolCall.State`
   `started`. It also keeps `Tool` and `Detail` on the `BackendEvent`: that
@@ -392,9 +393,14 @@ transition, so a finished call can be labelled without its start.
   `Detail` on the `BackendEvent` stay empty, so a host that only knows `tool`
   never prints the call twice.
 - A backend that cannot follow a call to its end emits the start only.
-- A call whose start comes before a `reset` and that no `tool_done` closes
-  before it is unfinished: the host treats it as such, with no duration and no
-  outcome.
+- A call whose start comes before a `reset` and that no `tool_done` of the
+  current execution closes is unfinished: the host forgets it at the `reset`,
+  with no duration and no outcome.
+- A `reset` opens a new execution of the backend within the same turn. `ID` is
+  unique within one execution, so the new process may reuse an ID from before
+  the reset. A `tool_done` whose `ID` matches no call started in the current
+  execution is ignored for the timeline and closes nothing, even when that ID
+  comes from before the reset.
 
 Backends follow the rule that they run `BackendEvent.ValidateToolCall` in their
 tests on every event they emit. It checks the shape each kind requires: a `tool`
@@ -467,11 +473,16 @@ No refusal echoes the input it refuses. A message names the rule that failed or
 the field that has the wrong JSON type, never the text of `detail`, `error`,
 `state`, `at`, `tool` or `kind`, so a secret that lands in a malformed field
 stays out of logs. A field is named in its wire spelling from a fixed list, so a
-key the input wrote differently (`ID` for `id`) is never echoed either. `ParseToolCallState` does not quote the text it was given
-either. The one exception is the `*json.SyntaxError` of a document that is not
-valid JSON: it is not a refusal of the contract, so it may quote a character of
-the input. A logger that must keep the input out logs only the type of the
-error.
+key the input wrote differently (`ID` for `id`) is never echoed either.
+`ParseToolCallState` does not quote the text it was given either. Two exceptions
+apply. The first is the `*json.SyntaxError` of a document that is not valid
+JSON: it is not a refusal of the contract, so it may quote a character of the
+input. A logger that must keep the input out logs only the type of the error.
+The second is the `*json.MarshalerError` that `json.Marshal` wraps around a
+refusal of `ToolCall.MarshalJSON`, whose message names the Go type
+`*contracts.ToolCall`. `errors.Is` still matches `ErrInvalidToolCall` through
+that wrap. A direct call to `ToolCall.MarshalJSON` or to `ToolCall.Validate`
+gives the message without it.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
@@ -489,8 +500,9 @@ top. The contract says the output streamed so far is discarded, not that the
 tokens spent on it are. The host attributes to each call the cumulative count at
 its start transition, minus that count at the previous tool-call transition of
 the same turn (the start or the end of any call), or minus zero for the first
-call of the turn. A per-call token field would duplicate that count and could
-disagree with it, so none is added.
+call of the turn. A `tool_done` that the host ignores after a reset is not a
+transition, so it moves no count. A per-call token field would duplicate that
+count and could disagree with it, so none is added.
 
 ## Who is asking
 

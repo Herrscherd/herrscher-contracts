@@ -194,6 +194,27 @@ func TestToolCallMarshalRefusesMalformedCallsInEvent(t *testing.T) {
 	}
 }
 
+func TestEventMarshalWrapsToolCallRefusalInMarshalerError(t *testing.T) {
+	_, err := json.Marshal(Event{T: "status", ToolCall: &ToolCall{Tool: "Bash", State: ToolCallStarted}})
+	if !errors.Is(err, ErrInvalidToolCall) {
+		t.Fatalf("Marshal(Event with empty id) error = %v, want ErrInvalidToolCall", err)
+	}
+	if _, ok := errors.AsType[*json.MarshalerError](err); !ok {
+		t.Fatalf("Marshal(Event with empty id) error = %v, want a *json.MarshalerError", err)
+	}
+}
+
+func TestToolCallMarshalDirectRefusalNamesNoGoType(t *testing.T) {
+	call := ToolCall{Tool: "Bash", State: ToolCallStarted}
+	_, err := call.MarshalJSON()
+	if !errors.Is(err, ErrInvalidToolCall) {
+		t.Fatalf("MarshalJSON(empty id) error = %v, want ErrInvalidToolCall", err)
+	}
+	if strings.Contains(err.Error(), "contracts.") {
+		t.Fatalf("MarshalJSON(empty id) error = %q, want no Go type name", err)
+	}
+}
+
 func TestToolCallMarshalRoundTripsValidCalls(t *testing.T) {
 	at := time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)
 	cases := map[string]ToolCall{
