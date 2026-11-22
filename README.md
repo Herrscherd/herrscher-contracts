@@ -431,9 +431,13 @@ when the backend reports no lifecycle. Failed on the wire looks like this:
 A `ToolCall` is parsed once, at the boundary. Decoding refuses a call with no
 `state`, an unknown state, an empty `id`, an empty `tool`, an `error` on a state
 other than `failed`, or a `detail` on a finished call (`succeeded` or `failed`).
-Each refusal matches `ErrInvalidToolCall` with `errors.Is`. `ToolCall.Validate`
-applies the same rules to a call built in Go, and `ToolCall.MarshalJSON` runs it,
-so an invalid call never reaches the wire.
+Each refusal matches `ErrInvalidToolCall` with `errors.Is`. A call whose fields have
+the wrong JSON type, or whose state text names no state, is refused the same way.
+A document that is not valid JSON is not a refused call: `encoding/json` returns
+its `*json.SyntaxError` before the call is decoded, and `errors.Is(err,
+ErrInvalidToolCall)` is false for it. `ToolCall.Validate` applies the same rules
+to a call built in Go, and `ToolCall.MarshalJSON` runs it, so an invalid call
+never reaches the wire.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and

@@ -38,8 +38,12 @@ type ToolCall struct {
 // not finished on a tool_done event), a tool event whose Tool differs from its call's
 // Tool, a tool event whose Detail differs from its call's Detail, a tool_done event that
 // carries Tool or Detail on the event itself, a kind other than tool or tool_done that
-// carries a call, or a call that carries a stamped At. Malformed JSON for a call is
-// refused too, an unknown state text included. Match it with errors.Is.
+// carries a call, or a call that carries a stamped At. A call whose fields have the wrong
+// JSON type, or whose state text names no state, is refused when it is decoded, and the
+// error matches ErrInvalidToolCall as well as its cause. A document that is not valid JSON
+// is not a refused call: encoding/json reports it as a *json.SyntaxError before any
+// UnmarshalJSON runs, and that error does not match ErrInvalidToolCall. Match a refusal
+// with errors.Is.
 var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known State

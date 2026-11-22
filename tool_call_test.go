@@ -320,3 +320,20 @@ func TestBackendEventValidateToolCallAcceptsWellFormedShapes(t *testing.T) {
 		})
 	}
 }
+
+func TestEventRefusesMalformedToolCallWire(t *testing.T) {
+	var got Event
+	const wrongType = `{"t":"status","tool_call":{"id":5,"tool":"Bash","state":"started"}}`
+	if err := json.Unmarshal([]byte(wrongType), &got); !errors.Is(err, ErrInvalidToolCall) {
+		t.Fatalf("Unmarshal(%s) error = %v, want ErrInvalidToolCall", wrongType, err)
+	}
+	const truncated = `{"t":"status","tool_call":{"id":"c1"`
+	err := json.Unmarshal([]byte(truncated), &got)
+	var syntaxErr *json.SyntaxError
+	if !errors.As(err, &syntaxErr) {
+		t.Fatalf("Unmarshal(%s) error = %v, want *json.SyntaxError", truncated, err)
+	}
+	if errors.Is(err, ErrInvalidToolCall) {
+		t.Fatalf("Unmarshal(%s) error = %v, a syntax error must not match ErrInvalidToolCall", truncated, err)
+	}
+}
