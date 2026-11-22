@@ -9,7 +9,13 @@ import (
 	"strings"
 )
 
-const wireReason = "Reason"
+const (
+	wireReason           = "Reason"
+	decimalBase          = 10
+	float64Bits          = 64
+	decimalPrecisionBase = 64
+	decimalDigitBits     = 4
+)
 
 func nameWrongJSONType(err, sentinel error, subject string, wireFields []string) error {
 	typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err)
@@ -39,15 +45,15 @@ func isOutOfRange(typeErr *json.UnmarshalTypeError) bool {
 	if !isNumber {
 		return false
 	}
-	if _, err := strconv.ParseFloat(number, 64); errors.Is(err, strconv.ErrRange) {
+	if _, err := strconv.ParseFloat(number, float64Bits); errors.Is(err, strconv.ErrRange) {
 		return true
 	}
-	value, _, err := big.ParseFloat(number, 10, decimalPrecision(number), big.ToNearestEven)
+	value, _, err := big.ParseFloat(number, decimalBase, decimalPrecision(number), big.ToNearestEven)
 	return err == nil && value.IsInt() && value.Sign() != 0
 }
 
 func decimalPrecision(number string) uint {
-	return uint(4*len(number) + 64)
+	return uint(decimalDigitBits*len(number) + decimalPrecisionBase)
 }
 
 func wrongWireType(sentinel error, field string) error {
