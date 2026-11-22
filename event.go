@@ -1,5 +1,10 @@
 package contracts
 
+import (
+	"encoding/json"
+	"errors"
+)
+
 // CoordinationEvent reports a handoff between sessions: one session delegates work to
 // another, or reports its result back to its parent. The session fields name the
 // sessions involved, Agent names the agent that acted, and Summary is the outcome in
@@ -18,6 +23,10 @@ type CoordinationEvent struct {
 // the bridge. One Event encodes to exactly one JSON line on the wire.
 //
 // chunk carries assistant prose; status carries a tool/progress line.
+//
+// Decoding an Event refuses a field of the wrong JSON type with
+// [ErrInvalidEvent], whose message names the wire field and never the Go type
+// or the value.
 //
 //	{"t":"human","who":"alice","text":"refactor the env loader"}
 //	{"t":"status","text":"reading envfile.go"}
@@ -78,6 +87,46 @@ type Event struct {
 	Todos        []TodoItem         `json:"todos,omitempty"`
 	Subagent     *Subagent          `json:"subagent,omitempty"`
 	ToolCall     *ToolCall          `json:"tool_call,omitempty"`
+}
+
+// ErrInvalidEvent is returned when a field of an event's JSON has the wrong
+// JSON type. The message names the wire field, such as t or coordination, and
+// never the Go type or the value. A field nested in coordination, todos, models
+// or subagent is named by its top-level field. A tool_call refused inside the
+// event keeps [ErrInvalidToolCall], and a document that is not valid JSON is
+// returned as its *json.SyntaxError, which does not match this error. Match it
+// with errors.Is.
+var ErrInvalidEvent = errors.New("invalid event")
+
+type eventWire Event
+
+// UnmarshalJSON decodes an event. A null leaves it unchanged, as encoding/json
+// does for a struct. A field of the wrong JSON type is refused with
+// [ErrInvalidEvent], and a tool_call refused inside it with
+// [ErrInvalidToolCall]. A document that is not valid JSON returns its
+// *json.SyntaxError unchanged.
+func (e *Event) UnmarshalJSON(data []byte) error {
+	if string(data) == jsonNull {
+		return nil
+	}
+	var decoded eventWire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		if typeErr, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
+			return wrongJSONTypeError(ErrInvalidEvent, "event", eventWireFields(), typeErr)
+		}
+		return err
+	}
+	*e = Event(decoded)
+	return nil
+}
+
+func eventWireFields() []string {
+	return []string{
+		"t", "who", "text", "value", "done", "cost", "tokens", "tokens_in",
+		"cache_read", "cache_create", "models", "resume", "project",
+		"attachments", "session_incarnation", "turn_id", "agent",
+		"coordination", "todos", "subagent", "tool_call",
+	}
 }
 
 // EventSink is an optional gateway capability: a gateway that renders the live

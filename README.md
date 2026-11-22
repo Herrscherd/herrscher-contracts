@@ -90,6 +90,7 @@ it is absent.
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
 | `BackendKindTool`, `BackendKindToolDone`, `BackendEvent.ValidateToolCall` | `backend.go`, `tool_call.go` | the kinds that start and finish a tool call, and the check of the call's shape against its kind |
+| `ErrInvalidEvent` | `event.go` | the refusal of an `Event` whose JSON has a field of the wrong type, named by its wire name |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
@@ -376,6 +377,13 @@ It never spends a turn to read them: a vendor that exposes none returns `ErrLimi
 each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
+
+Decoding an `Event` from JSON refuses a field of the wrong JSON type with
+`ErrInvalidEvent`. Its message names the wire field, such as `t` or
+`coordination`, and never the Go type or the value. A field nested in
+`coordination`, `todos`, `models` or `subagent` is named by its top-level field.
+A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, and a
+document that is not valid JSON is returned as its `*json.SyntaxError`.
 
 `BackendEvent.ToolCall` and `Event.ToolCall` carry the lifecycle of one tool
 call, so a host can build a per-turn timeline with each call's start, duration
