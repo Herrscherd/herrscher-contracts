@@ -30,11 +30,15 @@ type ToolCall struct {
 	Error  string        `json:"error,omitempty"`
 }
 
-// ErrInvalidToolCall is returned for every refusal of a tool call: a call that breaks a
-// ToolCall rule (no id, no tool, no known state, an error on a call that did not fail,
-// a detail on a finished call), a BackendEvent whose kind and call do not match, as
-// [BackendEvent.ValidateToolCall] reports, and malformed JSON for a call. Match it with
-// errors.Is.
+// ErrInvalidToolCall is returned for every refusal of a tool call. A call is refused when
+// it breaks a ToolCall rule: no id, no tool, no known state, an error on a call that did
+// not fail, or a detail on a finished call. A BackendEvent is refused by
+// [BackendEvent.ValidateToolCall] when its kind and call do not match: a tool_done event
+// without a call, a call whose state does not fit its kind (not started on a tool event,
+// not finished on a tool_done event), a tool event whose Tool differs from its call's
+// Tool, a tool_done event that carries Tool or Detail on the event itself, a kind other
+// than tool or tool_done that carries a call, or a call that carries a stamped At. Malformed
+// JSON for a call is refused too, an unknown state text included. Match it with errors.Is.
 var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known State

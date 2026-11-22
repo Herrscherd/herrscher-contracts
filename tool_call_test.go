@@ -177,6 +177,8 @@ func TestToolCallMarshalRefusesMalformedCallsInEvent(t *testing.T) {
 		"zero state":                {ID: "c1", Tool: "Bash"},
 		"error on a started call":   {ID: "c1", Tool: "Bash", State: ToolCallStarted, Error: "exit 1"},
 		"error on a succeeded call": {ID: "c1", Tool: "Bash", State: ToolCallSucceeded, Error: "exit 1"},
+		"succeeded with detail":     {ID: "c1", Tool: "Bash", State: ToolCallSucceeded, Detail: "ls"},
+		"failed with detail":        {ID: "c1", Tool: "Bash", State: ToolCallFailed, Detail: "ls"},
 	}
 	for name, call := range cases {
 		t.Run(name, func(t *testing.T) {
