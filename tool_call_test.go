@@ -255,6 +255,27 @@ func TestToolCallUnmarshalRefusesUnknownStateWithBothSentinels(t *testing.T) {
 	}
 }
 
+func TestToolCallUnmarshalRefusesWrongJSONTypeWithoutGoNames(t *testing.T) {
+	cases := map[string]string{
+		"fields of the wrong type":      `{"id":true,"tool":"Bash","state":5,"at":5}`,
+		"a value that is not an object": `5`,
+	}
+	for name, raw := range cases {
+		t.Run(name, func(t *testing.T) {
+			var call ToolCall
+			err := json.Unmarshal([]byte(raw), &call)
+			if !errors.Is(err, ErrInvalidToolCall) {
+				t.Fatalf("Unmarshal(%s) error = %v, want ErrInvalidToolCall", raw, err)
+			}
+			for _, leak := range []string{"toolCallInput", "true", "5"} {
+				if strings.Contains(err.Error(), leak) {
+					t.Fatalf("Unmarshal(%s) error %q contains %q", raw, err, leak)
+				}
+			}
+		})
+	}
+}
+
 func TestToolCallUnmarshalRefusesErrorOnStartedCall(t *testing.T) {
 	const raw = `{"id":"c1","tool":"Bash","state":"started","error":"exit 1"}`
 	var call ToolCall

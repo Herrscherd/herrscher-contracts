@@ -409,11 +409,11 @@ event, its text and its tokens, must still flow.
 `ToolCall.At` is stamped by the host alone. A backend leaves it zero, and the
 host sets it when it receives the transition. It is the time that travels on
 `Event.tool_call` and in the journal, so the timeline has one clock. Its zero
-value on the wire is omitted. Its zone offset must be a whole number of minutes: the
-wire form writes the offset to the minute, so `ToolCall.Validate` and
-`ToolCall.MarshalJSON` refuse a call whose offset has seconds rather than drop them.
-Its year must be from 0 to 9999, the years the wire form writes, and both refuse a
-year outside that range the same way.
+value on the wire is omitted. Its zone offset must be a whole number of minutes:
+the wire form writes the offset to the minute, so `ToolCall.Validate` and
+`ToolCall.MarshalJSON` refuse a call whose offset has seconds rather than drop
+them. Its year must be from 0 to 9999, the years the wire form writes, and both
+refuse a year outside that range the same way.
 
 `ToolCall.Detail` is display text, a command, a path or a query, and it can hold
 secrets. It is set on the start only. An exporter must not send it outside the
@@ -451,19 +451,23 @@ A `ToolCall` is parsed once, at the boundary. Decoding refuses a call with no
 other than `failed`, or a `detail` on a finished call (`succeeded` or `failed`).
 Each refusal matches `ErrInvalidToolCall` with `errors.Is`. A call whose fields
 have the wrong JSON type, whose state text names no state, or whose `at` is not
-an RFC 3339 time, is refused the same way. A document that is not valid JSON is
-not a refused call: `encoding/json` returns its `*json.SyntaxError` before the
-call is decoded, and that error does not match `ErrInvalidToolCall`.
-`ToolCall.Validate` applies the same rules to a call built in Go, and
-`ToolCall.MarshalJSON` runs it, so an invalid call never reaches the wire.
+an RFC 3339 time, is refused the same way. A state text that names no state also
+matches `ErrUnknownToolCallState`. A field of the wrong JSON type and an `at`
+that is not an RFC 3339 time wrap no other cause: the message names the field,
+never its value. A document that is not valid JSON is not a refused call:
+`encoding/json` returns its `*json.SyntaxError` before the call is decoded, and
+that error does not match `ErrInvalidToolCall`. `ToolCall.Validate` applies the
+same rules to a call built in Go, and `ToolCall.MarshalJSON` runs it, so an
+invalid call never reaches the wire.
 
-No refusal echoes the input it refuses. A message names the rule that failed,
-never the text of `detail`, `error`, `state`, `at`, `tool` or `kind`, so a secret
-that lands in a malformed field stays out of logs. `ParseToolCallState` does not
-quote the text it was given either. The one exception is the `*json.SyntaxError`
-of a document that is not valid JSON: it is not a refusal of the contract, so it
-may quote a character of the input. A logger that must keep the input out logs
-only the type of the error.
+No refusal echoes the input it refuses. A message names the rule that failed or
+the field that has the wrong JSON type, never the text of `detail`, `error`,
+`state`, `at`, `tool` or `kind`, so a secret that lands in a malformed field
+stays out of logs. `ParseToolCallState` does not quote the text it was given
+either. The one exception is the `*json.SyntaxError` of a document that is not
+valid JSON: it is not a refusal of the contract, so it may quote a character of
+the input. A logger that must keep the input out logs only the type of the
+error.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
