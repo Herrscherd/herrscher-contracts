@@ -849,8 +849,11 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   A `null` argument, an argument that is not an object, a name or a kind of the
   wrong type, a kind outside `uint8`, a code outside `uint16` and an argument
   list that is not a list are all refused with `ErrNoticeArgs`. A malformed JSON
-  text is not a shape error: it is returned as the `*json.SyntaxError` of
-  `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is false for it. A `null`
+  text is not a shape error: `json.Unmarshal` returns it as the
+  `*json.SyntaxError` of `encoding/json`, and `errors.Is(err, ErrNoticeArgs)` is
+  false for it. A `json.Decoder` reports a stream cut short as
+  `io.ErrUnexpectedEOF` before the notice is decoded, so that error is not a
+  shape error either. A `null`
   notice changes nothing, as in v0.30.0: decoding it into a `Notice` leaves the
   `Notice` as it was. A `null` argument is refused with `ErrNoticeArgs`, since
   an argument has no absent value. A notice takes at most 16 arguments and a

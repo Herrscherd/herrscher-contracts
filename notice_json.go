@@ -50,7 +50,10 @@ func (n Notice) MarshalJSON() ([]byte, error) {
 	return json.Marshal(noticeWire{Code: uint16(n.Code), Args: n.Args})
 }
 
-// UnmarshalJSON reads the form MarshalJSON writes and the capitalised v0.30.0 form; null leaves the notice unchanged, as in v0.30.0.
+// UnmarshalJSON reads the form MarshalJSON writes and the capitalised v0.30.0
+// form; null leaves the notice unchanged, as in v0.30.0. A wrong shape, a wrong
+// JSON type or a number out of range is refused with [ErrNoticeArgs], and an
+// argument list or a value over its limit with [ErrNoticeLimit].
 func (n *Notice) UnmarshalJSON(data []byte) error {
 	if string(data) == jsonNull {
 		return nil
@@ -80,8 +83,9 @@ func (a Arg) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON reads an argument. A null argument or a malformed shape is
-// refused with ErrNoticeArgs, and a wrong JSON type or a number out of range is
-// named args, never the Go type or the value.
+// refused with [ErrNoticeArgs], and a wrong JSON type or a number out of range
+// is named args, never the Go type or the value. A name or a value over its
+// limit is refused with [ErrNoticeLimit].
 func (a *Arg) UnmarshalJSON(data []byte) error {
 	if string(data) == jsonNull {
 		return fmt.Errorf("notice argument is null: %w", ErrNoticeArgs)
@@ -155,7 +159,7 @@ func decodeNoticeArgs(raw json.RawMessage) ([]Arg, error) {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	open, err := decoder.Token()
 	if err != nil {
-		return nil, nameWrongArgJSONType(err, ErrNoticeArgs)
+		return nil, noticeArgsError(err)
 	}
 	if open != json.Delim('[') {
 		return nil, wrongWireType(ErrNoticeArgs, noticeWireArgs)
@@ -167,9 +171,22 @@ func decodeNoticeArgs(raw json.RawMessage) ([]Arg, error) {
 		}
 		var arg Arg
 		if err := decoder.Decode(&arg); err != nil {
-			return nil, err
+			return nil, noticeArgsError(err)
 		}
 		args = append(args, arg)
 	}
 	return args, nil
+}
+
+func noticeArgsError(err error) error {
+	if errors.Is(err, ErrNoticeArgs) || errors.Is(err, ErrNoticeLimit) {
+		return err
+	}
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); isSyntax {
+		return err
+	}
+	if _, isType := errors.AsType[*json.UnmarshalTypeError](err); isType {
+		return nameWrongArgJSONType(err, ErrNoticeArgs)
+	}
+	return fmt.Errorf("%w: args is truncated", ErrNoticeArgs)
 }
