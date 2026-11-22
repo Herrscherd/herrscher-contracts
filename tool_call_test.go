@@ -337,3 +337,50 @@ func TestEventRefusesMalformedToolCallWire(t *testing.T) {
 		t.Fatalf("Unmarshal(%s) error = %v, a syntax error must not match ErrInvalidToolCall", truncated, err)
 	}
 }
+
+func TestToolCallUnmarshalMethodReturnsSyntaxErrorUnwrapped(t *testing.T) {
+	const truncated = `{"id":"c1"`
+	var call ToolCall
+	err := call.UnmarshalJSON([]byte(truncated))
+	var syntaxErr *json.SyntaxError
+	if !errors.As(err, &syntaxErr) {
+		t.Fatalf("UnmarshalJSON(%s) error = %v, want *json.SyntaxError", truncated, err)
+	}
+	if errors.Is(err, ErrInvalidToolCall) {
+		t.Fatalf("UnmarshalJSON(%s) error = %v, a syntax error must not match ErrInvalidToolCall", truncated, err)
+	}
+}
+
+func TestToolCallRefusalsDoNotEchoWireText(t *testing.T) {
+	const secret = "token=sk-live-7f3a9c"
+	cases := map[string]struct {
+		raw  string
+		want []error
+	}{
+		"secret in state": {
+			raw:  `{"id":"c1","tool":"Bash","state":"` + secret + `"}`,
+			want: []error{ErrInvalidToolCall, ErrUnknownToolCallState},
+		},
+		"secret in at": {
+			raw:  `{"id":"c1","tool":"Bash","state":"started","at":"` + secret + `"}`,
+			want: []error{ErrInvalidToolCall},
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var call ToolCall
+			err := json.Unmarshal([]byte(tc.raw), &call)
+			for _, want := range tc.want {
+				if !errors.Is(err, want) {
+					t.Fatalf("Unmarshal(%s) error = %v, want %v", tc.raw, err, want)
+				}
+			}
+			if strings.Contains(err.Error(), secret) {
+				t.Fatalf("Unmarshal(%s) error %q echoes the wire text", tc.raw, err)
+			}
+		})
+	}
+	if _, err := ParseToolCallState(secret); !errors.Is(err, ErrUnknownToolCallState) || strings.Contains(err.Error(), secret) {
+		t.Fatalf("ParseToolCallState(secret) error = %v, want ErrUnknownToolCallState without the text", err)
+	}
+}

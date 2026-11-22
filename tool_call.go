@@ -16,7 +16,7 @@ import (
 // not send it unless the operator opts in. State says which transition this is. Error
 // is a short human reason for a failed call and is empty otherwise. It can carry the
 // same content as Detail (stderr, a command, a token), so an exporter must not send it
-// unless the operator opts in, and an OpenTelemetry error.type takes the closed value
+// unless the operator opts in, and an exporter will map error.type to the closed value
 // tool_failed instead of its text. At is when the host received the transition:
 // backends leave it zero and the host stamps it, and it is what travels on Event and
 // in the journal. The zero value is not a valid call: its ID is empty and its State is
@@ -42,8 +42,9 @@ type ToolCall struct {
 // JSON type, or whose state text names no state, is refused when it is decoded, and the
 // error matches ErrInvalidToolCall as well as its cause. A document that is not valid JSON
 // is not a refused call: encoding/json reports it as a *json.SyntaxError before any
-// UnmarshalJSON runs, and that error does not match ErrInvalidToolCall. Match a refusal
-// with errors.Is.
+// UnmarshalJSON runs, and that error does not match ErrInvalidToolCall. No refusal echoes
+// the input it refuses: its message names the rule that failed, never the text of a field,
+// so a secret in Detail, Error, State or At stays out of logs. Match a refusal with errors.Is.
 var ErrInvalidToolCall = errors.New("invalid tool call")
 
 // Validate reports whether the call is well formed: an ID, a Tool and a known State
@@ -75,13 +76,25 @@ func (c ToolCall) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON decodes a call and refuses it unless [ToolCall.Validate] accepts it.
-// Every refusal matches [ErrInvalidToolCall].
+// Every refusal matches [ErrInvalidToolCall]. A document that is not valid JSON is not a
+// refusal: its *json.SyntaxError is returned unchanged.
 func (c *ToolCall) UnmarshalJSON(data []byte) error {
-	var decoded toolCallWire
+	var decoded toolCallInput
 	if err := json.Unmarshal(data, &decoded); err != nil {
+		var syntaxErr *json.SyntaxError
+		if errors.As(err, &syntaxErr) {
+			return err
+		}
 		return fmt.Errorf("%w: %w", ErrInvalidToolCall, err)
 	}
-	parsed := ToolCall(decoded)
+	parsed := ToolCall(decoded.toolCallWire)
+	if decoded.At != nil {
+		receivedAt, err := time.Parse(time.RFC3339Nano, *decoded.At)
+		if err != nil {
+			return fmt.Errorf("%w: at is not an RFC 3339 time", ErrInvalidToolCall)
+		}
+		parsed.At = receivedAt
+	}
 	if err := parsed.Validate(); err != nil {
 		return err
 	}
@@ -90,6 +103,12 @@ func (c *ToolCall) UnmarshalJSON(data []byte) error {
 }
 
 type toolCallWire ToolCall
+
+type toolCallInput struct {
+	toolCallWire
+
+	At *string `json:"at"`
+}
 
 // ToolCallState says where a tool call stands. It is a closed set whose zero value is
 // not a state: [ParseToolCallState] never returns it, and the zero value does not
@@ -139,14 +158,15 @@ func (s ToolCallState) Finished() bool {
 var ErrUnknownToolCallState = errors.New("unknown tool call state")
 
 // ParseToolCallState reads a state from the text form [ToolCallState.String] writes.
-// Any other text returns an error matching [ErrUnknownToolCallState].
+// Any other text returns an error matching [ErrUnknownToolCallState], whose message does
+// not echo the text.
 func ParseToolCallState(text string) (ToolCallState, error) {
 	for _, state := range ToolCallStates() {
 		if state.String() == text {
 			return state, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownToolCallState, text)
+	return 0, ErrUnknownToolCallState
 }
 
 // MarshalText writes the text form of the state. A value that names no state returns
@@ -191,7 +211,7 @@ func (e BackendEvent) ValidateToolCall() error {
 	case BackendKindToolDone:
 		return e.validateToolCallResult()
 	}
-	return fmt.Errorf("%w: kind %q carries a call", ErrInvalidToolCall, e.Kind)
+	return fmt.Errorf("%w: only %s and %s events carry a call", ErrInvalidToolCall, BackendKindTool, BackendKindToolDone)
 }
 
 func (e BackendEvent) validateToolCallStart() error {
@@ -200,7 +220,7 @@ func (e BackendEvent) validateToolCallStart() error {
 	case call.State != ToolCallStarted:
 		return fmt.Errorf("%w: %s carries a %v call", ErrInvalidToolCall, BackendKindTool, call.State)
 	case e.Tool != call.Tool:
-		return fmt.Errorf("%w: event tool %q differs from call tool %q", ErrInvalidToolCall, e.Tool, call.Tool)
+		return fmt.Errorf("%w: event tool differs from call tool", ErrInvalidToolCall)
 	case e.Detail != call.Detail:
 		return fmt.Errorf("%w: event detail differs from call detail", ErrInvalidToolCall)
 	case !call.At.IsZero():
@@ -215,7 +235,7 @@ func (e BackendEvent) validateToolCallResult() error {
 	case !call.State.Finished():
 		return fmt.Errorf("%w: %s carries a %v call", ErrInvalidToolCall, BackendKindToolDone, call.State)
 	case e.Tool != "":
-		return fmt.Errorf("%w: %s carries tool %q", ErrInvalidToolCall, BackendKindToolDone, e.Tool)
+		return fmt.Errorf("%w: %s carries a tool", ErrInvalidToolCall, BackendKindToolDone)
 	case e.Detail != "":
 		return fmt.Errorf("%w: %s carries a detail", ErrInvalidToolCall, BackendKindToolDone)
 	case !call.At.IsZero():

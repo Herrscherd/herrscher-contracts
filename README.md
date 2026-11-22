@@ -402,9 +402,9 @@ kind carries a stamped `At`. A `tool` event without a call stays valid, and a
 `tool_done` event without a call is refused.
 
 The host must run `BackendEvent.ValidateToolCall` on every `BackendEvent` it
-receives, before it copies the `ToolCall` to an `Event`. On a refusal the host must
-drop the `ToolCall` from that event and log the refusal. The rest of the event, its
-text and its tokens, must still flow.
+receives, before it copies the `ToolCall` to an `Event`. On a refusal the host
+must drop the `ToolCall` from that event and log the refusal. The rest of the
+event, its text and its tokens, must still flow.
 
 `ToolCall.At` is stamped by the host alone. A backend leaves it zero, and the
 host sets it when it receives the transition. It is the time that travels on
@@ -415,29 +415,47 @@ value on the wire is omitted.
 secrets. It is set on the start only. An exporter must not send it outside the
 host unless the operator opts in.
 
-Gateways are host plugins, so they sit inside the boundary. They already render
-`Tool` and `Detail` as the status line, so `Event.ToolCall.Detail` reaching a
-gateway changes nothing. The opt-in rule concerns exporters that send data out of
-the host to a telemetry backend.
+Gateways are host plugins, so they sit inside the boundary. They already
+render `Tool` and `Detail` as the status line, so `Event.ToolCall.Detail`
+reaching a gateway changes nothing. The opt-in rule concerns exporters that send
+data out of the host to a telemetry backend.
 
 `ToolCall.Error` is a short human reason for a failed call. It is set only on a
 `failed` transition and empty otherwise. It can carry the same content as
 `Detail` (stderr, a command, a token), so an exporter does not send it outside
-the host unless the operator opts in. For OpenTelemetry, `error.type` takes the
-closed value `tool_failed`, never the `Error` text. `Event.tool_call` is omitted
-when the backend reports no lifecycle. Failed on the wire looks like this:
-`{"t":"status","tool_call":{"id":"c1","tool":"Bash","state":"failed","error":"exit 1"}}`.
+the host unless the operator opts in. The OpenTelemetry mapping is future work:
+an exporter will map `error.type` to the closed value `tool_failed`, never to
+the `Error` text. `Event.tool_call` is omitted when the backend reports no
+lifecycle.
+A failed call on the wire, pretty-printed for reading:
+
+```json
+{
+  "t": "status",
+  "tool_call": {
+    "id": "c1",
+    "tool": "Bash",
+    "state": "failed",
+    "error": "exit 1"
+  }
+}
+```
 
 A `ToolCall` is parsed once, at the boundary. Decoding refuses a call with no
 `state`, an unknown state, an empty `id`, an empty `tool`, an `error` on a state
 other than `failed`, or a `detail` on a finished call (`succeeded` or `failed`).
-Each refusal matches `ErrInvalidToolCall` with `errors.Is`. A call whose fields have
-the wrong JSON type, or whose state text names no state, is refused the same way.
-A document that is not valid JSON is not a refused call: `encoding/json` returns
-its `*json.SyntaxError` before the call is decoded, and `errors.Is(err,
-ErrInvalidToolCall)` is false for it. `ToolCall.Validate` applies the same rules
-to a call built in Go, and `ToolCall.MarshalJSON` runs it, so an invalid call
-never reaches the wire.
+Each refusal matches `ErrInvalidToolCall` with `errors.Is`. A call whose fields
+have the wrong JSON type, whose state text names no state, or whose `at` is not
+an RFC 3339 time, is refused the same way. A document that is not valid JSON is
+not a refused call: `encoding/json` returns its `*json.SyntaxError` before the
+call is decoded, and that error does not match `ErrInvalidToolCall`.
+`ToolCall.Validate` applies the same rules to a call built in Go, and
+`ToolCall.MarshalJSON` runs it, so an invalid call never reaches the wire.
+
+No refusal echoes the input it refuses. A message names the rule that failed,
+never the text of `detail`, `error`, `state`, `at` or `tool`, so a secret that
+lands in a malformed field stays out of logs. `ParseToolCallState` does not
+quote the text it was given either.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
