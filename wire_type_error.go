@@ -4,17 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 )
 
 const (
-	wireReason           = "Reason"
-	decimalBase          = 10
-	float64Bits          = 64
-	decimalPrecisionBase = 64
-	decimalDigitBits     = 4
+	wireReason  = "Reason"
+	float64Bits = 64
 )
 
 func nameWrongJSONType(err, sentinel error, subject string, wireFields []string) error {
@@ -45,15 +41,16 @@ func isOutOfRange(typeErr *json.UnmarshalTypeError) bool {
 	if !isNumber {
 		return false
 	}
-	if _, err := strconv.ParseFloat(number, float64Bits); errors.Is(err, strconv.ErrRange) {
+	if isPlainNonzeroInteger(number) {
 		return true
 	}
-	value, _, err := big.ParseFloat(number, decimalBase, decimalPrecision(number), big.ToNearestEven)
-	return err == nil && value.IsInt() && value.Sign() != 0
+	_, err := strconv.ParseFloat(number, float64Bits)
+	return errors.Is(err, strconv.ErrRange)
 }
 
-func decimalPrecision(number string) uint {
-	return uint(decimalDigitBits*len(number) + decimalPrecisionBase)
+func isPlainNonzeroInteger(number string) bool {
+	digits := strings.TrimPrefix(number, "-")
+	return strings.Trim(digits, "0123456789") == "" && strings.Trim(digits, "0") != ""
 }
 
 func wrongWireType(sentinel error, field string) error {

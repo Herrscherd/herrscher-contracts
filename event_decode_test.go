@@ -71,6 +71,8 @@ func TestDecodeEventRefusesAWrongJSONTypeByItsWireName(t *testing.T) {
 		{name: "misspelled key is canonical", input: `{"T":5}`, field: "t"},
 		{name: "nested in coordination", input: `{"t":"reply","coordination":{"kind":5}}`, field: "coordination"},
 		{name: "nested in todos", input: `{"t":"reply","todos":[{"text":5}]}`, field: "todos"},
+		{name: "exponent integer", input: `{"t":"x","tokens":1e5}`, field: "tokens"},
+		{name: "integer written as a decimal", input: `{"t":"x","tokens":1.0}`, field: "tokens"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -98,7 +100,6 @@ func TestDecodeEventNamesAnOutOfRangeNumberWithoutItsValue(t *testing.T) {
 	}{
 		{name: "top level integer", input: `{"t":"x","tokens":99999999999999999999}`, field: "tokens", value: "99999999999999999999"},
 		{name: "nested integer", input: `{"t":"x","models":[{"model":"m","in":99999999999999999999}]}`, field: "models", value: "99999999999999999999"},
-		{name: "exponent integer", input: `{"t":"x","tokens":1e5}`, field: "tokens", value: "1e5"},
 		{name: "float beyond float64", input: `{"t":"reply","cost":1e400}`, field: "cost", value: "1e400"},
 	}
 	for _, tt := range tests {

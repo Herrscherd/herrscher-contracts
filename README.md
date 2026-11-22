@@ -382,12 +382,14 @@ totals stand alone.
 A reader of the wire must decode each line, that is each `Event`, with
 `DecodeEvent(data)`. It refuses a field of the wrong JSON type, or a number out
 of range, with `ErrInvalidEvent`. Its message names the wire field, such as `t`
-or `coordination`, and never the Go type or the value. A field nested in
-`coordination`, `todos`, `models` or `subagent` is named by its top-level
-field. A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, a
-document
-that is not valid JSON is returned as its `*json.SyntaxError`, and a `null`
-decodes to the zero `Event`.
+or `coordination`, and never the Go type or the value. A number is out of range
+when it is a nonzero integer written with digits only, an optional minus sign
+in front, that its integer field cannot hold, or when it is beyond `float64`.
+Any other number refused by an integer field, such as `1.5`, `1.0` or `1e2`, has
+the wrong JSON type. A field nested in `coordination`, `todos`, `models` or
+`subagent` is named by its top-level field. A `tool_call` refused inside the
+event keeps `ErrInvalidToolCall`, a document that is not valid JSON is returned
+as its `*json.SyntaxError`, and a `null` decodes to the zero `Event`.
 
 A type that embeds `Event` must decode its `Event` with `DecodeEvent` too, then
 read its own envelope fields apart. It never receives a promoted
@@ -836,8 +838,9 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `Codes` for `Renderer` to refuse. A value of kind 1 to 3 that is absent,
   `null` or of the wrong JSON type is refused with `ErrNoticeArgs`; `null` is
   reserved for the zero argument (kind 0). A wrong JSON type or a number out of
-  range in a notice is named `code` or `args`, the wire field, with `has the wrong JSON type` or `is out of range`, and never the Go type or the value. A
-  value whose kind is unknown is kept as its JSON, and it encodes back in an
+  range in a notice, by the rule of `DecodeEvent`, is named `code` or `args`,
+  the wire field, with `has the wrong JSON type` or `is out of range`, and never
+  the Go type or the value. A value whose kind is unknown is kept as its JSON, and it encodes back in an
   equivalent compact form: spaces are removed, and the HTML characters `<`, `>`
   and `&` are written in their escaped form (`\u003c`, `\u003e` and `\u0026`),
   as `encoding/json` does. `Renderer` refuses such an argument. A `null`
