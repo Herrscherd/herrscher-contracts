@@ -68,6 +68,16 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 			field: "code",
 		},
 		{
+			name:  "code fraction beyond 64 bits",
+			input: `{"code":1.0000000000000000000001}`,
+			field: "code",
+		},
+		{
+			name:  "code fraction rounding to zero",
+			input: `{"code":1e-999999999}`,
+			field: "code",
+		},
+		{
 			name:  "argument name",
 			input: fmt.Sprintf(`{"code":1,"args":[{"name":[%q],"kind":1,"value":"x"}]}`, receivedSecret),
 			field: noticeWireArgs,
