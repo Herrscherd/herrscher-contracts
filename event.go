@@ -93,7 +93,8 @@ type Event struct {
 }
 
 // ErrInvalidEvent is returned when a field of an event's JSON has the wrong
-// JSON type. The message names the wire field, such as t or coordination, and
+// JSON type or a number out of range. The message names the wire field, such as
+// t or coordination, and
 // never the Go type or the value. A field nested in coordination, todos, models
 // or subagent is named by its top-level field. A tool_call refused inside the
 // event keeps [ErrInvalidToolCall], and a document that is not valid JSON is
@@ -104,7 +105,8 @@ var ErrInvalidEvent = errors.New("invalid event")
 type eventWire Event
 
 // DecodeEvent decodes one event from its JSON form. A field of the wrong JSON
-// type is refused with [ErrInvalidEvent], whose message names the wire field and
+// type or a number out of range is refused with [ErrInvalidEvent], whose message
+// names the wire field and
 // never the Go type or the value, and a tool_call refused inside the event keeps
 // [ErrInvalidToolCall]. A document that is not valid JSON returns its
 // *json.SyntaxError unchanged. A null decodes to the zero Event. This is the

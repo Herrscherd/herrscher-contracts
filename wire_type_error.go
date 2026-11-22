@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -14,11 +15,35 @@ func nameWrongJSONType(err, sentinel error, subject string, wireFields []string)
 	if !ok {
 		return err
 	}
-	return wrongWireType(sentinel, wireFieldOf(typeErr.Field, wireFields, subject))
+	return wireTypeError(sentinel, wireFieldOf(typeErr.Field, wireFields, subject), typeErr)
+}
+
+func nameWrongJSONTypeOf(err, sentinel error, field string) error {
+	return nameWrongJSONType(err, sentinel, field, nil)
+}
+
+func wireTypeError(sentinel error, field string, typeErr *json.UnmarshalTypeError) error {
+	if isOutOfRange(typeErr) {
+		return wrongWireRange(sentinel, field)
+	}
+	return wrongWireType(sentinel, field)
+}
+
+func isOutOfRange(typeErr *json.UnmarshalTypeError) bool {
+	number, isNumber := strings.CutPrefix(typeErr.Value, "number ")
+	if !isNumber {
+		return false
+	}
+	_, parseErr := strconv.ParseInt(number, 10, 64)
+	return parseErr == nil || errors.Is(parseErr, strconv.ErrRange)
 }
 
 func wrongWireType(sentinel error, field string) error {
 	return fmt.Errorf("%w: %s has the wrong JSON type", sentinel, field)
+}
+
+func wrongWireRange(sentinel error, field string) error {
+	return fmt.Errorf("%w: %s is out of range", sentinel, field)
 }
 
 func wireFieldOf(path string, wireFields []string, subject string) string {

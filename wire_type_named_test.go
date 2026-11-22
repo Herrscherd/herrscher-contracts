@@ -30,6 +30,22 @@ func requireNamedWireType(t *testing.T, err, sentinel error, field string) {
 	}
 }
 
+func requireNamedWireRange(t *testing.T, err, sentinel error, field, value string) {
+	t.Helper()
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("error = %v, want it to match %v", err, sentinel)
+	}
+	msg := err.Error()
+	if want := field + " is out of range"; !strings.Contains(msg, want) {
+		t.Fatalf("message %q does not contain %q", msg, want)
+	}
+	for _, leak := range []string{value, "contracts.", "Go", "of type", "uint16", "uint8", "int64"} {
+		if strings.Contains(msg, leak) {
+			t.Fatalf("message %q leaks %q: it must name the wire field only", msg, leak)
+		}
+	}
+}
+
 func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -40,6 +56,21 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 			name:  "code",
 			input: fmt.Sprintf(`{"code":%q}`, receivedSecret),
 			field: "code",
+		},
+		{
+			name:  "code fraction",
+			input: `{"code":1.5}`,
+			field: "code",
+		},
+		{
+			name:  "argument name",
+			input: `{"code":1,"args":[{"name":5,"kind":1,"value":"x"}]}`,
+			field: noticeWireArgs,
+		},
+		{
+			name:  "argument kind",
+			input: `{"code":1,"args":[{"name":"n","kind":"x","value":"x"}]}`,
+			field: noticeWireArgs,
 		},
 		{
 			name:  "args not a list",
@@ -62,6 +93,27 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 			var n Notice
 			err := json.Unmarshal([]byte(tt.input), &n)
 			requireNamedWireType(t, err, ErrNoticeArgs, tt.field)
+		})
+	}
+}
+
+func TestNoticeOutOfRangeNamesTheWireFieldNotTheNumber(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		field string
+		value string
+	}{
+		{name: "code", input: `{"code":70000}`, field: "code", value: "70000"},
+		{name: "code beyond int64", input: `{"code":99999999999999999999999}`, field: "code", value: "99999999999999999999999"},
+		{name: "kind", input: `{"code":1,"args":[{"name":"n","kind":300,"value":"x"}]}`, field: noticeWireArgs, value: "300"},
+		{name: "kind negative", input: `{"code":1,"args":[{"name":"n","kind":-1,"value":"x"}]}`, field: noticeWireArgs, value: "-1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var n Notice
+			err := json.Unmarshal([]byte(tt.input), &n)
+			requireNamedWireRange(t, err, ErrNoticeArgs, tt.field, tt.value)
 		})
 	}
 }
