@@ -53,7 +53,7 @@ func ParseLimitWindow(text string) (LimitWindow, error) {
 			return window, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownLimitWindow, text)
+	return 0, ErrUnknownLimitWindow
 }
 
 // MarshalText writes the text form of the window. A value that names no window
