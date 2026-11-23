@@ -541,7 +541,7 @@ stays out of logs. A field is named in its wire spelling from a fixed list, so a
 key the input wrote differently (`ID` for `id`) is never echoed either.
 `ParseToolCallState` does not quote the text it was given either. A refusal may
 give a number, such as an ordinal, a count, a length or an index: it names a
-position or a size, not the input. Three exceptions apply. The first is the `*json.SyntaxError` of a document that is not valid
+position or a size, not the input. Four exceptions apply. The first is the `*json.SyntaxError` of a document that is not valid
 JSON: it is not a refusal of the contract, so it may quote a character of the
 input. A logger that must keep the input out logs only the type of the error.
 The second is the `*json.MarshalerError` that `json.Marshal` wraps around a
@@ -553,6 +553,9 @@ or to `ToolCall.Validate` gives the message without it.
 The third is a path the host sets, not the input: the outbox that
 `ValidateOutboundFile` names, and the socket path and directory of `approvalsock`,
 which an error may name so the operator can find them.
+The fourth is a value fixed by the compiled code of the host, not by the input:
+a refusal may name it, as `ValidateModels` names the kind of a backend, which
+comes from the manifest of a plugin built into the binary.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
