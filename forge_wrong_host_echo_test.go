@@ -12,7 +12,7 @@ func TestRequireRepoHostRefusesAWrongHostWithoutEchoingTheRepository(t *testing.
 	if err != nil {
 		t.Fatalf("ParseForgeHost: %v", err)
 	}
-	repo, err := ParseRepoRef("github.com/" + receivedSecret + "/hello")
+	repo, err := ParseRepoRef("github.com/" + receivedProbe + "/hello")
 	if err != nil {
 		t.Fatalf("ParseRepoRef: %v", err)
 	}
@@ -20,5 +20,5 @@ func TestRequireRepoHostRefusesAWrongHostWithoutEchoingTheRepository(t *testing.
 	if !errors.Is(err, ErrForgeWrongHost) {
 		t.Fatalf("error = %v, want ErrForgeWrongHost", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

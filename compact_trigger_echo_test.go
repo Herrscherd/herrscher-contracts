@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseCompactTriggerRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseCompactTrigger(receivedSecret)
+	_, err := ParseCompactTrigger(receivedProbe)
 	if !errors.Is(err, ErrUnknownCompactTrigger) {
 		t.Fatalf("error = %v, want ErrUnknownCompactTrigger", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

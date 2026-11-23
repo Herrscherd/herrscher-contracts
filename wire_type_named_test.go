@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	receivedSecret      = echotest.Probe
+	receivedProbe       = echotest.Probe
 	oversizedValueBytes = 70000
 	unknownArgKind      = 9
 )
@@ -30,7 +30,7 @@ func requireNamedWireType(t *testing.T, err, sentinel error, field string) {
 			t.Fatalf("message %q leaks %q: it must name the wire field only", msg, leak)
 		}
 	}
-	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedProbe)
 }
 
 func requireNamedWireRange(t *testing.T, err, sentinel error, field, value string) {
@@ -58,7 +58,7 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 	}{
 		{
 			name:  "code",
-			input: fmt.Sprintf(`{"code":%q}`, receivedSecret),
+			input: fmt.Sprintf(`{"code":%q}`, receivedProbe),
 			field: "code",
 		},
 		{
@@ -103,17 +103,17 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 		},
 		{
 			name:  "argument name",
-			input: fmt.Sprintf(`{"code":1,"args":[{"name":[%q],"kind":1,"value":"x"}]}`, receivedSecret),
+			input: fmt.Sprintf(`{"code":1,"args":[{"name":[%q],"kind":1,"value":"x"}]}`, receivedProbe),
 			field: noticeWireArgs,
 		},
 		{
 			name:  "argument kind",
-			input: fmt.Sprintf(`{"code":1,"args":[{"name":"n","kind":%q,"value":"x"}]}`, receivedSecret),
+			input: fmt.Sprintf(`{"code":1,"args":[{"name":"n","kind":%q,"value":"x"}]}`, receivedProbe),
 			field: noticeWireArgs,
 		},
 		{
 			name:  "args not a list",
-			input: fmt.Sprintf(`{"code":1,"args":{%q:1}}`, receivedSecret),
+			input: fmt.Sprintf(`{"code":1,"args":{%q:1}}`, receivedProbe),
 			field: noticeWireArgs,
 		},
 		{
@@ -123,7 +123,7 @@ func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
 		},
 		{
 			name:  "argument value holds the secret",
-			input: fmt.Sprintf(`{"code":1,"args":[{"name":"n","kind":%d,"value":[%q]}]}`, ArgCount, receivedSecret),
+			input: fmt.Sprintf(`{"code":1,"args":[{"name":"n","kind":%d,"value":[%q]}]}`, ArgCount, receivedProbe),
 			field: noticeWireArgs,
 		},
 	}
@@ -165,9 +165,9 @@ func TestApprovalRequestWrongJSONTypeNamesTheWireField(t *testing.T) {
 		input string
 		field string
 	}{
-		{name: "ID", input: fmt.Sprintf(`{"ID":[%q]}`, receivedSecret), field: "ID"},
+		{name: "ID", input: fmt.Sprintf(`{"ID":[%q]}`, receivedProbe), field: "ID"},
 		{name: "Tool", input: `{"Tool":5}`, field: "Tool"},
-		{name: "Subject", input: fmt.Sprintf(`{"Subject":{"v":%q}}`, receivedSecret), field: "Subject"},
+		{name: "Subject", input: fmt.Sprintf(`{"Subject":{"v":%q}}`, receivedProbe), field: "Subject"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -184,10 +184,10 @@ func TestApprovalAnswerWrongJSONTypeNamesTheWireField(t *testing.T) {
 		input string
 		field string
 	}{
-		{name: "ID", input: fmt.Sprintf(`{"ID":[%q]}`, receivedSecret), field: "ID"},
+		{name: "ID", input: fmt.Sprintf(`{"ID":[%q]}`, receivedProbe), field: "ID"},
 		{name: "Decision", input: `{"Decision":5}`, field: "Decision"},
-		{name: "Reason", input: fmt.Sprintf(`{"Reason":{"v":%q}}`, receivedSecret), field: "Reason"},
-		{name: "Refusal", input: fmt.Sprintf(`{"Refusal":[%q]}`, receivedSecret), field: "Refusal"},
+		{name: "Reason", input: fmt.Sprintf(`{"Reason":{"v":%q}}`, receivedProbe), field: "Reason"},
+		{name: "Refusal", input: fmt.Sprintf(`{"Refusal":[%q]}`, receivedProbe), field: "Refusal"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -200,7 +200,7 @@ func TestApprovalAnswerWrongJSONTypeNamesTheWireField(t *testing.T) {
 
 func TestApprovalAnswerUnknownDecisionNamesTheFieldNotTheText(t *testing.T) {
 	var answer ApprovalAnswer
-	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"`+receivedSecret+`"}`), &answer)
+	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"`+receivedProbe+`"}`), &answer)
 	if !errors.Is(err, ErrInvalidDecision) || !errors.Is(err, ErrInvalidApproval) {
 		t.Fatalf("error = %v, want it to match ErrInvalidDecision and ErrInvalidApproval", err)
 	}
@@ -208,20 +208,20 @@ func TestApprovalAnswerUnknownDecisionNamesTheFieldNotTheText(t *testing.T) {
 	if !strings.Contains(msg, "Decision") {
 		t.Fatalf("message %q does not name Decision", msg)
 	}
-	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedProbe)
 }
 
 func TestApprovalDecisionUnknownTextIsNotEchoed(t *testing.T) {
 	var decision ApprovalDecision
-	err := json.Unmarshal([]byte(`"`+receivedSecret+`"`), &decision)
+	err := json.Unmarshal([]byte(`"`+receivedProbe+`"`), &decision)
 	if !errors.Is(err, ErrInvalidDecision) {
 		t.Fatalf("error = %v, want ErrInvalidDecision", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }
 
 func TestNoticeArgumentErrorNamesTheWireFieldNotTheValue(t *testing.T) {
-	oversized := `"` + receivedSecret + strings.Repeat("a", oversizedValueBytes) + `"`
+	oversized := `"` + receivedProbe + strings.Repeat("a", oversizedValueBytes) + `"`
 	tests := []struct {
 		name     string
 		input    string
@@ -257,7 +257,7 @@ func TestNoticeArgumentErrorNamesTheWireFieldNotTheValue(t *testing.T) {
 			if strings.Contains(msg, "nom-fil") || strings.Contains(msg, "aaa") {
 				t.Fatalf("message %q echoes the received value", msg)
 			}
-			echotest.RequireNoSecretFragment(t, msg, receivedSecret)
+			echotest.RequireNoSecretFragment(t, msg, receivedProbe)
 		})
 	}
 }

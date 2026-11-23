@@ -48,11 +48,11 @@ func TestTurnOutcomeEmptyIsACompletedTurn(t *testing.T) {
 
 func TestTurnOutcomeRefusesAnUnknownTextWithoutEcho(t *testing.T) {
 	var outcome TurnOutcome
-	err := outcome.UnmarshalText([]byte(receivedSecret))
+	err := outcome.UnmarshalText([]byte(receivedProbe))
 	if !errors.Is(err, ErrUnknownTurnOutcome) {
 		t.Fatalf("error = %v, want ErrUnknownTurnOutcome", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }
 
 func TestTurnOutcomeMarshalRefusesAnUnknownValue(t *testing.T) {
@@ -63,7 +63,7 @@ func TestTurnOutcomeMarshalRefusesAnUnknownValue(t *testing.T) {
 }
 
 func TestDecodeEventRefusesAnUnknownOutcomeByItsWireName(t *testing.T) {
-	input := fmt.Sprintf(`{"t":"reply","done":true,"outcome":%q}`, receivedSecret)
+	input := fmt.Sprintf(`{"t":"reply","done":true,"outcome":%q}`, receivedProbe)
 	_, err := DecodeEvent([]byte(input))
 	if !errors.Is(err, ErrInvalidEvent) || !errors.Is(err, ErrUnknownTurnOutcome) {
 		t.Fatalf("error = %v, want ErrInvalidEvent and ErrUnknownTurnOutcome", err)
@@ -72,5 +72,5 @@ func TestDecodeEventRefusesAnUnknownOutcomeByItsWireName(t *testing.T) {
 	if !strings.Contains(msg, "outcome") {
 		t.Fatalf("message %q does not name outcome", msg)
 	}
-	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedProbe)
 }

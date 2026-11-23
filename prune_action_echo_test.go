@@ -8,9 +8,9 @@ import (
 )
 
 func TestParsePruneActionRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParsePruneAction(receivedSecret)
+	_, err := ParsePruneAction(receivedProbe)
 	if !errors.Is(err, ErrUnknownPruneAction) {
 		t.Fatalf("error = %v, want ErrUnknownPruneAction", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

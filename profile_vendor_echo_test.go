@@ -8,9 +8,9 @@ import (
 )
 
 func TestProfileHomeEnvRefusesAVendorWithoutEchoingIt(t *testing.T) {
-	_, err := ProfileHomeEnv(receivedSecret)
+	_, err := ProfileHomeEnv(receivedProbe)
 	if !errors.Is(err, ErrNoProfileHome) {
 		t.Fatalf("error = %v, want ErrNoProfileHome", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

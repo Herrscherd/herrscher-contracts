@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseCompactOutcomeRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseCompactOutcome(receivedSecret)
+	_, err := ParseCompactOutcome(receivedProbe)
 	if !errors.Is(err, ErrUnknownCompactOutcome) {
 		t.Fatalf("error = %v, want ErrUnknownCompactOutcome", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

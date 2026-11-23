@@ -14,9 +14,9 @@ func TestParseForgeHostRefusalsDoNotEchoTheirInput(t *testing.T) {
 		name string
 		text string
 	}{
-		{"nonASCII", receivedSecret + "é.example.com"},
-		{"port", "forge.example.com:" + receivedSecret},
-		{"length", strings.Join([]string{receivedSecret, label, label, label, label, "com"}, ".")},
+		{"nonASCII", receivedProbe + "é.example.com"},
+		{"port", "forge.example.com:" + receivedProbe},
+		{"length", strings.Join([]string{receivedProbe, label, label, label, label, "com"}, ".")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -24,7 +24,7 @@ func TestParseForgeHostRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, ErrInvalidForgeHost) {
 				t.Fatalf("error = %v, want ErrInvalidForgeHost", err)
 			}
-			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 		})
 	}
 }
@@ -34,10 +34,10 @@ func TestParseRepoRefRefusalsDoNotEchoTheirInput(t *testing.T) {
 		name string
 		text string
 	}{
-		{"reservedQuery", "github.com/octo/" + receivedSecret + "?x"},
-		{"reservedLength", "github.com/octo/" + receivedSecret + strings.Repeat("a", maxRepoRefBytes)},
-		{"hostError", receivedSecret + "/octo/hello"},
-		{"path", "github.com/" + receivedSecret},
+		{"reservedQuery", "github.com/octo/" + receivedProbe + "?x"},
+		{"reservedLength", "github.com/octo/" + receivedProbe + strings.Repeat("a", maxRepoRefBytes)},
+		{"hostError", receivedProbe + "/octo/hello"},
+		{"path", "github.com/" + receivedProbe},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestParseRepoRefRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, ErrInvalidRepoRef) {
 				t.Fatalf("error = %v, want ErrInvalidRepoRef", err)
 			}
-			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 		})
 	}
 }

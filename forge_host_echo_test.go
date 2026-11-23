@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseForgeHostRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseForgeHost(receivedSecret)
+	_, err := ParseForgeHost(receivedProbe)
 	if !errors.Is(err, ErrInvalidForgeHost) {
 		t.Fatalf("error = %v, want ErrInvalidForgeHost", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

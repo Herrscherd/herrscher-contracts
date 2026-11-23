@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseApprovalRefusalRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseApprovalRefusal(receivedSecret)
+	_, err := ParseApprovalRefusal(receivedProbe)
 	if !errors.Is(err, ErrInvalidRefusal) {
 		t.Fatalf("error = %v, want ErrInvalidRefusal", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

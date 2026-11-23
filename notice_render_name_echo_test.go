@@ -18,15 +18,15 @@ func TestRenderRefusesAnArgumentWithoutEchoingItsName(t *testing.T) {
 	}{
 		{
 			name:  "count kind under a name that is not count",
-			input: fmt.Sprintf(`{"code":%d,"args":[{"name":%q,"kind":%d,"value":5}]}`, uint16(CodeSessionNotFound), receivedSecret, uint8(ArgCount)),
+			input: fmt.Sprintf(`{"code":%d,"args":[{"name":%q,"kind":%d,"value":5}]}`, uint16(CodeSessionNotFound), receivedProbe, uint8(ArgCount)),
 		},
 		{
 			name:  "undeclared name",
-			input: fmt.Sprintf(`{"code":%d,"args":[{"name":%q,"kind":%d,"value":"x"}]}`, uint16(CodeSessionNotFound), receivedSecret, uint8(ArgText)),
+			input: fmt.Sprintf(`{"code":%d,"args":[{"name":%q,"kind":%d,"value":"x"}]}`, uint16(CodeSessionNotFound), receivedProbe, uint8(ArgText)),
 		},
 		{
 			name:  "unknown kind",
-			input: fmt.Sprintf(`{"code":%d,"args":[{"name":%q,"kind":%d,"value":"x"}]}`, uint16(CodeSessionNotFound), receivedSecret, unknownArgKind),
+			input: fmt.Sprintf(`{"code":%d,"args":[{"name":%q,"kind":%d,"value":"x"}]}`, uint16(CodeSessionNotFound), receivedProbe, unknownArgKind),
 		},
 	}
 	for _, tt := range tests {
@@ -39,7 +39,7 @@ func TestRenderRefusesAnArgumentWithoutEchoingItsName(t *testing.T) {
 			if !errors.Is(err, ErrNoticeArgs) {
 				t.Fatalf("error = %v, want ErrNoticeArgs", err)
 			}
-			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 		})
 	}
 }

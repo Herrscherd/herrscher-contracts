@@ -136,7 +136,7 @@ func TestDecodeEventKeepsAToolCallRefusal(t *testing.T) {
 }
 
 func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
-	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":"` + receivedSecret + `"}`))
+	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":"` + receivedProbe + `"}`))
 	if !errors.Is(err, ErrInvalidToolCall) {
 		t.Fatalf("DecodeEvent() = %v, want ErrInvalidToolCall", err)
 	}
@@ -144,7 +144,7 @@ func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
 	if !strings.Contains(msg, "tool_call has the wrong JSON type") {
 		t.Fatalf("message %q does not name tool_call", msg)
 	}
-	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedProbe)
 }
 
 func TestDecodeEventLeavesASyntaxErrorUnwrapped(t *testing.T) {

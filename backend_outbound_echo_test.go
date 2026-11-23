@@ -15,23 +15,23 @@ func TestValidateOutboundFileRefusesWithoutEchoingTheFile(t *testing.T) {
 	}{
 		{
 			name: "relative path",
-			file: OutboundFile{Path: receivedSecret + "/fact.txt", Name: "fact.txt"},
+			file: OutboundFile{Path: receivedProbe + "/fact.txt", Name: "fact.txt"},
 		},
 		{
 			name: "path outside the outbox",
-			file: OutboundFile{Path: "/" + receivedSecret + "/elsewhere", Name: "fact.txt"},
+			file: OutboundFile{Path: "/" + receivedProbe + "/elsewhere", Name: "fact.txt"},
 		},
 		{
 			name: "name with a separator",
-			file: OutboundFile{Path: outbox + "/fact.txt", Name: receivedSecret + "/x"},
+			file: OutboundFile{Path: outbox + "/fact.txt", Name: receivedProbe + "/x"},
 		},
 		{
 			name: "name that is a dot",
-			file: OutboundFile{Path: outbox + "/" + receivedSecret, Name: "."},
+			file: OutboundFile{Path: outbox + "/" + receivedProbe, Name: "."},
 		},
 		{
 			name: "content type that does not parse",
-			file: OutboundFile{Path: outbox + "/fact.txt", Name: "fact.txt", ContentType: receivedSecret + "; ;"},
+			file: OutboundFile{Path: outbox + "/fact.txt", Name: "fact.txt", ContentType: receivedProbe + "; ;"},
 		},
 	}
 	for _, tt := range tests {
@@ -40,7 +40,7 @@ func TestValidateOutboundFileRefusesWithoutEchoingTheFile(t *testing.T) {
 			if !errors.Is(err, ErrInvalidOutboundFile) {
 				t.Fatalf("error = %v, want ErrInvalidOutboundFile", err)
 			}
-			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 		})
 	}
 }

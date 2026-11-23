@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseHealthStateRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseHealthState(receivedSecret)
+	_, err := ParseHealthState(receivedProbe)
 	if !errors.Is(err, ErrUnknownHealthState) {
 		t.Fatalf("error = %v, want ErrUnknownHealthState", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

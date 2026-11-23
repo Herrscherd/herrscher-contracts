@@ -113,7 +113,7 @@ it is absent.
 | `PageRequest`, `PageCursor`, `Page`, `MaxPageLimit`, `ErrInvalidPageLimit` | `forge_page.go` | a paged read: a cursor, a limit from 0 to `MaxPageLimit`, and the page that returns the items and the next cursor |
 | `MaxJobLogBytes`, `ValidateLogLimit`, `ErrInvalidLogLimit` | `forge_refs.go` | the largest log tail `Forge.JobLog` returns, and the check of a requested size against it |
 | `CheckRefusesForeignHost` | `forgetest/` | test support, imported from `_test.go` files only: calls every method of a `Forge` that takes a repository, pull request, job, thread or issue with a reference on a foreign host, and fails the test unless each returns `ErrForgeWrongHost`. A plugin runs it against its forge in its own tests |
-| `RequireRefusalWithoutEcho`, `RequireBareSentinel`, `RequireNoSecretFragment`, `Secret` | `echotest/` | test support, imported from `_test.go` files only: the checks that a refusal does not echo the input it refuses, by a run of four bytes, and that a bare sentinel carries no text added to it |
+| `RequireRefusalWithoutEcho`, `RequireBareSentinel`, `RequireNoSecretFragment`, `Probe` | `echotest/` | test support, imported from `_test.go` files only: the checks that a refusal does not echo the input it refuses, by a run of four bytes, and that a bare sentinel carries no text added to it |
 
 ## Registration and config
 

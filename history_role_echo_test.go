@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseHistoryRoleRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseHistoryRole(receivedSecret)
+	_, err := ParseHistoryRole(receivedProbe)
 	if !errors.Is(err, ErrUnknownHistoryRole) {
 		t.Fatalf("error = %v, want ErrUnknownHistoryRole", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

@@ -10,7 +10,7 @@ import (
 
 func TestValidateModelsRefusalsDoNotEchoTheirInput(t *testing.T) {
 	modelWith := func(mutate func(*ModelSpec)) ModelSpec {
-		spec := ModelSpec{ID: receivedSecret, Label: "Label", Arg: "arg", Route: RouteNative}
+		spec := ModelSpec{ID: receivedProbe, Label: "Label", Arg: "arg", Route: RouteNative}
 		if mutate != nil {
 			mutate(&spec)
 		}
@@ -28,8 +28,8 @@ func TestValidateModelsRefusalsDoNotEchoTheirInput(t *testing.T) {
 		{"emptyLabel", []ModelSpec{modelWith(func(s *ModelSpec) { s.Label = " " })}, ErrModelEmptyLabel},
 		{"emptyArg", []ModelSpec{modelWith(func(s *ModelSpec) { s.Arg = " " })}, ErrModelEmptyArg},
 		{"controlCharField", []ModelSpec{modelWith(func(s *ModelSpec) { s.ID += "\x01" })}, ErrModelControlChar},
-		{"controlCharEffort", []ModelSpec{modelWith(func(s *ModelSpec) { s.Efforts = []string{receivedSecret + "\x01"} })}, ErrModelControlChar},
-		{"unknownRoute", []ModelSpec{modelWith(func(s *ModelSpec) { s.Route = Route(receivedSecret) })}, ErrModelUnknownRoute},
+		{"controlCharEffort", []ModelSpec{modelWith(func(s *ModelSpec) { s.Efforts = []string{receivedProbe + "\x01"} })}, ErrModelControlChar},
+		{"unknownRoute", []ModelSpec{modelWith(func(s *ModelSpec) { s.Route = Route(receivedProbe) })}, ErrModelUnknownRoute},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -37,7 +37,7 @@ func TestValidateModelsRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error = %v, want %v", err, tt.wantErr)
 			}
-			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 		})
 	}
 }

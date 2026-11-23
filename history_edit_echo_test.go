@@ -22,27 +22,27 @@ func TestValidateHistoryEditsRefusesEachEditByRankWithoutEchoingTheCall(t *testi
 		},
 		{
 			name:  "call edited twice",
-			edits: []HistoryEdit{keep, {CallID: receivedSecret, Action: PruneResult}, {CallID: receivedSecret, Action: PruneResult}},
+			edits: []HistoryEdit{keep, {CallID: receivedProbe, Action: PruneResult}, {CallID: receivedProbe, Action: PruneResult}},
 			want:  "edit 3 edits a call twice",
 		},
 		{
 			name:  "negative KeepChars",
-			edits: []HistoryEdit{{CallID: receivedSecret, Action: PruneResult, KeepChars: -1}},
+			edits: []HistoryEdit{{CallID: receivedProbe, Action: PruneResult, KeepChars: -1}},
 			want:  "edit 1 keeps -1 runes",
 		},
 		{
 			name:  "negative KeepTail",
-			edits: []HistoryEdit{keep, {CallID: receivedSecret, Action: PruneResult, KeepTail: -2}},
+			edits: []HistoryEdit{keep, {CallID: receivedProbe, Action: PruneResult, KeepTail: -2}},
 			want:  "edit 2 keeps -2 runes from its end",
 		},
 		{
 			name:  "tail on a pruned call",
-			edits: []HistoryEdit{{CallID: receivedSecret, Action: PruneCall, KeepTail: 3}},
+			edits: []HistoryEdit{{CallID: receivedProbe, Action: PruneCall, KeepTail: 3}},
 			want:  "edit 1 keeps a tail of a pruned call",
 		},
 		{
 			name:  "unknown action",
-			edits: []HistoryEdit{keep, {CallID: receivedSecret, Action: PruneAction(99)}},
+			edits: []HistoryEdit{keep, {CallID: receivedProbe, Action: PruneAction(99)}},
 			want:  "edit 2: unknown prune action: 99",
 		},
 	}
@@ -55,7 +55,7 @@ func TestValidateHistoryEditsRefusesEachEditByRankWithoutEchoingTheCall(t *testi
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("message %q does not name %q", err, tt.want)
 			}
-			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 		})
 	}
 }

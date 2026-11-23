@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseCommitSHARefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseCommitSHA(receivedSecret)
+	_, err := ParseCommitSHA(receivedProbe)
 	if !errors.Is(err, ErrInvalidCommitSHA) {
 		t.Fatalf("error = %v, want ErrInvalidCommitSHA", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

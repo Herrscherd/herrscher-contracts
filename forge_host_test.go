@@ -182,6 +182,6 @@ func mustParseForgeHost(t *testing.T, text string) ForgeHost {
 }
 
 func TestParseForgeHostRefusalRepeatsNoPartOfTheText(t *testing.T) {
-	_, err := ParseForgeHost(receivedSecret + strings.Repeat("x", 200) + "!")
+	_, err := ParseForgeHost(receivedProbe + strings.Repeat("x", 200) + "!")
 	echotest.RequireBareSentinel(t, err, ErrInvalidForgeHost)
 }

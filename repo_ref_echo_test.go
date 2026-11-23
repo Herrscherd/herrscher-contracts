@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseRepoRefRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseRepoRef(receivedSecret)
+	_, err := ParseRepoRef(receivedProbe)
 	if !errors.Is(err, ErrInvalidRepoRef) {
 		t.Fatalf("error = %v, want ErrInvalidRepoRef", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

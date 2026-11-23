@@ -10,10 +10,10 @@ import (
 )
 
 func TestArgMarshalJSONRefusesALongValueWithoutEchoingTheName(t *testing.T) {
-	arg := Text(receivedSecret, strings.Repeat("a", maxNoticeArgBytes+1))
+	arg := Text(receivedProbe, strings.Repeat("a", maxNoticeArgBytes+1))
 	_, err := json.Marshal(arg)
 	if !errors.Is(err, ErrNoticeLimit) {
 		t.Fatalf("error = %v, want ErrNoticeLimit", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

@@ -20,7 +20,7 @@ func TestDecodeEventReadsANullOutcomeAsACompletedTurn(t *testing.T) {
 
 func TestPlainUnmarshalReturnsTheBareUnknownOutcome(t *testing.T) {
 	var event Event
-	err := json.Unmarshal([]byte(fmt.Sprintf(`{"t":"reply","outcome":%q}`, receivedSecret)), &event)
+	err := json.Unmarshal([]byte(fmt.Sprintf(`{"t":"reply","outcome":%q}`, receivedProbe)), &event)
 	if !errors.Is(err, ErrUnknownTurnOutcome) || err.Error() != ErrUnknownTurnOutcome.Error() {
 		t.Fatalf("error = %v, want the bare ErrUnknownTurnOutcome", err)
 	}

@@ -233,11 +233,11 @@ func mustParseRepo(t *testing.T, text string) ForgeRepoRef {
 
 func TestParseRepoRefRefusalRepeatsNoPartOfTheText(t *testing.T) {
 	texts := map[string]string{
-		"too long":     receivedSecret + strings.Repeat("/x", 300),
-		"query":        receivedSecret + "/octo/hello?",
-		"no path":      receivedSecret,
-		"refused host": receivedSecret + "!/octo/hello",
-		"refused name": "github.com/octo/" + receivedSecret + "!",
+		"too long":     receivedProbe + strings.Repeat("/x", 300),
+		"query":        receivedProbe + "/octo/hello?",
+		"no path":      receivedProbe,
+		"refused host": receivedProbe + "!/octo/hello",
+		"refused name": "github.com/octo/" + receivedProbe + "!",
 	}
 	for name, text := range texts {
 		t.Run(name, func(t *testing.T) {

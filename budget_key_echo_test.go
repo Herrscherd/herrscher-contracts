@@ -8,9 +8,9 @@ import (
 )
 
 func TestBudgetErrorDoesNotRepeatTheKey(t *testing.T) {
-	err := EnforceBudget(receivedSecret, strings.Repeat("a", 10), 5)
+	err := EnforceBudget(receivedProbe, strings.Repeat("a", 10), 5)
 	if err == nil {
 		t.Fatal("EnforceBudget accepted a body over its budget")
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }

@@ -8,9 +8,9 @@ import (
 )
 
 func TestParseProfileNameRefusesAnUnknownTextWithoutEcho(t *testing.T) {
-	_, err := ParseProfileName(receivedSecret + "!")
+	_, err := ParseProfileName(receivedProbe + "!")
 	if !errors.Is(err, ErrProfileName) {
 		t.Fatalf("error = %v, want ErrProfileName", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedProbe)
 }
