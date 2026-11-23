@@ -220,7 +220,7 @@ func TestApprovalDecisionUnknownTextIsNotEchoed(t *testing.T) {
 	}
 }
 
-func TestNoticeArgumentErrorNamesTheArgumentNotTheValue(t *testing.T) {
+func TestNoticeArgumentErrorNamesTheWireFieldNotTheValue(t *testing.T) {
 	oversized := `"` + receivedSecret + strings.Repeat("a", oversizedValueBytes) + `"`
 	tests := []struct {
 		name     string
@@ -251,10 +251,10 @@ func TestNoticeArgumentErrorNamesTheArgumentNotTheValue(t *testing.T) {
 				t.Fatalf("error = %v, want it to match %v", err, tt.sentinel)
 			}
 			msg := err.Error()
-			if !strings.HasPrefix(msg, `argument "nom-fil": `) {
-				t.Fatalf("message %q does not name the argument", msg)
+			if !strings.HasPrefix(msg, "argument: ") {
+				t.Fatalf("message %q does not name the wire field", msg)
 			}
-			if strings.Contains(msg, receivedSecret) || strings.Contains(msg, "aaa") {
+			if strings.Contains(msg, "nom-fil") || strings.Contains(msg, receivedSecret) || strings.Contains(msg, "aaa") {
 				t.Fatalf("message %q echoes the received value", msg)
 			}
 		})
