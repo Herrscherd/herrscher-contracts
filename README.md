@@ -91,7 +91,7 @@ it is absent.
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
 | `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalRefusal`, `ParseApprovalRefusal`, `ErrInvalidRefusal`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
-| `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
+| `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `ErrUnreadableAnswer`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
@@ -738,8 +738,12 @@ The model is deliberately closed:
   through the same check.
 - **Decisions are parsed at the boundary.** `ParseApprovalDecision` accepts only
   `allow` and `deny`, and `ApprovalDecision` marshals and unmarshals through the
-  same check. `Ask` refuses an answer with another decision, a missing one included,
-  with `ErrInvalidDecision`. `Allowed()` still denies anything else.
+  same check. `Ask` refuses a decoded answer whose decision is unknown or missing
+  with `ErrInvalidDecision`. An answer line that is not one JSON object decoding as
+  an approval answer, or that exceeds 64 KiB, matches `ErrUnreadableAnswer`, and
+  neither error repeats the text received. A connection closed or reset before the
+  answer is a read error that matches neither sentinel. `Allowed()` still denies
+  anything else.
 - **Failure is a denial.** `Ask` returns an error for every way the daemon may
   not be reached: an open directory, an absent socket, a foreign peer, an oversized
   request, a deadline, an unreadable answer, an unknown decision, a mismatched ID.

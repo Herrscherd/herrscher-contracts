@@ -368,8 +368,40 @@ func TestAskRejectsUnreadableAnswer(t *testing.T) {
 	t.Parallel()
 	path := fakeServer(t, "not json\n")
 	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "7"})
-	if !errors.Is(err, contracts.ErrInvalidDecision) {
-		t.Fatalf("Ask error = %v, want contracts.ErrInvalidDecision", err)
+	if !errors.Is(err, approvalsock.ErrUnreadableAnswer) {
+		t.Fatalf("Ask error = %v, want approvalsock.ErrUnreadableAnswer", err)
+	}
+}
+
+func TestAskClassifiesUnreadableAnswerShapes(t *testing.T) {
+	t.Parallel()
+	for name, reply := range map[string]string{
+		"truncated":  `{"ID":"12","Decision":"al` + "\n",
+		"wrong type": `{"ID":12,"Decision":"allow"}` + "\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			path := fakeServer(t, reply)
+			_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "12"})
+			if !errors.Is(err, approvalsock.ErrUnreadableAnswer) {
+				t.Fatalf("Ask error = %v, want approvalsock.ErrUnreadableAnswer", err)
+			}
+			if errors.Is(err, contracts.ErrInvalidDecision) {
+				t.Fatalf("Ask error = %v, an unreadable answer must not match ErrInvalidDecision", err)
+			}
+		})
+	}
+}
+
+func TestAskReportsAnAnswerClosedWithoutSentinel(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, "")
+	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "13"})
+	if err == nil {
+		t.Fatal("Ask accepted a connection closed without an answer")
+	}
+	if errors.Is(err, approvalsock.ErrUnreadableAnswer) || errors.Is(err, contracts.ErrInvalidDecision) {
+		t.Fatalf("Ask error = %v, a closed connection matches neither ErrUnreadableAnswer nor ErrInvalidDecision", err)
 	}
 }
 
