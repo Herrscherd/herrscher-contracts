@@ -364,6 +364,15 @@ func TestAskRejectsAnswerWithAnotherID(t *testing.T) {
 	}
 }
 
+func TestAskRejectsAnswerWithoutID(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, `{"Decision":"allow"}`+"\n")
+	answer, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "14"})
+	if !errors.Is(err, approvalsock.ErrAnswerMismatch) {
+		t.Fatalf("Ask = %+v, error %v; want ErrAnswerMismatch for an answer without ID", answer, err)
+	}
+}
+
 func TestAskRejectsUnreadableAnswer(t *testing.T) {
 	t.Parallel()
 	path := fakeServer(t, "not json\n")
@@ -378,6 +387,8 @@ func TestAskClassifiesUnreadableAnswerShapes(t *testing.T) {
 	for name, reply := range map[string]string{
 		"truncated":  `{"ID":"12","Decision":"al` + "\n",
 		"wrong type": `{"ID":12,"Decision":"allow"}` + "\n",
+		"null":       "null\n",
+		"oversized":  `{"ID":"12","Decision":"allow","Refusal":"` + strings.Repeat("r", 64<<10) + `"}` + "\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -388,6 +399,9 @@ func TestAskClassifiesUnreadableAnswerShapes(t *testing.T) {
 			}
 			if errors.Is(err, contracts.ErrInvalidDecision) {
 				t.Fatalf("Ask error = %v, an unreadable answer must not match ErrInvalidDecision", err)
+			}
+			if errors.Is(err, approvalsock.ErrRequestTooLarge) {
+				t.Fatalf("Ask error = %v, an unreadable answer must not match ErrRequestTooLarge", err)
 			}
 		})
 	}
@@ -472,7 +486,7 @@ func answerOnce(listener net.Listener, reply string) error {
 	if _, err := bufio.NewReader(connection).ReadBytes('\n'); err != nil {
 		return err
 	}
-	if _, err := connection.Write([]byte(reply)); err != nil {
+	if _, err := connection.Write([]byte(reply)); err != nil && !errors.Is(err, syscall.EPIPE) && !errors.Is(err, syscall.ECONNRESET) {
 		return err
 	}
 	return connection.Close()

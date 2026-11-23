@@ -41,6 +41,12 @@ func TestRoundTripRefusesAnAnswerWithoutEcho(t *testing.T) {
 		"unknown decision": {
 			reply: `{"ID":"req-1","Decision":"` + echotest.Probe + `"}` + "\n", secret: echotest.Probe, sentinel: contracts.ErrInvalidDecision,
 		},
+		"null": {
+			reply: "null\n", secret: "null", sentinel: ErrUnreadableAnswer,
+		},
+		"array": {
+			reply: `["` + echotest.Probe + `"]` + "\n", secret: echotest.Probe, sentinel: ErrUnreadableAnswer,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -49,6 +55,9 @@ func TestRoundTripRefusesAnAnswerWithoutEcho(t *testing.T) {
 			go replyToRequest(t, server, tc.reply)
 			_, err := roundTrip(client, []byte(`{"ID":"req-1"}`+"\n"), "req-1")
 			echotest.RequireRefusalWithoutEcho(t, err, tc.sentinel, tc.secret)
+			if errors.Is(err, ErrRequestTooLarge) {
+				t.Fatalf("roundTrip error = %v, an answer must not match ErrRequestTooLarge", err)
+			}
 		})
 	}
 }

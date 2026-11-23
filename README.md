@@ -706,11 +706,10 @@ The model is deliberately closed:
   without an answer, and reported to the error handler as `OpBusy` with `ErrBusy`.
   The hook never receives `ErrBusy`: it sees its connection closed or reset, which
   `Ask` returns as a read error, and it reads that as a denial. The connection does
-  not wait in the listen backlog. A request is answered
-  within ten minutes: the asker's context ends then, and also when the hook closes
-  its connection, so an asker that waits for a human stops when nobody is waiting
-  for it. A malformed, oversized or silent request closes its connection without
-  reaching the asker.
+  not wait in the listen backlog. A request is answered within ten minutes: the
+  asker's context ends then, and also when the hook closes its connection, so an
+  asker that waits for a human stops when nobody is waiting for it. A malformed,
+  oversized or silent request closes its connection without reaching the asker.
 - **The client keeps its write side open until the answer.** While the asker runs,
   `Serve` watches the connection. A client that half-closes its write side after
   its request, or that closes or resets the connection, counts as departed: it
