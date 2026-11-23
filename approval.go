@@ -173,6 +173,13 @@ func approvalAnswerWireFields() []string {
 	return []string{"ID", "Decision", wireReason, "Refusal"}
 }
 
+type approvalAnswerText struct {
+	ID       string `json:"ID"`
+	Decision string `json:"Decision"`
+	Reason   string `json:"Reason"`
+	Refusal  string `json:"Refusal"`
+}
+
 // ApprovalAnswer is the verdict on the request with the same ID.
 type ApprovalAnswer struct {
 	ID       string           `json:"ID"`
@@ -220,6 +227,10 @@ func (a ApprovalAnswer) MarshalJSON() ([]byte, error) {
 func (a *ApprovalAnswer) UnmarshalJSON(data []byte) error {
 	if string(data) == jsonNull {
 		return nil
+	}
+	var text approvalAnswerText
+	if err := json.Unmarshal(data, &text); err != nil {
+		return nameWrongJSONType(err, ErrInvalidApproval, "answer", approvalAnswerWireFields())
 	}
 	type wire ApprovalAnswer
 	var incoming wire

@@ -41,8 +41,20 @@ func TestRoundTripRefusesAnAnswerWithoutEcho(t *testing.T) {
 		"unknown decision": {
 			reply: `{"ID":"req-1","Decision":"` + echotest.Probe + `"}` + "\n", secret: echotest.Probe, sentinel: contracts.ErrInvalidDecision,
 		},
+		"empty line": {
+			reply: "\n", secret: echotest.Probe, sentinel: ErrUnreadableAnswer,
+		},
 		"null": {
 			reply: "null\n", secret: "null", sentinel: ErrUnreadableAnswer,
+		},
+		"wrong Decision type before ID": {
+			reply: `{"Decision":"` + echotest.Probe + `","ID":4242}` + "\n", secret: echotest.Probe, sentinel: ErrUnreadableAnswer,
+		},
+		"wrong ID type before Decision": {
+			reply: `{"ID":4242,"Decision":"` + echotest.Probe + `"}` + "\n", secret: echotest.Probe, sentinel: ErrUnreadableAnswer,
+		},
+		"wrong Refusal type with unknown Decision": {
+			reply: `{"Refusal":7373,"Decision":"` + echotest.Probe + `"}` + "\n", secret: echotest.Probe, sentinel: ErrUnreadableAnswer,
 		},
 		"array": {
 			reply: `["` + echotest.Probe + `"]` + "\n", secret: echotest.Probe, sentinel: ErrUnreadableAnswer,

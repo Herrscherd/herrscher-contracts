@@ -198,6 +198,29 @@ func TestApprovalAnswerWrongJSONTypeNamesTheWireField(t *testing.T) {
 	}
 }
 
+func TestApprovalAnswerWrongTypeIsNamedWhateverTheFieldOrder(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		field string
+	}{
+		{name: "ID first", input: fmt.Sprintf(`{"ID":4242,"Decision":%q}`, receivedProbe), field: "ID"},
+		{name: "Decision first", input: fmt.Sprintf(`{"Decision":%q,"ID":4242}`, receivedProbe), field: "ID"},
+		{name: "Refusal first", input: fmt.Sprintf(`{"Refusal":7373,"Decision":%q}`, receivedProbe), field: "Refusal"},
+		{name: "Refusal last", input: fmt.Sprintf(`{"Decision":%q,"Refusal":7373}`, receivedProbe), field: "Refusal"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var a ApprovalAnswer
+			err := json.Unmarshal([]byte(tt.input), &a)
+			requireNamedWireType(t, err, ErrInvalidApproval, tt.field)
+			if errors.Is(err, ErrInvalidDecision) {
+				t.Fatalf("error = %v, a wrong JSON type must not match ErrInvalidDecision", err)
+			}
+		})
+	}
+}
+
 func TestApprovalAnswerUnknownDecisionNamesTheFieldNotTheText(t *testing.T) {
 	var answer ApprovalAnswer
 	err := json.Unmarshal([]byte(`{"ID":"1","Decision":"`+receivedProbe+`"}`), &answer)
