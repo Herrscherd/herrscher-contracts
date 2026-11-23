@@ -242,7 +242,7 @@ func TestEventRoundTripKeepsTurnFailedOutcome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal(decoded) error = %v", err)
 	}
-	if string(again) != string(encoded) {
+	if !bytes.Equal(again, encoded) {
 		t.Fatalf("round trip = %s, want %s", again, encoded)
 	}
 }
