@@ -3,8 +3,8 @@ package forgetest
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	contracts "github.com/Herrscherd/herrscher-contracts"
@@ -139,16 +139,14 @@ func TestCheckRefusesForeignHostGivesEachCallTenSeconds(t *testing.T) {
 }
 
 func TestCheckRefusesForeignHostLetsALateCallFinish(t *testing.T) {
-	baseline := runtime.NumGoroutine()
-	stall := make(chan struct{})
-	rec := &recorder{}
-	checkRefusesForeignHost(rec, fakeForge{refuses: true, stall: stall}, foreignRepo(t), time.Millisecond)
-	close(stall)
-	deadline := time.Now().Add(5 * time.Second)
-	for runtime.NumGoroutine() > baseline {
-		if time.Now().After(deadline) {
-			t.Fatalf("goroutines = %d after the late calls answered, want %d: a late answer must not block", runtime.NumGoroutine(), baseline)
+	synctest.Test(t, func(t *testing.T) {
+		stall := make(chan struct{})
+		rec := &recorder{}
+		checkRefusesForeignHost(rec, fakeForge{refuses: true, stall: stall}, foreignRepo(t), time.Millisecond)
+		close(stall)
+		synctest.Wait()
+		if len(rec.failures) != 10 {
+			t.Fatalf("late forge reported %d failures, want one per repository method (10): %q", len(rec.failures), rec.failures)
 		}
-		time.Sleep(time.Millisecond)
-	}
+	})
 }
