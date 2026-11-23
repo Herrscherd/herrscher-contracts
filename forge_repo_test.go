@@ -230,6 +230,17 @@ func mustParseRepo(t *testing.T, text string) ForgeRepoRef {
 }
 
 func TestParseRepoRefRefusalRepeatsNoPartOfTheText(t *testing.T) {
-	_, err := ParseRepoRef("github.com/octo/" + receivedSecret + strings.Repeat("x", 600) + "?")
-	requireBareSentinel(t, err, ErrInvalidRepoRef)
+	texts := map[string]string{
+		"too long":     receivedSecret + strings.Repeat("/x", 300),
+		"query":        receivedSecret + "/octo/hello?",
+		"no path":      receivedSecret,
+		"refused host": receivedSecret + "!/octo/hello",
+		"refused name": "github.com/octo/" + receivedSecret + "!",
+	}
+	for name, text := range texts {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseRepoRef(text)
+			requireBareSentinel(t, err, ErrInvalidRepoRef)
+		})
+	}
 }

@@ -10,7 +10,9 @@ import (
 	contracts "github.com/Herrscherd/herrscher-contracts"
 )
 
-const answeredSecret = "s3cret-answered-id"
+const answeredSecret = "zq8Vk2wXr7Lm"
+
+const echoFragmentBytes = 4
 
 func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 	client, server := net.Pipe()
@@ -36,7 +38,15 @@ func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrAnswerMismatch) {
 		t.Fatalf("error = %v, want ErrAnswerMismatch", err)
 	}
-	if strings.Contains(err.Error(), answeredSecret) {
-		t.Fatalf("message %q echoes the answer ID", err)
+	requireNoSecretFragment(t, err.Error(), answeredSecret)
+}
+
+func requireNoSecretFragment(tb testing.TB, msg, secret string) {
+	tb.Helper()
+	for start := 0; start+echoFragmentBytes <= len(secret); start++ {
+		fragment := secret[start : start+echoFragmentBytes]
+		if strings.Contains(msg, fragment) {
+			tb.Fatalf("message %q echoes %q from the answer ID", msg, fragment)
+		}
 	}
 }
