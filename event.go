@@ -35,16 +35,21 @@ type CoordinationEvent struct {
 //	{"t":"status","text":"reading envfile.go"}
 //	{"t":"chunk","text":"proposing 3 changes"}
 //	{"t":"reply","text":"done","done":true,"cost":0.0042}
+//	{"t":"reply","text":"the backend failed","done":true,"outcome":"failed"}
 //	{"t":"input","who":"terminal","text":"apply them"}
 //	{"t":"pick","value":"2"}
 //	{"t":"interrupt"}  // cancel the in-flight turn (esc-to-interrupt from a gateway)
 //	{"t":"reset"}  // the backend started a new process mid-turn and the same prompt runs again
 type Event struct {
-	T       string      `json:"t"`
-	Who     string      `json:"who,omitempty"`
-	Text    string      `json:"text,omitempty"`
-	Value   string      `json:"value,omitempty"`
-	Done    bool        `json:"done,omitempty"`
+	T     string `json:"t"`
+	Who   string `json:"who,omitempty"`
+	Text  string `json:"text,omitempty"`
+	Value string `json:"value,omitempty"`
+	Done  bool   `json:"done,omitempty"`
+	// Outcome says how the turn ended when it did not complete. It means something
+	// only on the terminal reply (Done). Its value is checked on every event, but
+	// its presence is not checked elsewhere, as for Done. The zero value is a
+	// completed turn and is omitted on the wire.
 	Outcome TurnOutcome `json:"outcome,omitempty"`
 	// Cost is the turn's total cost in USD, carried on the terminal reply
 	// (Done) so the hub can render it in the progress summary. Zero when the
@@ -108,12 +113,17 @@ type eventWire Event
 // type or a number out of range is refused with [ErrInvalidEvent], whose
 // message names the wire field and never the Go type or the value. A tool_call
 // refused inside the event keeps [ErrInvalidToolCall]. A document that is not
-// valid JSON returns its *json.SyntaxError unchanged. A null decodes to the
-// zero Event. This is the entry point that names the wire field: json.Unmarshal
-// into an Event keeps the error of encoding/json, which names the Go type.
+// valid JSON returns its *json.SyntaxError unchanged. An outcome that names no
+// turn outcome is refused with [ErrInvalidEvent] and [ErrUnknownTurnOutcome], and
+// its message does not repeat the text. A null decodes to the zero Event. This is
+// the entry point that names the wire field: json.Unmarshal into an Event keeps
+// the error of encoding/json, which names the Go type.
 func DecodeEvent(data []byte) (Event, error) {
 	var decoded eventWire
 	if err := json.Unmarshal(data, &decoded); err != nil {
+		if errors.Is(err, ErrUnknownTurnOutcome) {
+			return Event{}, unknownWireOutcome(ErrInvalidEvent, "outcome")
+		}
 		return Event{}, nameWrongJSONType(err, ErrInvalidEvent, "event", eventWireFields())
 	}
 	return Event(decoded), nil
@@ -127,16 +137,6 @@ func eventWireFields() []string {
 		"coordination", "todos", "subagent", "tool_call",
 	}
 }
-
-// TurnOutcome says how a turn ended when it did not complete: a failed backend or
-// an interrupted turn. A completed turn carries no outcome.
-type TurnOutcome string
-
-// The outcomes a terminal reply can carry besides a completed turn.
-const (
-	TurnFailed      TurnOutcome = "failed"
-	TurnInterrupted TurnOutcome = "interrupted"
-)
 
 // EventSink is an optional gateway capability: a gateway that renders the live
 // turn event stream itself (the terminal TUI does) implements it. The hub fans

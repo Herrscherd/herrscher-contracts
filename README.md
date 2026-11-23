@@ -98,7 +98,8 @@ it is absent.
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
 | `BackendKindTool`, `BackendKindToolDone`, `BackendEvent.ValidateToolCall` | `backend.go`, `tool_call.go` | the kinds that start and finish a tool call, and the check of the call's shape against its kind |
-| `DecodeEvent`, `ErrInvalidEvent` | `event.go` | the entry point that decodes an `Event` from its JSON, and the refusal of a field of the wrong type, named by its wire name |
+| `DecodeEvent`, `ErrInvalidEvent` | `event.go` | the entry point that decodes an `Event` from its JSON, and the refusal of a field of the wrong type, named by its wire name, and of an outcome that names no turn outcome |
+| `TurnOutcome`, `TurnFailed`, `TurnInterrupted`, `ParseTurnOutcome`, `ErrUnknownTurnOutcome` | `turn_outcome.go` | how a turn ended when it did not complete (`failed` or `interrupted`), carried by `Event.Outcome` on the terminal reply. The empty outcome is a completed turn. Any other text is refused, and the refusal never repeats it |
 | `ErrInvalidApproval` | `approval.go` | the refusal of an `ApprovalRequest` or `ApprovalAnswer` field of the wrong JSON type, named by its wire name, and of an `ApprovalAnswer` whose `Decision` names no decision |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
@@ -397,9 +398,20 @@ each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
+`Event.Outcome` (`TurnOutcome`) says how a turn ended when it did not complete:
+`failed` when the backend failed, `interrupted` when the turn was cut. It is
+carried on the terminal reply (`done`) only. The zero value is a completed turn,
+which is omitted on the wire. `TurnOutcome` marshals and unmarshals through
+`ParseTurnOutcome`, which refuses any other text with `ErrUnknownTurnOutcome`
+and never repeats it. The policy is strict on purpose: a reader refuses an
+outcome it does not know, instead of taking the turn for a completed one. An
+older reader therefore refuses a newer outcome with `ErrInvalidEvent` rather
+than reading the turn as a success, and a producer must not send an outcome that
+this version does not name.
+
 A reader of the wire must decode each line, that is each `Event`, with
-`DecodeEvent(data)`. It refuses a field of the wrong JSON type, or a number out
-of range, with `ErrInvalidEvent`. Its message names the wire field, such as `t`
+`DecodeEvent(data)`. It refuses a field of the wrong JSON type, a number out
+of range, or an outcome that names no turn outcome, with `ErrInvalidEvent`. Its message names the wire field, such as `t`
 or `coordination`, and never the Go type or the value. A number is out of range
 when it is a nonzero integer written with digits only, an optional minus sign
 in front, that its integer field cannot hold, or when it is beyond `float64`.
