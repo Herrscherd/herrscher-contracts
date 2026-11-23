@@ -2,10 +2,13 @@ package contracts
 
 import "fmt"
 
-const noneName = "none"
+const (
+	noneName    = "none"
+	unknownName = "unknown"
+)
 
 // TokenSource says where a forge token came from. It is a closed set whose zero
-// value is not a source: [NewForgeToken] refuses it.
+// value is not a source: [NewForgeToken] refuses it, and it renders as "unknown".
 type TokenSource int
 
 const (
@@ -19,8 +22,8 @@ const (
 	TokenSourceCLI
 )
 
-// String renders the source as its short name. A value that names no source
-// prints its raw number.
+// String renders the source as its short name. A value that names no source, the
+// zero value included, renders as "unknown".
 func (s TokenSource) String() string {
 	switch s {
 	case TokenSourceSaved:
@@ -32,7 +35,7 @@ func (s TokenSource) String() string {
 	case TokenSourceCLI:
 		return "cli"
 	}
-	return fmt.Sprintf("TokenSource(%d)", int(s))
+	return unknownName
 }
 
 func (s TokenSource) known() bool {
@@ -262,12 +265,15 @@ func (a AuthorAssociation) String() string {
 }
 
 // IssueState is whether an issue is open. It is a closed set whose zero value,
-// [IssueOpen], is the default of a listing.
+// [IssueStateUnknown], means the forge did not say, and consumers treat it as not
+// open. A listing reads the zero value as [IssueOpen] (see [IssueQuery.Listed]).
 type IssueState int
 
 const (
+	// IssueStateUnknown is an issue whose state the forge did not report.
+	IssueStateUnknown IssueState = iota
 	// IssueOpen is an issue that awaits work or a decision.
-	IssueOpen IssueState = iota
+	IssueOpen
 	// IssueClosed is an issue that was resolved or dropped.
 	IssueClosed
 )
@@ -276,6 +282,8 @@ const (
 // its raw number.
 func (s IssueState) String() string {
 	switch s {
+	case IssueStateUnknown:
+		return unknownName
 	case IssueOpen:
 		return "open"
 	case IssueClosed:

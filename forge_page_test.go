@@ -6,7 +6,7 @@ import (
 )
 
 func TestPageRequestAcceptsTheLimitRange(t *testing.T) {
-	for _, limit := range []int{0, 1, MaxPageLimit} {
+	for _, limit := range []int{0, 1, 100} {
 		if err := (PageRequest{Limit: limit}).Validate(); err != nil {
 			t.Errorf("Validate(limit %d) error = %v, want none", limit, err)
 		}
@@ -14,7 +14,7 @@ func TestPageRequestAcceptsTheLimitRange(t *testing.T) {
 }
 
 func TestPageRequestRefusesALimitOutsideTheRange(t *testing.T) {
-	for _, limit := range []int{-1, MaxPageLimit + 1} {
+	for _, limit := range []int{-1, 101} {
 		err := (PageRequest{Limit: limit}).Validate()
 		if !errors.Is(err, ErrInvalidPageLimit) {
 			t.Errorf("Validate(limit %d) error = %v, want ErrInvalidPageLimit", limit, err)

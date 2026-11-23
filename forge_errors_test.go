@@ -38,6 +38,14 @@ func TestMergeRefusedErrorNamesTheMergeState(t *testing.T) {
 	}
 }
 
+func TestRateLimitErrorSaysWhenItsResetIsUnknown(t *testing.T) {
+	err := &ForgeRateLimitedError{}
+	want := "forge rate limit reached, reset time unknown"
+	if err.Error() != want {
+		t.Fatalf("Error() of a zero reset = %q, want %q", err.Error(), want)
+	}
+}
+
 func TestRateLimitErrorNamesItsResetInUTC(t *testing.T) {
 	reset := time.Date(2026, time.November, 23, 11, 0, 0, 0, time.FixedZone("CET", 3600))
 	err := &ForgeRateLimitedError{Reset: reset}

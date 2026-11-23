@@ -20,10 +20,12 @@ type ForgeCredentials interface {
 // plugin is built for one [ForgeHost] and serves only repositories on it. Every
 // method takes a context and stops when it is done. A method that takes a
 // repository, a pull request, a job, a thread or an issue returns [ErrForgeWrongHost]
-// for one on another host, as [RequireRepoHost] reports it. Listings take a
-// [PageRequest] and a plugin refuses a limit outside its range with
-// [ErrInvalidPageLimit]; [JobLog] refuses a size outside [ValidateLogLimit] with
-// [ErrInvalidLogLimit].
+// for one on another host, as [RequireRepoHost] reports it. The forgetest package
+// holds CheckRefusesForeignHost, which a plugin's tests run to prove that refusal
+// for every such method. Listings take a [PageRequest] and a plugin refuses a limit
+// outside its range with [ErrInvalidPageLimit]. [Forge.JobLog] returns at most the
+// last maxBytes bytes of the job's log, the tail; maxBytes must be between 1 and
+// [MaxJobLogBytes], and otherwise JobLog returns [ErrInvalidLogLimit].
 //
 // A failure a caller tells apart wraps one of the Err sentinels of this package or
 // one of the error types [ForgeRateLimitedError] and [ForgeMergeRefusedError]:
@@ -113,7 +115,8 @@ type PullRequest struct {
 
 // Check is one status of a commit: check runs and commit statuses are both mapped
 // onto Check. Conclusion is meaningful only when Status is [CheckCompleted]; before
-// that it is [ConclusionNone]. Job is set only when the check comes from a CI job
+// that it is [ConclusionNone]. Consumers read the conclusion through [Check.Concluded]
+// rather than from the field. Job is set only when the check comes from a CI job
 // whose log [Forge.JobLog] can read, and is nil otherwise.
 type Check struct {
 	Name       string
@@ -122,6 +125,15 @@ type Check struct {
 	Conclusion CheckConclusion
 	URL        string
 	Job        *JobRef
+}
+
+// Concluded returns the conclusion of a completed check and true. It returns
+// [ConclusionNone] and false for a check that has not completed.
+func (c Check) Concluded() (CheckConclusion, bool) {
+	if c.Status != CheckCompleted {
+		return ConclusionNone, false
+	}
+	return c.Conclusion, true
 }
 
 // ReviewThread is a conversation anchored to a line of a pull request's diff.
@@ -140,7 +152,9 @@ type ReviewComment struct {
 	CreatedAt time.Time
 }
 
-// Issue is the state of an issue as the forge reports it.
+// Issue is the state of an issue as the forge reports it. State is
+// [IssueStateUnknown] when the forge did not report one, and consumers treat it as
+// not open.
 type Issue struct {
 	Ref    IssueRef
 	Title  string
@@ -152,8 +166,18 @@ type Issue struct {
 }
 
 // IssueQuery selects the issues of a listing: the labels every issue must carry, and
-// the state to list. The zero State lists open issues.
+// the state to list. The zero State lists open issues, the safe default of a listing;
+// [IssueQuery.Listed] returns the state that is read.
 type IssueQuery struct {
 	Labels []string
 	State  IssueState
+}
+
+// Listed is the state a listing reads: [IssueOpen] when State is the zero value, and
+// State otherwise.
+func (q IssueQuery) Listed() IssueState {
+	if q.State == IssueStateUnknown {
+		return IssueOpen
+	}
+	return q.State
 }

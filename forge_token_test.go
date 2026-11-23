@@ -122,3 +122,34 @@ func TestNewForgeTokenAcceptsEveryKnownSource(t *testing.T) {
 		}
 	}
 }
+
+func TestZeroForgeTokenMarshalsToNull(t *testing.T) {
+	var token ForgeToken
+	raw, err := json.Marshal(token)
+	if err != nil {
+		t.Fatalf("json.Marshal(zero token) error = %v", err)
+	}
+	if string(raw) != "null" {
+		t.Fatalf("JSON of the zero token = %s, want null", raw)
+	}
+}
+
+func TestZeroForgeTokenJSONInsideAStructIsNull(t *testing.T) {
+	raw, err := json.Marshal(struct {
+		Token ForgeToken `json:"Token"`
+	}{})
+	if err != nil {
+		t.Fatalf("json.Marshal(struct) error = %v", err)
+	}
+	if string(raw) != `{"Token":null}` {
+		t.Fatalf("JSON of a struct holding the zero token = %s, want {\"Token\":null}", raw)
+	}
+}
+
+func TestUnknownTokenSourceRendersAsUnknown(t *testing.T) {
+	for _, source := range []TokenSource{0, 9, -1} {
+		if got := source.String(); got != "unknown" {
+			t.Errorf("TokenSource(%d).String() = %q, want unknown", int(source), got)
+		}
+	}
+}

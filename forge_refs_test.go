@@ -64,7 +64,7 @@ func TestNewThreadRefRefusesAnEmptyIdentifierOrNoPullRequest(t *testing.T) {
 }
 
 func TestValidateLogLimitAcceptsTheRange(t *testing.T) {
-	for _, limit := range []int{1, 4096, MaxJobLogBytes} {
+	for _, limit := range []int{1, 4096, 1048576} {
 		if err := ValidateLogLimit(limit); err != nil {
 			t.Errorf("ValidateLogLimit(%d) error = %v, want none", limit, err)
 		}
@@ -72,7 +72,7 @@ func TestValidateLogLimitAcceptsTheRange(t *testing.T) {
 }
 
 func TestValidateLogLimitRefusesOutsideTheRange(t *testing.T) {
-	for _, limit := range []int{0, -1, MaxJobLogBytes + 1} {
+	for _, limit := range []int{0, -1, 1048577} {
 		if err := ValidateLogLimit(limit); !errors.Is(err, ErrInvalidLogLimit) {
 			t.Errorf("ValidateLogLimit(%d) error = %v, want ErrInvalidLogLimit", limit, err)
 		}

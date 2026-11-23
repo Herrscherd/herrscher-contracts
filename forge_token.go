@@ -11,7 +11,7 @@ const redactedForgeToken = "[redacted]"
 // it belongs to and where it came from. The secret is unexported and reached only
 // through [ForgeToken.Secret]. The secret never prints through fmt or JSON: every
 // formatting verb prints [redacted] and the JSON form writes the login and the
-// source. A conversion to another type drops those methods, and then fmt prints the
+// source, or null for the zero value. A conversion to another type drops those methods, and then fmt prints the
 // address of the secret, the login and the source. Compare tokens with Secret, not
 // with ==: the secret sits behind a pointer, so two tokens built from the same
 // secret are not equal. Build one with [NewForgeToken].
@@ -58,8 +58,12 @@ func (t ForgeToken) String() string { return redactedForgeToken }
 // GoString renders a placeholder in place of the secret for %#v.
 func (t ForgeToken) GoString() string { return redactedForgeToken }
 
-// MarshalJSON writes the account and the source of the token, never its secret.
+// MarshalJSON writes the account and the source of the token, never its secret, and
+// writes null for the zero value, which holds no token.
 func (t ForgeToken) MarshalJSON() ([]byte, error) {
+	if !t.Valid() {
+		return []byte("null"), nil
+	}
 	return json.Marshal(forgeTokenWire{Login: t.login, Source: t.source.String()})
 }
 

@@ -46,6 +46,7 @@ func TestClosedTypeStringsNameEachValue(t *testing.T) {
 		{"association contributor", AssociationContributor, "contributor"},
 		{"association first timer", AssociationFirstTimer, "first_timer"},
 		{"association other", AssociationOther, "other"},
+		{"issue state unknown", IssueStateUnknown, "unknown"},
 		{"issue open", IssueOpen, "open"},
 		{"issue closed", IssueClosed, "closed"},
 		{"permission none", PermissionNone, "none"},
@@ -67,7 +68,6 @@ func TestClosedTypeStringsPrintTheRawNumberOfAnUnknownValue(t *testing.T) {
 		got  fmt.Stringer
 		want string
 	}{
-		{TokenSource(9), "TokenSource(9)"},
 		{PullRequestState(9), "PullRequestState(9)"},
 		{CheckStatus(9), "CheckStatus(9)"},
 		{CheckConclusion(9), "CheckConclusion(9)"},
@@ -91,6 +91,49 @@ func TestZeroCheckConclusionIsNoneNotAnUnknownValue(t *testing.T) {
 	}
 }
 
+func TestZeroIssueIsUnknownAndNotOpen(t *testing.T) {
+	var issue Issue
+	if issue.State != IssueStateUnknown {
+		t.Fatalf("zero Issue state = %v, want IssueStateUnknown", issue.State)
+	}
+	if issue.State == IssueOpen {
+		t.Fatalf("zero Issue reads as open, want unknown, which consumers treat as not open")
+	}
+}
+
+func TestIssueQueryListsOpenIssuesByDefault(t *testing.T) {
+	if listed := (IssueQuery{}).Listed(); listed != IssueOpen {
+		t.Fatalf("zero IssueQuery lists %v, want IssueOpen", listed)
+	}
+	if listed := (IssueQuery{State: IssueOpen}).Listed(); listed != IssueOpen {
+		t.Fatalf("IssueQuery{State: IssueOpen} lists %v, want IssueOpen", listed)
+	}
+	if listed := (IssueQuery{State: IssueClosed}).Listed(); listed != IssueClosed {
+		t.Fatalf("IssueQuery{State: IssueClosed} lists %v, want IssueClosed", listed)
+	}
+}
+
+func TestCheckConcludedReturnsTheConclusionOnlyWhenCompleted(t *testing.T) {
+	tests := []struct {
+		name       string
+		check      Check
+		want       CheckConclusion
+		wantFinish bool
+	}{
+		{"queued", Check{Status: CheckQueued, Conclusion: ConclusionFailure}, ConclusionNone, false},
+		{"in progress", Check{Status: CheckInProgress}, ConclusionNone, false},
+		{"completed success", Check{Status: CheckCompleted, Conclusion: ConclusionSuccess}, ConclusionSuccess, true},
+		{"completed unmapped", Check{Status: CheckCompleted, Conclusion: ConclusionOther}, ConclusionOther, true},
+		{"zero check", Check{}, ConclusionNone, false},
+	}
+	for _, tt := range tests {
+		got, finished := tt.check.Concluded()
+		if got != tt.want || finished != tt.wantFinish {
+			t.Errorf("%s: Concluded() = %v, %v, want %v, %v", tt.name, got, finished, tt.want, tt.wantFinish)
+		}
+	}
+}
+
 func TestConclusionOtherIsNotNone(t *testing.T) {
 	if ConclusionOther == ConclusionNone {
 		t.Fatalf("ConclusionOther equals ConclusionNone, want a distinct conclusion")
@@ -103,8 +146,8 @@ func TestZeroMergeStateAndIssueStateAreTheUnmarkedValues(t *testing.T) {
 		t.Fatalf("zero MergeState = %v, want MergeStateUnknown", merge)
 	}
 	var issue IssueState
-	if issue != IssueOpen || issue.String() != "open" {
-		t.Fatalf("zero IssueState = %v, want IssueOpen", issue)
+	if issue != IssueStateUnknown || issue.String() != "unknown" {
+		t.Fatalf("zero IssueState = %v, want IssueStateUnknown", issue)
 	}
 	var association AuthorAssociation
 	if association != AssociationNone || association.String() != "none" {

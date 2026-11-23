@@ -48,8 +48,12 @@ type ForgeRateLimitedError struct {
 	Reset time.Time
 }
 
-// Error names the reset time in RFC 3339, in UTC.
+// Error names the reset time in RFC 3339, in UTC, or says the reset time is unknown
+// when Reset is the zero time.
 func (e *ForgeRateLimitedError) Error() string {
+	if e.Reset.IsZero() {
+		return "forge rate limit reached, reset time unknown"
+	}
 	return "forge rate limit reached, resets at " + e.Reset.UTC().Format(time.RFC3339)
 }
 
