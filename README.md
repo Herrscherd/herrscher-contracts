@@ -66,10 +66,18 @@ it is absent.
 | `CurationHook` | `memory.go` | required | `Consolidate`, embedded in `Orchestrator` |
 | `TurnReactor` | `turn_reactor.go` | optional | `React` handles in-band memory markers and strips them |
 
+### Code forge
+
+| Port | File | Kind | What it does |
+|---|---|---|---|
+| `Forge` | `forge.go` | required | `Manifest`, `Connection` (login, token source, permissions, rate limit), the pull request verbs `OpenPullRequest`, `PullRequest`, `MergePullRequest`, `Checks`, `ReviewThreads`, `ReplyToThread`, the CI verb `JobLog` (the tail of a job's log, bounded by `maxBytes`) and `Issue`. One implementation per forge (GitHub, GitLab, Forgejo) |
+
 ### Implemented by the host, consumed by plugins
 
 | Port | File | What it does |
 |---|---|---|
+| `Forge` | `forge.go` | the operations of one forge host: its `Manifest` and `Connection`, the access a token has to a repository, pull requests (open, read, merge), checks and their job logs, review threads, and issues. Paged reads take a `PageRequest` and return a `Page`; the event stream is an optional interface. A method on a repository of another host returns `ErrForgeWrongHost`, which the `forgetest` package checks for every method |
+| `ForgeCredentials` | `forge.go` | `Token(ctx, host)` returns the `ForgeToken` for a `ForgeHost`, `Invalidate(ctx, host)` drops it after a 401. The host owns the secrets; a forge plugin never stores a token |
 | `SessionControl` | `session_control.go` | `Dispatch`, `Create` and `Close` (return a `Result`), `Sessions`, `Scrollback`, `Resume`, `Interrupt` |
 | `Coordinator` | `coordinator.go` | `Handoff`, `Delegate`, `Report`, `Merge`, `Seal`, `FanOut`, `Route` |
 | `RosterProvider` | `roster.go` | `Agents()`, the agents a session may delegate to |
@@ -96,6 +104,14 @@ it is absent.
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
 | `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome`, `ErrNegativeCompactCount` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`), and the check `CompactStats.Validate` runs on its outcome and counts |
+| `ForgeToken`, `NewForgeToken`, `ErrEmptyForgeToken`, `TokenSource` (`TokenSourceSaved`, `TokenSourceApp`, `TokenSourceEnv`, `TokenSourceCLI`), `ErrUnknownTokenSource` | `forge_token.go`, `forge_states.go` | a credential for one forge host. Its secret is unexported; `fmt` and `String` print `[redacted]`, and JSON writes only the login and the source, or `null` for the zero token. `TokenSource` says where it came from and renders as `unknown` when it names no source; an empty secret is refused |
+| `ForgeHost`, `ParseForgeHost`, `ErrInvalidForgeHost`, `ForgeRepoRef`, `ParseRepoRef`, `ErrInvalidRepoRef`, `RequireRepoHost`, `ErrForgeWrongHost` | `forge_host.go`, `forge_repo.go` | a checked forge host (an ASCII DNS name, lowercased, with an optional port that is the web and API port), and a checked repository (host, namespace, name), built only by `ParseRepoRef` from `host/namespace/name`, an https URL, an ssh:// URL or a `git@` address. An ssh:// port is dropped, and port 443 is dropped from every host, so `github.com:443` and `github.com` are the same host. `RequireRepoHost` refuses the zero host or repository, and one that belongs to another host. `==` on a `ForgeRepoRef` is case-sensitive, so match repositories with `SameRepo` |
+| `PullRequestRef`, `NewPullRequestRef`, `IssueRef`, `NewIssueRef`, `JobRef`, `NewJobRef`, `ThreadRef`, `NewThreadRef`, `ErrInvalidRef`, `PullRequestDraft`, `PullRequest`, `Check`, `ReviewThread`, `ReviewComment`, `Issue`, `IssueQuery`, `ForgeActor`, `ForgeConnection`, `ForgeRateLimit`, `Revision`, `CommitSHA`, `ParseCommitSHA`, `ErrInvalidCommitSHA` | `forge.go`, `forge_refs.go`, `forge_commit.go` | the values a `Forge` takes and returns. A reference is built only by its `New…` constructor, which refuses a zero repository or a non-positive number. A `Check`'s conclusion is read through `Check.Concluded`, and an `IssueQuery` reads its state through `IssueQuery.Listed`, where the zero state lists open issues. A `CommitSHA` is 40 or 64 lowercase hex digits |
+| `PullRequestState`, `MergeMethod`, `MergeState`, `CheckStatus`, `CheckConclusion` (with `ConclusionOther`), `AuthorAssociation`, `IssueState` (with `IssueStateUnknown`, the zero value), `RepoPermission` | `forge_states.go` | the closed sets of a forge: a pull request's state, a merge method and the merge state the forge reports, a check's status and conclusion, an author's association, an issue's state (unknown, open or closed), and an account's permission on a repository. Each `String` prints the raw number of a value it does not name, except `TokenSource` and the zero `IssueState`, which print `unknown` |
+| `ErrForgeNotConnected`, `ErrForgeUnauthorized`, `ErrForgeForbidden`, `ErrForgeNotFound`, `ErrForgeNotModified`, `ForgeRateLimitedError`, `ForgeMergeRefusedError` | `forge_errors.go` | the failures a caller tells apart on a forge: no credential, refused credential, missing permission, nothing under the reference, an unchanged resource, a rate limit that carries its reset time (or says it is unknown), and a merge the forge refused with the state it reports |
+| `PageRequest`, `PageCursor`, `Page`, `MaxPageLimit`, `ErrInvalidPageLimit` | `forge_page.go` | a paged read: a cursor, a limit from 0 to `MaxPageLimit`, and the page that returns the items and the next cursor |
+| `MaxJobLogBytes`, `ValidateLogLimit`, `ErrInvalidLogLimit` | `forge_refs.go` | the largest log tail `Forge.JobLog` returns, and the check of a requested size against it |
+| `CheckRefusesForeignHost` | `forgetest/` | test support, imported from `_test.go` files only: calls every method of a `Forge` that takes a repository, pull request, job, thread or issue with a reference on a foreign host, and fails the test unless each returns `ErrForgeWrongHost`. A plugin runs it against its forge in its own tests |
 
 ## Registration and config
 
@@ -103,8 +119,10 @@ A plugin declares a `Plugin{Manifest, <one factory>}` in `init()` and calls
 `Register`.
 
 Exactly one of `GatewayFactory`, `BackendFactory`, `MemoryFactory`,
-`OrchestratorFactory` or `CompactorFactory` is set, matching
-`Manifest.Category`. The exception is `CategorySkills`, which has no port to
+`OrchestratorFactory`, `CompactorFactory` or `ForgeFactory` is set, matching
+`Manifest.Category`. A `ForgeFactory` receives the config, the `ForgeHost` it
+serves and the host's `ForgeCredentials`, in that order after the context. The
+host builds one forge per `ForgeHost`. The exception is `CategorySkills`, which has no port to
 build and so declares no port factory. A gateway factory returns a
 `GatewaySet{Gateway, Reader, Admin, Prober}`: one channel, with the optional
 ports left nil.

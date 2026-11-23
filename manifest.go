@@ -21,6 +21,9 @@ const (
 	// [CompactorFactory] and run by the host in the order its configuration lists
 	// it. It is not a backend: it answers no prompt and is never a session vendor.
 	CategoryCompactor Category = "compactor"
+	// CategoryForge is a plugin that connects a code forge (GitHub, GitLab, Forgejo),
+	// built by a [ForgeFactory] with the host's credentials and driven through [Forge].
+	CategoryForge Category = "forge"
 )
 
 // GateGrain is how finely a backend can enforce an approval policy on its own

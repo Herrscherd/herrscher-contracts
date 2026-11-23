@@ -133,3 +133,54 @@ func TestRegistryIsolatesCompactors(t *testing.T) {
 		t.Fatalf("Backends() = %+v, want the stage left out of the vendors", got)
 	}
 }
+
+type stubForgeCredentials struct{ name string }
+
+func (*stubForgeCredentials) Token(context.Context, ForgeHost) (ForgeToken, error) {
+	return ForgeToken{}, ErrForgeNotConnected
+}
+
+func (*stubForgeCredentials) Invalidate(context.Context, ForgeHost) {}
+
+func TestRegistryIsolatesForges(t *testing.T) {
+	var r Registry
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "github", Category: CategoryForge},
+		Forge: func(context.Context, PluginConfig, ForgeHost, ForgeCredentials) (Forge, error) {
+			return nil, errStubFactory
+		},
+	})
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
+		Backend:  func(context.Context, PluginConfig) (Backend, error) { return nil, errStubFactory },
+	})
+	got := r.Forges()
+	if len(got) != 1 || got[0].Manifest.Kind != "github" {
+		t.Fatalf("Forges() = %+v, want only the github forge", got)
+	}
+}
+
+func TestForgeFactoryReceivesTheHostCredentials(t *testing.T) {
+	var received ForgeCredentials
+	var receivedHost ForgeHost
+	var r Registry
+	r.Register(Plugin{
+		Manifest: Manifest{Kind: "github", Category: CategoryForge},
+		Forge: func(_ context.Context, _ PluginConfig, host ForgeHost, creds ForgeCredentials) (Forge, error) {
+			receivedHost = host
+			received = creds
+			return nil, errStubFactory
+		},
+	})
+	creds := &stubForgeCredentials{name: "host"}
+	host := mustParseForgeHost(t, "github.com")
+	if _, err := r.Forges()[0].Forge(context.Background(), PluginConfig{}, host, creds); !errors.Is(err, errStubFactory) {
+		t.Fatalf("factory error = %v, want the stub error", err)
+	}
+	if receivedHost != host {
+		t.Fatalf("factory received host %q, want %q", receivedHost, host)
+	}
+	if received != creds {
+		t.Fatalf("factory received %v, want the host credentials it was given", received)
+	}
+}
