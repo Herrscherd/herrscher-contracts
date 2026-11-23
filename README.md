@@ -424,17 +424,18 @@ turn as a success. Upgrade every consumer that reads `outcome` before a producer
 starts to emit one.
 
 A reader of the wire must decode each line, that is each `Event`, with
-`DecodeEvent(data)`. It refuses a field of the wrong JSON type, a number out
-of range, or an outcome that names no turn outcome, with `ErrInvalidEvent`. Its message names the wire field, such as `t`
-or `coordination`, and never the Go type or the value. A number is out of range
-when it is a nonzero integer written with digits only, an optional minus sign
-in front, that its integer field cannot hold, or when it is beyond `float64`.
-Any other number refused by an integer field, such as `1.5`, `1.0` or `1e2`, has
-the wrong JSON type, and so has `-0` for an unsigned field, while a signed field
-accepts it as zero. A field nested in `coordination`, `todos`, `models` or
-`subagent` is named by its top-level field. A `tool_call` refused inside the
-event keeps `ErrInvalidToolCall`, a document that is not valid JSON is returned
-as its `*json.SyntaxError`, and a `null` decodes to the zero `Event`.
+`DecodeEvent(data)`. It refuses a field of the wrong JSON type, a number out of
+range, or an outcome that names no turn outcome, with `ErrInvalidEvent`. Its
+message names the wire field, such as `t` or `coordination`, and never the Go
+type or the value. A number is out of range when it is a nonzero integer written
+with digits only, an optional minus sign in front, that its integer field cannot
+hold, or when it is beyond `float64`. Any other number refused by an integer
+field, such as `1.5`, `1.0` or `1e2`, has the wrong JSON type, and so has `-0`
+for an unsigned field, while a signed field accepts it as zero. A field nested
+in `coordination`, `todos`, `models` or `subagent` is named by its top-level
+field. A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, a
+document that is not valid JSON is returned as its `*json.SyntaxError`, and a
+`null` decodes to the zero `Event`.
 
 A type that embeds `Event` must decode its `Event` with `DecodeEvent` too, then
 read its own envelope fields apart. It never receives a promoted
@@ -541,21 +542,22 @@ stays out of logs. A field is named in its wire spelling from a fixed list, so a
 key the input wrote differently (`ID` for `id`) is never echoed either.
 `ParseToolCallState` does not quote the text it was given either. A refusal may
 give a number, such as an ordinal, a count, a length or an index: it names a
-position or a size, not the input. Four exceptions apply. The first is the `*json.SyntaxError` of a document that is not valid
-JSON: it is not a refusal of the contract, so it may quote a character of the
-input. A logger that must keep the input out logs only the type of the error.
-The second is the `*json.MarshalerError` that `json.Marshal` wraps around a
-refusal of `ToolCall.MarshalJSON`, whose message names the Go type
-`*contracts.ToolCall`, or of `TurnOutcome.MarshalText`, whose message names
-`contracts.TurnOutcome`. `errors.Is` still matches `ErrInvalidToolCall` or
-`ErrUnknownTurnOutcome` through that wrap. A direct call to `ToolCall.MarshalJSON`
-or to `ToolCall.Validate` gives the message without it.
-The third is a path the host sets, not the input: the outbox that
-`ValidateOutboundFile` names, and the socket path and directory of `approvalsock`,
-which an error may name so the operator can find them.
-The fourth is a value fixed by the compiled code of the host, not by the input:
-a refusal may name it, as `ValidateModels` names the kind of a backend, which
-comes from the manifest of a plugin built into the binary.
+position or a size, not the input. Four exceptions apply. The first is the
+`*json.SyntaxError` of a document that is not valid JSON: it is not a refusal of
+the contract, so it may quote a character of the input. A logger that must keep
+the input out logs only the type of the error. The second is the
+`*json.MarshalerError` that `json.Marshal` wraps around a refusal of
+`ToolCall.MarshalJSON`, whose message names the Go type `*contracts.ToolCall`,
+or of `TurnOutcome.MarshalText`, whose message names `contracts.TurnOutcome`.
+`errors.Is` still matches `ErrInvalidToolCall` or `ErrUnknownTurnOutcome`
+through that wrap. A direct call to `ToolCall.MarshalJSON` or to
+`ToolCall.Validate` gives the message without it. The third is a path the host
+sets, not the input: the outbox that `ValidateOutboundFile` names, and the
+socket path and directory of `approvalsock`, which an error may name so the
+operator can find them. The fourth is a value fixed by the compiled code of the
+host, not by the input: a refusal may name it, as `ValidateModels` names the
+kind of a backend, which comes from the manifest of a plugin built into the
+binary.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
