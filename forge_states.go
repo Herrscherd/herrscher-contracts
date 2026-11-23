@@ -8,7 +8,8 @@ const (
 )
 
 // TokenSource says where a forge token came from. It is a closed set whose zero
-// value is not a source: [NewForgeToken] refuses it, and it renders as "unknown".
+// value is not a source: [NewForgeToken] refuses it, and it renders as
+// "unknown".
 type TokenSource int
 
 const (
@@ -18,12 +19,13 @@ const (
 	TokenSourceApp
 	// TokenSourceEnv is a token read from the environment of the host.
 	TokenSourceEnv
-	// TokenSourceCLI is a token borrowed from the login of the forge's own command line tool.
+	// TokenSourceCLI is a token borrowed from the login of the forge's own
+	// command line tool.
 	TokenSourceCLI
 )
 
-// String renders the source as its short name. A value that names no source, the
-// zero value included, renders as "unknown".
+// String renders the source as its short name. A value that names no source,
+// the zero value included, renders as "unknown".
 func (s TokenSource) String() string {
 	switch s {
 	case TokenSourceSaved:
@@ -46,9 +48,9 @@ func (s TokenSource) known() bool {
 	return false
 }
 
-// PullRequestState is where a pull request stands. It is a closed set whose zero
-// value is not a state. A forge that reports a merged request as closed is read
-// as [PullRequestMerged] by the plugin.
+// PullRequestState is where a pull request stands. It is a closed set whose
+// zero value is not a state. A forge that reports a merged request as closed is
+// read as [PullRequestMerged] by the plugin.
 type PullRequestState int
 
 const (
@@ -60,8 +62,8 @@ const (
 	PullRequestMerged
 )
 
-// String renders the state as its short name. A value that names no state prints
-// its raw number.
+// String renders the state as its short name. A value that names no state
+// prints its raw number.
 func (s PullRequestState) String() string {
 	switch s {
 	case PullRequestOpen:
@@ -74,8 +76,8 @@ func (s PullRequestState) String() string {
 	return fmt.Sprintf("PullRequestState(%d)", int(s))
 }
 
-// CheckStatus is how far a check has run. It is a closed set whose zero value is
-// not a status.
+// CheckStatus is how far a check has run. It is a closed set whose zero value
+// is not a status.
 type CheckStatus int
 
 const (
@@ -87,8 +89,8 @@ const (
 	CheckCompleted
 )
 
-// String renders the status as its short name. A value that names no status prints
-// its raw number.
+// String renders the status as its short name. A value that names no status
+// prints its raw number.
 func (s CheckStatus) String() string {
 	switch s {
 	case CheckQueued:
@@ -101,10 +103,10 @@ func (s CheckStatus) String() string {
 	return fmt.Sprintf("CheckStatus(%d)", int(s))
 }
 
-// CheckConclusion is how a completed check ended. Its zero value, [ConclusionNone],
-// is the deliberate "no conclusion yet" of a check that has not completed. A
-// completed check whose conclusion the plugin cannot map is [ConclusionOther], so
-// a completed check never reads as [ConclusionNone].
+// CheckConclusion is how a completed check ended. Its zero value,
+// [ConclusionNone], is the deliberate "no conclusion yet" of a check that has
+// not completed. A completed check whose conclusion the plugin cannot map is
+// [ConclusionOther], so a completed check never reads as [ConclusionNone].
 type CheckConclusion int
 
 const (
@@ -122,14 +124,16 @@ const (
 	ConclusionSkipped
 	// ConclusionTimedOut is a check that ran past its time limit.
 	ConclusionTimedOut
-	// ConclusionActionRequired is a check that needs a person to act before it can pass.
+	// ConclusionActionRequired is a check that needs a person to act before it
+	// can pass.
 	ConclusionActionRequired
-	// ConclusionOther is a completed check whose conclusion the plugin cannot map.
+	// ConclusionOther is a completed check whose conclusion the plugin cannot
+	// map.
 	ConclusionOther
 )
 
-// String renders the conclusion as its short name. A value that names no conclusion
-// prints its raw number.
+// String renders the conclusion as its short name. A value that names no
+// conclusion prints its raw number.
 func (c CheckConclusion) String() string {
 	switch c {
 	case ConclusionNone:
@@ -159,7 +163,8 @@ func (c CheckConclusion) String() string {
 type MergeMethod int
 
 const (
-	// MergeMethodMerge records a merge commit that keeps every commit of the branch.
+	// MergeMethodMerge records a merge commit that keeps every commit of the
+	// branch.
 	MergeMethodMerge MergeMethod = iota + 1
 	// MergeMethodSquash folds the branch into one commit on the base branch.
 	MergeMethodSquash
@@ -167,8 +172,8 @@ const (
 	MergeMethodRebase
 )
 
-// String renders the method as its short name. A value that names no method prints
-// its raw number.
+// String renders the method as its short name. A value that names no method
+// prints its raw number.
 func (m MergeMethod) String() string {
 	switch m {
 	case MergeMethodMerge:
@@ -182,18 +187,21 @@ func (m MergeMethod) String() string {
 }
 
 // MergeState is what the forge says about merging a pull request now. It is a
-// closed set whose zero value, [MergeStateUnknown], is the state while the forge
-// still computes it.
+// closed set whose zero value, [MergeStateUnknown], is the state while the
+// forge still computes it.
 type MergeState int
 
 const (
-	// MergeStateUnknown is a pull request whose merge state the forge has not computed yet.
+	// MergeStateUnknown is a pull request whose merge state the forge has not
+	// computed yet.
 	MergeStateUnknown MergeState = iota
 	// MergeStateClean is a pull request that can be merged now.
 	MergeStateClean
-	// MergeStateConflicting is a pull request whose branch conflicts with its base.
+	// MergeStateConflicting is a pull request whose branch conflicts with its
+	// base.
 	MergeStateConflicting
-	// MergeStateBlocked is a pull request that waits for required checks or reviews.
+	// MergeStateBlocked is a pull request that waits for required checks or
+	// reviews.
 	MergeStateBlocked
 	// MergeStateBehind is a pull request whose base has moved past its branch.
 	MergeStateBehind
@@ -201,8 +209,8 @@ const (
 	MergeStateDraft
 )
 
-// String renders the state as its short name. A value that names no state prints
-// its raw number.
+// String renders the state as its short name. A value that names no state
+// prints its raw number.
 func (s MergeState) String() string {
 	switch s {
 	case MergeStateUnknown:
@@ -221,8 +229,9 @@ func (s MergeState) String() string {
 	return fmt.Sprintf("MergeState(%d)", int(s))
 }
 
-// AuthorAssociation is how an account stands toward a repository. It is a closed set
-// whose zero value, [AssociationNone], means the forge says nothing about it.
+// AuthorAssociation is how an account stands toward a repository. It is a
+// closed set whose zero value, [AssociationNone], means the forge says nothing
+// about it.
 type AuthorAssociation int
 
 const (
@@ -230,7 +239,8 @@ const (
 	AssociationNone AuthorAssociation = iota
 	// AssociationOwner is the owner of the repository.
 	AssociationOwner
-	// AssociationMember is a member of the organization that owns the repository.
+	// AssociationMember is a member of the organization that owns the
+	// repository.
 	AssociationMember
 	// AssociationCollaborator is an account invited to the repository.
 	AssociationCollaborator
@@ -265,8 +275,9 @@ func (a AuthorAssociation) String() string {
 }
 
 // IssueState is whether an issue is open. It is a closed set whose zero value,
-// [IssueStateUnknown], means the forge did not say, and consumers treat it as not
-// open. A listing reads the zero value as [IssueOpen] (see [IssueQuery.Listed]).
+// [IssueStateUnknown], means the forge did not say, and consumers treat it as
+// not open. A listing reads the zero value as [IssueOpen] (see
+// [IssueQuery.Listed]).
 type IssueState int
 
 const (
@@ -278,8 +289,8 @@ const (
 	IssueClosed
 )
 
-// String renders the state as its short name. A value that names no state prints
-// its raw number.
+// String renders the state as its short name. A value that names no state
+// prints its raw number.
 func (s IssueState) String() string {
 	switch s {
 	case IssueStateUnknown:
@@ -293,7 +304,8 @@ func (s IssueState) String() string {
 }
 
 // RepoPermission is the rights an account holds on one repository, from none to
-// admin. It is a closed set whose zero value, [PermissionNone], is no right at all.
+// admin. It is a closed set whose zero value, [PermissionNone], is no right at
+// all.
 type RepoPermission int
 
 const (
@@ -301,18 +313,20 @@ const (
 	PermissionNone RepoPermission = iota
 	// PermissionRead is an account that can read the repository.
 	PermissionRead
-	// PermissionTriage is an account that can manage issues and pull requests without writing code.
+	// PermissionTriage is an account that can manage issues and pull requests
+	// without writing code.
 	PermissionTriage
 	// PermissionWrite is an account that can push to the repository.
 	PermissionWrite
-	// PermissionMaintain is an account that can manage the repository without owning it.
+	// PermissionMaintain is an account that can manage the repository without
+	// owning it.
 	PermissionMaintain
 	// PermissionAdmin is an account that holds every right on the repository.
 	PermissionAdmin
 )
 
-// String renders the permission as its short name. A value that names no permission
-// prints its raw number.
+// String renders the permission as its short name. A value that names no
+// permission prints its raw number.
 func (p RepoPermission) String() string {
 	switch p {
 	case PermissionNone:

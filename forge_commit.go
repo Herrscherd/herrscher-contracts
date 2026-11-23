@@ -7,8 +7,9 @@ const (
 	sha256HexLength = 64
 )
 
-// CommitSHA is the identifier of a git commit: 40 lowercase hex digits for SHA-1 or
-// 64 for SHA-256. Build one with [ParseCommitSHA]; the zero value names no commit.
+// CommitSHA is the identifier of a git commit: 40 lowercase hex digits for
+// SHA-1 or 64 for SHA-256. Build one with [ParseCommitSHA]; the zero value
+// names no commit.
 type CommitSHA struct{ hex string }
 
 // ParseCommitSHA reads a commit identifier. It returns an error matching

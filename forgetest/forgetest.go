@@ -34,14 +34,15 @@ type foreignCall struct {
 	run  func(ctx context.Context) error
 }
 
-// CheckRefusesForeignHost calls every method of forge that takes a repository, a pull
-// request, a job, a thread or an issue, each with a reference on the foreign host,
-// and fails the test for each call that does not return an error matching
-// [contracts.ErrForgeWrongHost]. foreign must name a repository on a host other than
-// the one forge serves. Each call gets ten seconds: a call still running then is
-// reported as a failure and left running, whether or not it watches its context.
-// The check proves only the refusal: a forge that refuses every call passes it, so
-// the plugin's own tests prove the calls on its own host.
+// CheckRefusesForeignHost calls every method of forge that takes a repository,
+// a pull request, a job, a thread or an issue, each with a reference on the
+// foreign host, and fails the test for each call that does not return an error
+// matching [contracts.ErrForgeWrongHost]. foreign must name a repository on a
+// host other than the one forge serves. Each call gets ten seconds: a call
+// still running then is reported as a failure and left running, whether or not
+// it watches its context. The check proves only the refusal: a forge that
+// refuses every call passes it, so the plugin's own tests prove the calls on
+// its own host.
 func CheckRefusesForeignHost(tb testing.TB, forge contracts.Forge, foreign contracts.ForgeRepoRef) {
 	tb.Helper()
 	checkRefusesForeignHost(tb, forge, foreign, callTimeout)

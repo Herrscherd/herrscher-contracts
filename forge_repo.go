@@ -14,11 +14,11 @@ const (
 
 // ForgeRepoRef names one repository of a forge: its host, its namespace and its
 // name. A namespace is one or more segments joined by "/", as GitLab subgroups
-// need; each forge plugin checks the depth it supports. Its fields are unexported,
-// so the only way to a value that names a repository is [ParseRepoRef]; the zero
-// value names none. Two references compare equal with == only when their namespace
-// and name match in case too, because some forges are case-sensitive: match
-// repositories with [ForgeRepoRef.SameRepo].
+// need; each forge plugin checks the depth it supports. Its fields are
+// unexported, so the only way to a value that names a repository is
+// [ParseRepoRef]; the zero value names none. Two references compare equal with
+// == only when their namespace and name match in case too, because some forges
+// are case-sensitive: match repositories with [ForgeRepoRef.SameRepo].
 type ForgeRepoRef struct {
 	host      ForgeHost
 	namespace string
@@ -59,10 +59,10 @@ func ParseRepoRef(text string) (ForgeRepoRef, error) {
 	return ForgeRepoRef{host: host, namespace: path.namespace, name: path.name}, nil
 }
 
-// RequireRepoHost returns an error matching [ErrInvalidForgeHost] when host is the
-// zero value, and one matching [ErrInvalidRepoRef] when repo is. It returns an error
-// matching [ErrForgeWrongHost] when repo is not on host. A forge plugin calls it
-// first in every method that takes a repository.
+// RequireRepoHost returns an error matching [ErrInvalidForgeHost] when host is
+// the zero value, and one matching [ErrInvalidRepoRef] when repo is. It returns
+// an error matching [ErrForgeWrongHost] when repo is not on host. A forge
+// plugin calls it first in every method that takes a repository.
 func RequireRepoHost(host ForgeHost, repo ForgeRepoRef) error {
 	if host == (ForgeHost{}) {
 		return ErrInvalidForgeHost
@@ -79,23 +79,23 @@ func RequireRepoHost(host ForgeHost, repo ForgeRepoRef) error {
 // Host is the forge host the repository lives on.
 func (r ForgeRepoRef) Host() ForgeHost { return r.host }
 
-// Namespace is the path of groups or the user that holds the repository, such as
-// "octo" or "team/platform" for a GitLab subgroup.
+// Namespace is the path of groups or the user that holds the repository, such
+// as "octo" or "team/platform" for a GitLab subgroup.
 func (r ForgeRepoRef) Namespace() string { return r.namespace }
 
 // Name is the repository name, without the namespace and without ".git".
 func (r ForgeRepoRef) Name() string { return r.name }
 
-// SameRepo reports whether r and o name the same repository. The host must match
-// exactly, and the namespace and the name match when they are equal ignoring case.
-// Use it to match repositories, because == is case-sensitive on the namespace and
-// the name.
+// SameRepo reports whether r and o name the same repository. The host must
+// match exactly, and the namespace and the name match when they are equal
+// ignoring case. Use it to match repositories, because == is case-sensitive on
+// the namespace and the name.
 func (r ForgeRepoRef) SameRepo(o ForgeRepoRef) bool {
 	return r.host == o.host && strings.EqualFold(r.namespace, o.namespace) && strings.EqualFold(r.name, o.name)
 }
 
-// String renders the reference as "host/namespace/name", the form [ParseRepoRef]
-// reads back. The zero value renders as the empty string.
+// String renders the reference as "host/namespace/name", the form
+// [ParseRepoRef] reads back. The zero value renders as the empty string.
 func (r ForgeRepoRef) String() string {
 	if r == (ForgeRepoRef{}) {
 		return ""

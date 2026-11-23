@@ -16,22 +16,22 @@ const (
 )
 
 // ForgeHost names the host a forge lives on, such as "github.com" or
-// "forge.example.com:8443": a lowercase DNS name of at least two labels, with an
-// optional port. The port is the one of the forge's web and API service, not of its
-// SSH service, so [ParseRepoRef] drops the port of an ssh:// reference. Build one
-// with [ParseForgeHost]; the zero value names no host.
+// "forge.example.com:8443": a lowercase DNS name of at least two labels, with
+// an optional port. The port is the one of the forge's web and API service, not
+// of its SSH service, so [ParseRepoRef] drops the port of an ssh:// reference.
+// Build one with [ParseForgeHost]; the zero value names no host.
 type ForgeHost struct{ name string }
 
 // ParseForgeHost reads a forge host and keeps it lowercase, with its port in
-// canonical digits and the default https port 443 dropped, so "github.com:443" and
-// "github.com" name the same host. It returns an error matching
+// canonical digits and the default https port 443 dropped, so "github.com:443"
+// and "github.com" name the same host. It returns an error matching
 // [ErrInvalidForgeHost] when the text holds a byte above 127, which is checked
-// before lowercasing so that no character lowercases into ASCII; when a label is
-// empty, longer than 63 bytes, starts or ends with a hyphen, or holds a byte other
-// than a letter, a digit or a hyphen; when the name has no dot; when the port is
-// empty, not made of digits, or outside 1 to 65535; or when the whole host, port
-// included, is longer than 253 bytes. The error quotes at most the first 64 bytes
-// of the text.
+// before lowercasing so that no character lowercases into ASCII; when a label
+// is empty, longer than 63 bytes, starts or ends with a hyphen, or holds a byte
+// other than a letter, a digit or a hyphen; when the name has no dot; when the
+// port is empty, not made of digits, or outside 1 to 65535; or when the whole
+// host, port included, is longer than 253 bytes. The error quotes at most the
+// first 64 bytes of the text.
 func ParseForgeHost(text string) (ForgeHost, error) {
 	if !allBytes(text, isASCIIByte) {
 		return ForgeHost{}, invalidForgeHost(text)
@@ -56,8 +56,8 @@ func ParseForgeHost(text string) (ForgeHost, error) {
 	return ForgeHost{name: canonical}, nil
 }
 
-// String renders the host as ParseForgeHost reads it back. The zero value renders
-// as the empty string.
+// String renders the host as ParseForgeHost reads it back. The zero value
+// renders as the empty string.
 func (h ForgeHost) String() string { return h.name }
 
 func invalidForgeHost(text string) error {
