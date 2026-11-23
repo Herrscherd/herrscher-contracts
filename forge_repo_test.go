@@ -142,20 +142,6 @@ func TestParseRepoRefPinsTheInputLimit(t *testing.T) {
 	}
 }
 
-func TestParseRepoRefQuotesAtMostTheFirstSixtyFourBytes(t *testing.T) {
-	long := "github.com/octo/" + strings.Repeat("x", 600) + "?"
-	_, err := ParseRepoRef(long)
-	if !errors.Is(err, ErrInvalidRepoRef) {
-		t.Fatalf("ParseRepoRef(long) error = %v, want ErrInvalidRepoRef", err)
-	}
-	if strings.Contains(err.Error(), long[:65]) {
-		t.Fatalf("error quotes more than 64 bytes of the input: %d bytes", len(err.Error()))
-	}
-	if !strings.Contains(err.Error(), long[:64]) {
-		t.Fatalf("error = %q, want the first 64 bytes of the input", err.Error())
-	}
-}
-
 func TestRepoRefStringRoundTripsThroughParse(t *testing.T) {
 	ref, err := ParseRepoRef("https://github.com/octo/hello.git")
 	if err != nil {

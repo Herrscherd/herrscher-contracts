@@ -38,23 +38,23 @@ type ForgeRepoRef struct {
 // error matching [ErrInvalidRepoRef] for any other userinfo, percent-encoding,
 // a "." or ".." segment, an empty segment, a segment that starts with "-" or
 // ".", a byte outside ASCII letters, digits, ".", "-" and "_", a name longer
-// than 100 bytes, or a text longer than 512 bytes. The error quotes at most the
-// first 64 bytes of the text.
+// than 100 bytes, or a text longer than 512 bytes. The error does not repeat
+// the text.
 func ParseRepoRef(text string) (ForgeRepoRef, error) {
 	if len(text) > maxRepoRefBytes || strings.ContainsAny(text, "?#") {
-		return ForgeRepoRef{}, invalidRepoRef(text)
+		return ForgeRepoRef{}, ErrInvalidRepoRef
 	}
 	location, found := splitRepoLocation(text)
 	if !found {
-		return ForgeRepoRef{}, invalidRepoRef(text)
+		return ForgeRepoRef{}, ErrInvalidRepoRef
 	}
 	host, err := ParseForgeHost(location.host)
 	if err != nil {
-		return ForgeRepoRef{}, invalidRepoRef(text)
+		return ForgeRepoRef{}, ErrInvalidRepoRef
 	}
 	path, found := splitRepoPath(location.path)
 	if !found {
-		return ForgeRepoRef{}, invalidRepoRef(text)
+		return ForgeRepoRef{}, ErrInvalidRepoRef
 	}
 	return ForgeRepoRef{host: host, namespace: path.namespace, name: path.name}, nil
 }
@@ -101,10 +101,6 @@ func (r ForgeRepoRef) String() string {
 		return ""
 	}
 	return r.host.String() + "/" + r.namespace + "/" + r.name
-}
-
-func invalidRepoRef(text string) error {
-	return fmt.Errorf("%q: %w", truncatedForError(text), ErrInvalidRepoRef)
 }
 
 type repoLocation struct {
