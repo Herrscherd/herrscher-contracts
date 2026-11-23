@@ -225,3 +225,24 @@ func TestDecodeEventAcceptsNegativeZeroOnASignedField(t *testing.T) {
 		t.Fatalf("Tokens = %d, want 0", event.Tokens)
 	}
 }
+
+func TestEventRoundTripKeepsTurnFailedOutcome(t *testing.T) {
+	encoded, err := json.Marshal(Event{T: "reply", Done: true, Outcome: TurnFailed})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	got, err := DecodeEvent(encoded)
+	if err != nil {
+		t.Fatalf("DecodeEvent(%s) error = %v", encoded, err)
+	}
+	if got.Outcome != TurnFailed {
+		t.Fatalf("decoded outcome = %q, want %q", got.Outcome, TurnFailed)
+	}
+	again, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("Marshal(decoded) error = %v", err)
+	}
+	if string(again) != string(encoded) {
+		t.Fatalf("round trip = %s, want %s", again, encoded)
+	}
+}
