@@ -99,10 +99,10 @@ func (a *Arg) UnmarshalJSON(data []byte) error {
 	}
 	decoded := Arg{name: frame.Name, kind: ArgKind(frame.Kind)}
 	if err := decodeValue(&decoded, frame.Value); err != nil {
-		return fmt.Errorf("argument %q: %w", frame.Name, err)
+		return fmt.Errorf("argument: %w", err)
 	}
 	if _, err := encodeValue(decoded.value); err != nil {
-		return fmt.Errorf("argument %q: %w", frame.Name, err)
+		return fmt.Errorf("argument: %w", err)
 	}
 	*a = decoded
 	return nil
