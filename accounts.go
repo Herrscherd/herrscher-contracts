@@ -39,7 +39,7 @@ type ProfileName string
 // ParseProfileName validates a profile name, wrapping [ErrProfileName] when it is refused.
 func ParseProfileName(name string) (ProfileName, error) {
 	if !validProfileName(name) {
-		return "", fmt.Errorf("%q: %w", name, ErrProfileName)
+		return "", ErrProfileName
 	}
 	return ProfileName(name), nil
 }
