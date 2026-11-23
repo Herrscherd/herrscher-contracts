@@ -14,11 +14,23 @@ const answeredSecret = "s3cret-answered-id"
 
 func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 	client, server := net.Pipe()
-	defer client.Close()
-	defer server.Close()
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close client: %v", err)
+		}
+		if err := server.Close(); err != nil {
+			t.Errorf("close server: %v", err)
+		}
+	})
 	go func() {
-		_, _ = readLine(server)
-		_ = json.NewEncoder(server).Encode(contracts.ApprovalAnswer{ID: answeredSecret, Decision: contracts.DecisionAllow})
+		if _, err := readLine(server); err != nil {
+			t.Errorf("read request: %v", err)
+			return
+		}
+		answer := contracts.ApprovalAnswer{ID: answeredSecret, Decision: contracts.DecisionAllow}
+		if err := json.NewEncoder(server).Encode(answer); err != nil {
+			t.Errorf("encode answer: %v", err)
+		}
 	}()
 	_, err := roundTrip(client, []byte(`{"ID":"req-1"}`+"\n"), "req-1")
 	if !errors.Is(err, ErrAnswerMismatch) {
