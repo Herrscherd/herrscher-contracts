@@ -539,8 +539,9 @@ the field that has the wrong JSON type, never the text of `detail`, `error`,
 `state`, `at`, `tool` or `kind`, so a secret that lands in a malformed field
 stays out of logs. A field is named in its wire spelling from a fixed list, so a
 key the input wrote differently (`ID` for `id`) is never echoed either.
-`ParseToolCallState` does not quote the text it was given either. Three
-exceptions apply. The first is the `*json.SyntaxError` of a document that is not valid
+`ParseToolCallState` does not quote the text it was given either. A refusal may
+give a number, such as an ordinal, a count, a length or an index: it names a
+position or a size, not the input. Three exceptions apply. The first is the `*json.SyntaxError` of a document that is not valid
 JSON: it is not a refusal of the contract, so it may quote a character of the
 input. A logger that must keep the input out logs only the type of the error.
 The second is the `*json.MarshalerError` that `json.Marshal` wraps around a
