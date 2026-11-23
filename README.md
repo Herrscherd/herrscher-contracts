@@ -538,8 +538,8 @@ the field that has the wrong JSON type, never the text of `detail`, `error`,
 `state`, `at`, `tool` or `kind`, so a secret that lands in a malformed field
 stays out of logs. A field is named in its wire spelling from a fixed list, so a
 key the input wrote differently (`ID` for `id`) is never echoed either.
-`ParseToolCallState` does not quote the text it was given either. Two exceptions
-apply. The first is the `*json.SyntaxError` of a document that is not valid
+`ParseToolCallState` does not quote the text it was given either. Three
+exceptions apply. The first is the `*json.SyntaxError` of a document that is not valid
 JSON: it is not a refusal of the contract, so it may quote a character of the
 input. A logger that must keep the input out logs only the type of the error.
 The second is the `*json.MarshalerError` that `json.Marshal` wraps around a
@@ -548,6 +548,9 @@ refusal of `ToolCall.MarshalJSON`, whose message names the Go type
 `contracts.TurnOutcome`. `errors.Is` still matches `ErrInvalidToolCall` or
 `ErrUnknownTurnOutcome` through that wrap. A direct call to `ToolCall.MarshalJSON`
 or to `ToolCall.Validate` gives the message without it.
+The third is a path the host sets, not the input: the outbox that
+`ValidateOutboundFile` names, and the socket path and directory of `approvalsock`,
+which an error may name so the operator can find them.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
