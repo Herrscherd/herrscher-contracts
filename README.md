@@ -66,10 +66,17 @@ it is absent.
 | `CurationHook` | `memory.go` | required | `Consolidate`, embedded in `Orchestrator` |
 | `TurnReactor` | `turn_reactor.go` | optional | `React` handles in-band memory markers and strips them |
 
+### Code forge
+
+| Port | File | Kind | What it does |
+|---|---|---|---|
+| `Forge` | `forge.go` | required | `Manifest`, `Connection` (login, token source, permissions, rate limit), the pull request verbs `OpenPullRequest`, `PullRequest`, `MergePullRequest`, `Checks`, `ReviewThreads`, `ReplyToThread`, the CI verb `JobLog` (the tail of a job's log, bounded by `maxBytes`) and `Issue`. One implementation per forge (GitHub, GitLab, Forgejo) |
+
 ### Implemented by the host, consumed by plugins
 
 | Port | File | What it does |
 |---|---|---|
+| `ForgeCredentials` | `forge.go` | `Token(ctx, host)` returns the `ForgeToken` for a forge host, `Invalidate(ctx, host)` drops it after a 401. The host owns the secrets; a forge plugin never stores a token |
 | `SessionControl` | `session_control.go` | `Dispatch`, `Create` and `Close` (return a `Result`), `Sessions`, `Scrollback`, `Resume`, `Interrupt` |
 | `Coordinator` | `coordinator.go` | `Handoff`, `Delegate`, `Report`, `Merge`, `Seal`, `FanOut`, `Route` |
 | `RosterProvider` | `roster.go` | `Agents()`, the agents a session may delegate to |
@@ -96,6 +103,10 @@ it is absent.
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
 | `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome`, `ErrNegativeCompactCount` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`), and the check `CompactStats.Validate` runs on its outcome and counts |
+| `ForgeToken`, `NewForgeToken`, `TokenSource` (`TokenSourceSaved`, `TokenSourceApp`, `TokenSourceEnv`, `TokenSourceCLI`), `ErrUnknownTokenSource` | `forge_token.go`, `forge_states.go` | a credential for one forge host. Its secret is unexported and no formatting verb or JSON form prints it; `TokenSource` says where it came from |
+| `ForgeRepoRef`, `ParseRepoRef`, `ErrInvalidRepoRef` | `forge_repo.go` | a checked repository (host, owner, name), built only by `ParseRepoRef` from `owner/name`, `host/owner/name`, an https URL or a `git@` address |
+| `PullRequestRef`, `PullRequestDraft`, `PullRequest`, `PullRequestState`, `MergeMethod`, `Check`, `CheckStatus`, `CheckConclusion`, `JobRef`, `ThreadRef`, `ReviewThread`, `ReviewComment`, `IssueRef`, `Issue`, `ForgeConnection`, `ForgeRateLimit` | `forge.go`, `forge_states.go` | the values a `Forge` takes and returns, and the closed sets of a pull request's state, a check's status and conclusion, and a merge method |
+| `ErrForgeNotConnected`, `ErrForgeUnauthorized`, `ErrForgeForbidden`, `ErrForgeNotFound`, `ErrInvalidLogLimit`, `ForgeRateLimitedError` | `forge_errors.go` | the failures a caller tells apart on a forge: no credential, refused credential, missing permission, nothing under the reference, a non-positive log limit, and a rate limit that carries its reset time |
 
 ## Registration and config
 
@@ -103,8 +114,9 @@ A plugin declares a `Plugin{Manifest, <one factory>}` in `init()` and calls
 `Register`.
 
 Exactly one of `GatewayFactory`, `BackendFactory`, `MemoryFactory`,
-`OrchestratorFactory` or `CompactorFactory` is set, matching
-`Manifest.Category`. The exception is `CategorySkills`, which has no port to
+`OrchestratorFactory`, `CompactorFactory` or `ForgeFactory` is set, matching
+`Manifest.Category`. A `ForgeFactory` receives the host's `ForgeCredentials`
+as its third argument. The exception is `CategorySkills`, which has no port to
 build and so declares no port factory. A gateway factory returns a
 `GatewaySet{Gateway, Reader, Admin, Prober}`: one channel, with the optional
 ports left nil.

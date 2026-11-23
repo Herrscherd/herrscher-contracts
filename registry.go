@@ -56,6 +56,10 @@ type (
 	// same way as a GatewayFactory. The host calls it once, when a configuration
 	// names the plugin's Kind in its stack, and shares the stage across sessions.
 	CompactorFactory func(ctx context.Context, cfg PluginConfig) (Compactor, error)
+	// ForgeFactory builds a live forge from runtime config, registered the same way
+	// as a GatewayFactory. The credentials are the host's port: the plugin asks it
+	// for a token of each forge host and never reads a secret from its own settings.
+	ForgeFactory func(ctx context.Context, cfg PluginConfig, creds ForgeCredentials) (Forge, error)
 )
 
 // Plugin is what a plugin declares about itself. Exactly one *port* factory is
@@ -69,6 +73,7 @@ type Plugin struct {
 	Memory       MemoryFactory
 	Orchestrator OrchestratorFactory
 	Compactor    CompactorFactory
+	Forge        ForgeFactory
 	// Skills builds the playbooks teaching an agent to use what this plugin
 	// contributes, installed by the host only when the plugin is in the build,
 	// so a Discord playbook never sits in the context of a machine that has no
@@ -141,6 +146,9 @@ func (r *Registry) Skills() []Plugin { return r.byCategory(CategorySkills) }
 
 // Compactors returns the registered plugins of the compactor category.
 func (r *Registry) Compactors() []Plugin { return r.byCategory(CategoryCompactor) }
+
+// Forges returns the registered plugins of the forge category.
+func (r *Registry) Forges() []Plugin { return r.byCategory(CategoryForge) }
 
 // Default is the global registry plugins self-register into via init(). Precedent
 // in the stdlib: image.RegisterFormat, database/sql.Register. A blank import of a
