@@ -136,17 +136,19 @@ func TestRegistryIsolatesCompactors(t *testing.T) {
 
 type stubForgeCredentials struct{ name string }
 
-func (*stubForgeCredentials) Token(context.Context, string) (ForgeToken, error) {
+func (*stubForgeCredentials) Token(context.Context, ForgeHost) (ForgeToken, error) {
 	return ForgeToken{}, ErrForgeNotConnected
 }
 
-func (*stubForgeCredentials) Invalidate(context.Context, string) {}
+func (*stubForgeCredentials) Invalidate(context.Context, ForgeHost) {}
 
 func TestRegistryIsolatesForges(t *testing.T) {
 	var r Registry
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "github", Category: CategoryForge},
-		Forge:    func(context.Context, PluginConfig, ForgeCredentials) (Forge, error) { return nil, errStubFactory },
+		Forge: func(context.Context, PluginConfig, ForgeHost, ForgeCredentials) (Forge, error) {
+			return nil, errStubFactory
+		},
 	})
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "claude", Category: CategoryBackend},
@@ -160,17 +162,23 @@ func TestRegistryIsolatesForges(t *testing.T) {
 
 func TestForgeFactoryReceivesTheHostCredentials(t *testing.T) {
 	var received ForgeCredentials
+	var receivedHost ForgeHost
 	var r Registry
 	r.Register(Plugin{
 		Manifest: Manifest{Kind: "github", Category: CategoryForge},
-		Forge: func(_ context.Context, _ PluginConfig, creds ForgeCredentials) (Forge, error) {
+		Forge: func(_ context.Context, _ PluginConfig, host ForgeHost, creds ForgeCredentials) (Forge, error) {
+			receivedHost = host
 			received = creds
 			return nil, errStubFactory
 		},
 	})
 	creds := &stubForgeCredentials{name: "host"}
-	if _, err := r.Forges()[0].Forge(context.Background(), PluginConfig{}, creds); !errors.Is(err, errStubFactory) {
+	host := mustParseForgeHost(t, "github.com")
+	if _, err := r.Forges()[0].Forge(context.Background(), PluginConfig{}, host, creds); !errors.Is(err, errStubFactory) {
 		t.Fatalf("factory error = %v, want the stub error", err)
+	}
+	if receivedHost != host {
+		t.Fatalf("factory received host %q, want %q", receivedHost, host)
 	}
 	if received != creds {
 		t.Fatalf("factory received %v, want the host credentials it was given", received)

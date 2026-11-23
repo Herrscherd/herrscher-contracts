@@ -2,6 +2,8 @@ package contracts
 
 import "fmt"
 
+const noneName = "none"
+
 // TokenSource says where a forge token came from. It is a closed set whose zero
 // value is not a source: [NewForgeToken] refuses it.
 type TokenSource int
@@ -97,7 +99,9 @@ func (s CheckStatus) String() string {
 }
 
 // CheckConclusion is how a completed check ended. Its zero value, [ConclusionNone],
-// is the deliberate "no conclusion yet" of a check that has not completed.
+// is the deliberate "no conclusion yet" of a check that has not completed. A
+// completed check whose conclusion the plugin cannot map is [ConclusionOther], so
+// a completed check never reads as [ConclusionNone].
 type CheckConclusion int
 
 const (
@@ -117,6 +121,8 @@ const (
 	ConclusionTimedOut
 	// ConclusionActionRequired is a check that needs a person to act before it can pass.
 	ConclusionActionRequired
+	// ConclusionOther is a completed check whose conclusion the plugin cannot map.
+	ConclusionOther
 )
 
 // String renders the conclusion as its short name. A value that names no conclusion
@@ -124,7 +130,7 @@ const (
 func (c CheckConclusion) String() string {
 	switch c {
 	case ConclusionNone:
-		return "none"
+		return noneName
 	case ConclusionSuccess:
 		return "success"
 	case ConclusionFailure:
@@ -139,6 +145,8 @@ func (c CheckConclusion) String() string {
 		return "timed_out"
 	case ConclusionActionRequired:
 		return "action_required"
+	case ConclusionOther:
+		return "other"
 	}
 	return fmt.Sprintf("CheckConclusion(%d)", int(c))
 }
@@ -168,4 +176,149 @@ func (m MergeMethod) String() string {
 		return "rebase"
 	}
 	return fmt.Sprintf("MergeMethod(%d)", int(m))
+}
+
+// MergeState is what the forge says about merging a pull request now. It is a
+// closed set whose zero value, [MergeStateUnknown], is the state while the forge
+// still computes it.
+type MergeState int
+
+const (
+	// MergeStateUnknown is a pull request whose merge state the forge has not computed yet.
+	MergeStateUnknown MergeState = iota
+	// MergeStateClean is a pull request that can be merged now.
+	MergeStateClean
+	// MergeStateConflicting is a pull request whose branch conflicts with its base.
+	MergeStateConflicting
+	// MergeStateBlocked is a pull request that waits for required checks or reviews.
+	MergeStateBlocked
+	// MergeStateBehind is a pull request whose base has moved past its branch.
+	MergeStateBehind
+	// MergeStateDraft is a pull request that is still a draft.
+	MergeStateDraft
+)
+
+// String renders the state as its short name. A value that names no state prints
+// its raw number.
+func (s MergeState) String() string {
+	switch s {
+	case MergeStateUnknown:
+		return "unknown"
+	case MergeStateClean:
+		return "clean"
+	case MergeStateConflicting:
+		return "conflicting"
+	case MergeStateBlocked:
+		return "blocked"
+	case MergeStateBehind:
+		return "behind"
+	case MergeStateDraft:
+		return "draft"
+	}
+	return fmt.Sprintf("MergeState(%d)", int(s))
+}
+
+// AuthorAssociation is how an account stands toward a repository. It is a closed set
+// whose zero value, [AssociationNone], means the forge says nothing about it.
+type AuthorAssociation int
+
+const (
+	// AssociationNone is an account the forge gives no association to.
+	AssociationNone AuthorAssociation = iota
+	// AssociationOwner is the owner of the repository.
+	AssociationOwner
+	// AssociationMember is a member of the organization that owns the repository.
+	AssociationMember
+	// AssociationCollaborator is an account invited to the repository.
+	AssociationCollaborator
+	// AssociationContributor is an account that has contributed before.
+	AssociationContributor
+	// AssociationFirstTimer is an account whose first contribution is this one.
+	AssociationFirstTimer
+	// AssociationOther is an account with no other association.
+	AssociationOther
+)
+
+// String renders the association as its short name. A value that names no
+// association prints its raw number.
+func (a AuthorAssociation) String() string {
+	switch a {
+	case AssociationNone:
+		return noneName
+	case AssociationOwner:
+		return "owner"
+	case AssociationMember:
+		return "member"
+	case AssociationCollaborator:
+		return "collaborator"
+	case AssociationContributor:
+		return "contributor"
+	case AssociationFirstTimer:
+		return "first_timer"
+	case AssociationOther:
+		return "other"
+	}
+	return fmt.Sprintf("AuthorAssociation(%d)", int(a))
+}
+
+// IssueState is whether an issue is open. It is a closed set whose zero value,
+// [IssueOpen], is the default of a listing.
+type IssueState int
+
+const (
+	// IssueOpen is an issue that awaits work or a decision.
+	IssueOpen IssueState = iota
+	// IssueClosed is an issue that was resolved or dropped.
+	IssueClosed
+)
+
+// String renders the state as its short name. A value that names no state prints
+// its raw number.
+func (s IssueState) String() string {
+	switch s {
+	case IssueOpen:
+		return "open"
+	case IssueClosed:
+		return "closed"
+	}
+	return fmt.Sprintf("IssueState(%d)", int(s))
+}
+
+// RepoPermission is the rights an account holds on one repository, from none to
+// admin. It is a closed set whose zero value, [PermissionNone], is no right at all.
+type RepoPermission int
+
+const (
+	// PermissionNone is an account with no right on the repository.
+	PermissionNone RepoPermission = iota
+	// PermissionRead is an account that can read the repository.
+	PermissionRead
+	// PermissionTriage is an account that can manage issues and pull requests without writing code.
+	PermissionTriage
+	// PermissionWrite is an account that can push to the repository.
+	PermissionWrite
+	// PermissionMaintain is an account that can manage the repository without owning it.
+	PermissionMaintain
+	// PermissionAdmin is an account that holds every right on the repository.
+	PermissionAdmin
+)
+
+// String renders the permission as its short name. A value that names no permission
+// prints its raw number.
+func (p RepoPermission) String() string {
+	switch p {
+	case PermissionNone:
+		return noneName
+	case PermissionRead:
+		return "read"
+	case PermissionTriage:
+		return "triage"
+	case PermissionWrite:
+		return "write"
+	case PermissionMaintain:
+		return "maintain"
+	case PermissionAdmin:
+		return "admin"
+	}
+	return fmt.Sprintf("RepoPermission(%d)", int(p))
 }

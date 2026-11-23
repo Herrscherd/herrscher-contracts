@@ -2,57 +2,85 @@ package contracts
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 )
 
 const (
-	defaultForgeHost   = "github.com"
-	hostedRepoSegments = 3
+	maxRepoRefBytes  = 512
+	maxRepoNameBytes = 100
+	minRepoSegments  = 2
+	gitSuffix        = ".git"
 )
 
-// ForgeRepoRef names one repository of a forge: its host, its owner and its name. Its
-// fields are unexported, so the only way to a value that names a repository is
-// [ParseRepoRef]; the zero value names none.
+// ForgeRepoRef names one repository of a forge: its host, its namespace and its
+// name. A namespace is one or more segments joined by "/", as GitLab subgroups
+// need; each forge plugin checks the depth it supports. Its fields are unexported,
+// so the only way to a value that names a repository is [ParseRepoRef]; the zero
+// value names none.
 type ForgeRepoRef struct {
-	host  string
-	owner string
-	name  string
+	host      ForgeHost
+	namespace string
+	name      string
 }
 
-// ParseRepoRef reads a repository from "owner/name" (on github.com), "host/owner/name",
-// an https URL or a git@ SSH address. A ".git" suffix is dropped, and so is one
-// trailing slash of a URL path; the host is kept in lower case. It returns an error
-// matching [ErrInvalidRepoRef] for any other text, including an http URL, a URL
-// with a port, a query, a fragment or userinfo.
+// ParseRepoRef reads a repository from "host/namespace/name", an https URL, an
+// ssh:// URL naming the git user, or a git@ address. The first segment of the first
+// two forms must parse as a [ForgeHost], so "owner/name" without a host is refused.
+// A ".git" suffix on the name is dropped, and so is one trailing slash of an https
+// path. It returns an error matching [ErrInvalidRepoRef] for userinfo other than
+// git@, a query or a fragment (even an empty one), percent-encoding, a "." or ".."
+// segment, an empty segment, a segment that starts with "-" or ".", a byte outside
+// ASCII letters, digits, ".", "-" and "_", a name longer than 100 bytes, or a text
+// longer than 512 bytes. The error quotes at most the first 64 bytes of the text.
 func ParseRepoRef(text string) (ForgeRepoRef, error) {
+	if len(text) > maxRepoRefBytes || strings.ContainsAny(text, "?#") {
+		return ForgeRepoRef{}, invalidRepoRef(text)
+	}
 	location, found := splitRepoLocation(text)
 	if !found {
-		return ForgeRepoRef{}, fmt.Errorf("%q: %w", text, ErrInvalidRepoRef)
+		return ForgeRepoRef{}, invalidRepoRef(text)
 	}
-	owner, name, paired := strings.Cut(trimRepoPath(location.path), "/")
-	if !paired || !validHost(location.host) || !validRepoSegment(owner) || !validRepoSegment(name) {
-		return ForgeRepoRef{}, fmt.Errorf("%q: %w", text, ErrInvalidRepoRef)
+	host, err := ParseForgeHost(location.host)
+	if err != nil {
+		return ForgeRepoRef{}, invalidRepoRef(text)
 	}
-	return ForgeRepoRef{host: strings.ToLower(location.host), owner: owner, name: name}, nil
+	path, found := splitRepoPath(location.path)
+	if !found {
+		return ForgeRepoRef{}, invalidRepoRef(text)
+	}
+	return ForgeRepoRef{host: host, namespace: path.namespace, name: path.name}, nil
 }
 
-// Host is the forge host the repository lives on, such as "github.com".
-func (r ForgeRepoRef) Host() string { return r.host }
+// RequireRepoHost returns an error matching [ErrForgeWrongHost] when repo is not on
+// host. A forge plugin calls it first in every method that takes a repository.
+func RequireRepoHost(host ForgeHost, repo ForgeRepoRef) error {
+	if repo.host != host {
+		return fmt.Errorf("%s is not on %s: %w", repo, host, ErrForgeWrongHost)
+	}
+	return nil
+}
 
-// Owner is the user or organization that owns the repository.
-func (r ForgeRepoRef) Owner() string { return r.owner }
+// Host is the forge host the repository lives on.
+func (r ForgeRepoRef) Host() ForgeHost { return r.host }
 
-// Name is the repository name, without the owner and without ".git".
+// Namespace is the path of groups or the user that holds the repository, such as
+// "octo" or "team/platform" for a GitLab subgroup.
+func (r ForgeRepoRef) Namespace() string { return r.namespace }
+
+// Name is the repository name, without the namespace and without ".git".
 func (r ForgeRepoRef) Name() string { return r.name }
 
-// String renders the reference as "host/owner/name", the form [ParseRepoRef]
+// String renders the reference as "host/namespace/name", the form [ParseRepoRef]
 // reads back. The zero value renders as the empty string.
 func (r ForgeRepoRef) String() string {
-	if r.name == "" {
+	if r == (ForgeRepoRef{}) {
 		return ""
 	}
-	return r.host + "/" + r.owner + "/" + r.name
+	return r.host.String() + "/" + r.namespace + "/" + r.name
+}
+
+func invalidRepoRef(text string) error {
+	return fmt.Errorf("%q: %w", truncatedForError(text), ErrInvalidRepoRef)
 }
 
 type repoLocation struct {
@@ -60,64 +88,71 @@ type repoLocation struct {
 	path string
 }
 
+type repoPath struct {
+	namespace string
+	name      string
+}
+
 func splitRepoLocation(text string) (repoLocation, bool) {
 	switch {
 	case strings.HasPrefix(text, "https://"):
-		return splitHTTPSLocation(text)
+		return splitHTTPSLocation(strings.TrimPrefix(text, "https://"))
+	case strings.HasPrefix(text, "ssh://"):
+		return splitSSHLocation(strings.TrimPrefix(text, "ssh://"))
 	case strings.HasPrefix(text, "git@"):
-		return splitSSHLocation(text)
+		host, path, found := strings.Cut(strings.TrimPrefix(text, "git@"), ":")
+		return repoLocation{host: host, path: path}, found
 	case strings.Contains(text, "://"):
 		return repoLocation{}, false
 	}
-	segments := strings.SplitN(text, "/", hostedRepoSegments)
-	if len(segments) == hostedRepoSegments {
-		return repoLocation{host: segments[0], path: segments[1] + "/" + segments[2]}, true
-	}
-	return repoLocation{host: defaultForgeHost, path: text}, true
-}
-
-func splitHTTPSLocation(text string) (repoLocation, bool) {
-	parsed, err := url.Parse(text)
-	if err != nil || parsed.User != nil || parsed.Port() != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return repoLocation{}, false
-	}
-	return repoLocation{host: parsed.Hostname(), path: strings.TrimPrefix(parsed.Path, "/")}, true
-}
-
-func splitSSHLocation(text string) (repoLocation, bool) {
-	host, path, found := strings.Cut(strings.TrimPrefix(text, "git@"), ":")
+	host, path, found := strings.Cut(text, "/")
 	return repoLocation{host: host, path: path}, found
 }
 
-func trimRepoPath(location string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(location, "/"), ".git")
+func splitHTTPSLocation(rest string) (repoLocation, bool) {
+	authority, path, found := strings.Cut(rest, "/")
+	if !found || strings.Contains(authority, "@") {
+		return repoLocation{}, false
+	}
+	return repoLocation{host: authority, path: strings.TrimSuffix(path, "/")}, true
 }
 
-func validHost(host string) bool {
-	return host != "" && allBytes(host, isHostByte)
+func splitSSHLocation(rest string) (repoLocation, bool) {
+	authority, path, found := strings.Cut(rest, "/")
+	host, isGitUser := strings.CutPrefix(authority, "git@")
+	if !found || !isGitUser {
+		return repoLocation{}, false
+	}
+	return repoLocation{host: host, path: path}, true
 }
 
-func validRepoSegment(segment string) bool {
-	return segment != "" && segment != "." && segment != ".." && allBytes(segment, isRepoSegmentByte)
+func splitRepoPath(path string) (repoPath, bool) {
+	segments := strings.Split(path, "/")
+	last := len(segments) - 1
+	if len(segments) < minRepoSegments {
+		return repoPath{}, false
+	}
+	segments[last] = strings.TrimSuffix(segments[last], gitSuffix)
+	name := segments[last]
+	if len(name) > maxRepoNameBytes || !allValidRepoSegments(segments) {
+		return repoPath{}, false
+	}
+	return repoPath{namespace: strings.Join(segments[:last], "/"), name: name}, true
 }
 
-func allBytes(text string, allowed func(byte) bool) bool {
-	for index := range len(text) {
-		if !allowed(text[index]) {
+func allValidRepoSegments(segments []string) bool {
+	for _, segment := range segments {
+		if !validRepoSegment(segment) {
 			return false
 		}
 	}
 	return true
 }
 
-func isHostByte(character byte) bool {
-	return isLetterOrDigit(character) || character == '.' || character == '-'
+func validRepoSegment(segment string) bool {
+	return segment != "" && segment[0] != '-' && segment[0] != '.' && allBytes(segment, isRepoSegmentByte)
 }
 
 func isRepoSegmentByte(character byte) bool {
-	return isHostByte(character) || character == '_'
-}
-
-func isLetterOrDigit(character byte) bool {
-	return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9')
+	return isLetterOrDigit(character) || character == '.' || character == '-' || character == '_'
 }

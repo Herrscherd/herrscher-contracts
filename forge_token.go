@@ -9,20 +9,24 @@ const redactedForgeToken = "[redacted]"
 
 // ForgeToken is the credential a host holds for one forge host, with the account
 // it belongs to and where it came from. The secret is unexported and reached only
-// through [ForgeToken.Secret]. Every formatting verb and the JSON form print a
-// placeholder and the account, never the secret: the secret sits behind a pointer,
-// which fmt never follows inside a struct. Build one with [NewForgeToken].
+// through [ForgeToken.Secret]. The secret never prints through fmt or JSON: every
+// formatting verb prints [redacted] and the JSON form writes the login and the
+// source. A conversion to another type drops those methods, and then fmt prints the
+// address of the secret, the login and the source. Compare tokens with Secret, not
+// with ==: the secret sits behind a pointer, so two tokens built from the same
+// secret are not equal. Build one with [NewForgeToken].
 type ForgeToken struct {
 	secret *string
 	login  string
 	source TokenSource
 }
 
-// NewForgeToken builds a token. It returns [ErrForgeNotConnected] when secret is
-// empty, and an error matching [ErrUnknownTokenSource] when source names no source.
+// NewForgeToken builds a token. It returns an error matching [ErrEmptyForgeToken]
+// when secret is empty, and an error matching [ErrUnknownTokenSource] when source
+// names no source.
 func NewForgeToken(secret, login string, source TokenSource) (ForgeToken, error) {
 	if secret == "" {
-		return ForgeToken{}, ErrForgeNotConnected
+		return ForgeToken{}, ErrEmptyForgeToken
 	}
 	if !source.known() {
 		return ForgeToken{}, fmt.Errorf("%s: %w", source, ErrUnknownTokenSource)
@@ -38,6 +42,9 @@ func (t ForgeToken) Secret() string {
 	}
 	return *t.secret
 }
+
+// Valid reports whether the token holds a secret. It is false for the zero value.
+func (t ForgeToken) Valid() bool { return t.secret != nil }
 
 // Login is the account the token authenticates, as the forge names it.
 func (t ForgeToken) Login() string { return t.login }

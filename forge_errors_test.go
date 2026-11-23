@@ -19,6 +19,25 @@ func TestRateLimitErrorIsFoundThroughWrapping(t *testing.T) {
 	}
 }
 
+func TestMergeRefusedErrorIsFoundThroughWrapping(t *testing.T) {
+	err := fmt.Errorf("merge pull request: %w", &ForgeMergeRefusedError{State: MergeStateBlocked})
+	refused, ok := errors.AsType[*ForgeMergeRefusedError](err)
+	if !ok {
+		t.Fatalf("errors.AsType(%v) found no ForgeMergeRefusedError", err)
+	}
+	if refused.State != MergeStateBlocked {
+		t.Fatalf("State = %v, want MergeStateBlocked", refused.State)
+	}
+}
+
+func TestMergeRefusedErrorNamesTheMergeState(t *testing.T) {
+	err := &ForgeMergeRefusedError{State: MergeStateConflicting}
+	want := "forge refused the merge, the pull request is conflicting"
+	if err.Error() != want {
+		t.Fatalf("Error() = %q, want %q", err.Error(), want)
+	}
+}
+
 func TestRateLimitErrorNamesItsResetInUTC(t *testing.T) {
 	reset := time.Date(2026, time.November, 23, 11, 0, 0, 0, time.FixedZone("CET", 3600))
 	err := &ForgeRateLimitedError{Reset: reset}

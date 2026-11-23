@@ -56,10 +56,11 @@ type (
 	// same way as a GatewayFactory. The host calls it once, when a configuration
 	// names the plugin's Kind in its stack, and shares the stage across sessions.
 	CompactorFactory func(ctx context.Context, cfg PluginConfig) (Compactor, error)
-	// ForgeFactory builds a live forge from runtime config, registered the same way
-	// as a GatewayFactory. The credentials are the host's port: the plugin asks it
-	// for a token of each forge host and never reads a secret from its own settings.
-	ForgeFactory func(ctx context.Context, cfg PluginConfig, creds ForgeCredentials) (Forge, error)
+	// ForgeFactory builds the live forge of one forge host, registered the same way
+	// as a GatewayFactory. The host is the one instance the plugin serves, and the
+	// credentials are the host's port: the plugin asks it for the token of that host
+	// and never reads a secret from its own settings.
+	ForgeFactory func(ctx context.Context, cfg PluginConfig, host ForgeHost, creds ForgeCredentials) (Forge, error)
 )
 
 // Plugin is what a plugin declares about itself. Exactly one *port* factory is

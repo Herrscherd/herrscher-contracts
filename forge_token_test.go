@@ -28,6 +28,15 @@ func TestForgeTokenNeverPrintsItsSecret(t *testing.T) {
 	}
 }
 
+func TestForgeTokenPrintsTheRedactedMarkerForTheTextVerbs(t *testing.T) {
+	token := newTestForgeToken(t)
+	for _, format := range []string{"%v", "%+v", "%#v", "%s"} {
+		if got := fmt.Sprintf(format, token); got != "[redacted]" {
+			t.Errorf("fmt.Sprintf(%q) = %q, want [redacted]", format, got)
+		}
+	}
+}
+
 func TestForgeTokenNeverPrintsItsSecretInsideAStruct(t *testing.T) {
 	holder := struct{ Token ForgeToken }{Token: newTestForgeToken(t)}
 	if got := fmt.Sprintf("%+v", holder); strings.Contains(got, forgeTestSecret) {
@@ -53,12 +62,31 @@ func TestForgeTokenAccessorsReturnWhatWasBuilt(t *testing.T) {
 	if token.Secret() != forgeTestSecret || token.Login() != "octocat" || token.Source() != TokenSourceApp {
 		t.Fatalf("accessors = %q, %q, %v, want the built values", token.Secret(), token.Login(), token.Source())
 	}
+	if !token.Valid() {
+		t.Fatalf("Valid() = false for a built token, want true")
+	}
+}
+
+func TestZeroForgeTokenIsNotValidAndHasNoSecret(t *testing.T) {
+	var token ForgeToken
+	if token.Valid() {
+		t.Fatalf("Valid() = true for the zero token, want false")
+	}
+	if token.Secret() != "" {
+		t.Fatalf("Secret() of the zero token = %q, want empty", token.Secret())
+	}
+	if got := token.String(); got != "[redacted]" {
+		t.Fatalf("zero token prints %q, want [redacted]", got)
+	}
 }
 
 func TestNewForgeTokenRefusesAnEmptySecret(t *testing.T) {
-	_, err := NewForgeToken("", "octocat", TokenSourceEnv)
-	if !errors.Is(err, ErrForgeNotConnected) {
-		t.Fatalf("NewForgeToken(empty secret) error = %v, want ErrForgeNotConnected", err)
+	token, err := NewForgeToken("", "octocat", TokenSourceEnv)
+	if !errors.Is(err, ErrEmptyForgeToken) {
+		t.Fatalf("NewForgeToken(empty secret) error = %v, want ErrEmptyForgeToken", err)
+	}
+	if token.Valid() {
+		t.Fatalf("a refused token is valid, want the zero value")
 	}
 }
 
@@ -66,5 +94,31 @@ func TestNewForgeTokenRefusesAnUnknownSource(t *testing.T) {
 	_, err := NewForgeToken(forgeTestSecret, "octocat", TokenSource(0))
 	if !errors.Is(err, ErrUnknownTokenSource) {
 		t.Fatalf("NewForgeToken(zero source) error = %v, want ErrUnknownTokenSource", err)
+	}
+}
+
+func TestNewForgeTokenAcceptsEveryKnownSource(t *testing.T) {
+	sources := map[TokenSource]string{
+		TokenSourceSaved: "saved",
+		TokenSourceApp:   "app",
+		TokenSourceEnv:   "env",
+		TokenSourceCLI:   "cli",
+	}
+	for source, name := range sources {
+		token, err := NewForgeToken(forgeTestSecret, "octocat", source)
+		if err != nil {
+			t.Errorf("NewForgeToken(source %s) error = %v, want none", name, err)
+			continue
+		}
+		if token.Source() != source {
+			t.Errorf("Source() = %v, want %v", token.Source(), source)
+		}
+		raw, err := json.Marshal(token)
+		if err != nil {
+			t.Fatalf("json.Marshal() error = %v", err)
+		}
+		if want := fmt.Sprintf(`{"login":"octocat","source":%q}`, name); string(raw) != want {
+			t.Errorf("JSON for source %s = %s, want %s", name, raw, want)
+		}
 	}
 }
