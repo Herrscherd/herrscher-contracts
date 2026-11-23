@@ -99,29 +99,29 @@ type ModelSpec struct {
 // [ErrModelEmptyArg], [ErrModelControlChar], [ErrModelUnknownRoute],
 // [ErrModelNegative] or [ErrModelNotFinite], to match with errors.Is.
 func ValidateModels(kind string, models []ModelSpec) error {
-	seen := make(map[string]bool, len(models))
+	seen := make(map[string]int, len(models))
 	for index := range models {
 		spec := &models[index]
 		if err := validateModelIdentity(kind, index, spec, seen); err != nil {
 			return err
 		}
-		if err := validateModelRequiredFields(kind, spec); err != nil {
+		if err := validateModelRequiredFields(kind, index, spec); err != nil {
 			return err
 		}
-		if err := validateModelControlChars(kind, spec); err != nil {
+		if err := validateModelControlChars(kind, index, spec); err != nil {
 			return err
 		}
-		if err := validateModelRoute(kind, spec); err != nil {
+		if err := validateModelRoute(kind, index, spec); err != nil {
 			return err
 		}
-		if err := validateModelNumbers(kind, spec); err != nil {
+		if err := validateModelNumbers(kind, index, spec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateModelNumbers(kind string, spec *ModelSpec) error {
+func validateModelNumbers(kind string, index int, spec *ModelSpec) error {
 	for _, price := range []struct {
 		name  string
 		value float64
@@ -131,66 +131,66 @@ func validateModelNumbers(kind string, spec *ModelSpec) error {
 		{"CacheReadPrice", spec.CacheReadPrice},
 		{"CacheWritePrice", spec.CacheWritePrice},
 	} {
-		if err := validateModelPrice(kind, spec.ID, price.name, price.value); err != nil {
+		if err := validateModelPrice(kind, index, price.name, price.value); err != nil {
 			return err
 		}
 	}
 	if spec.ContextWindow < 0 {
-		return fmt.Errorf("backend %q: model %q, field ContextWindow: %w", kind, spec.ID, ErrModelNegative)
+		return fmt.Errorf("backend %q: model #%d, field ContextWindow: %w", kind, index, ErrModelNegative)
 	}
 	return nil
 }
 
-func validateModelPrice(kind, modelID, name string, price float64) error {
+func validateModelPrice(kind string, index int, name string, price float64) error {
 	if math.IsNaN(price) || math.IsInf(price, 0) {
-		return fmt.Errorf("backend %q: model %q, field %s: %w", kind, modelID, name, ErrModelNotFinite)
+		return fmt.Errorf("backend %q: model #%d, field %s: %w", kind, index, name, ErrModelNotFinite)
 	}
 	if price < 0 {
-		return fmt.Errorf("backend %q: model %q, field %s: %w", kind, modelID, name, ErrModelNegative)
+		return fmt.Errorf("backend %q: model #%d, field %s: %w", kind, index, name, ErrModelNegative)
 	}
 	return nil
 }
 
-func validateModelIdentity(kind string, index int, spec *ModelSpec, seen map[string]bool) error {
+func validateModelIdentity(kind string, index int, spec *ModelSpec, seen map[string]int) error {
 	if strings.TrimSpace(spec.ID) == "" {
 		return fmt.Errorf("backend %q: model #%d: %w", kind, index, ErrModelEmptyID)
 	}
-	if seen[spec.ID] {
-		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelDuplicateID)
+	if first, repeated := seen[spec.ID]; repeated {
+		return fmt.Errorf("backend %q: model #%d repeats model #%d: %w", kind, index, first, ErrModelDuplicateID)
 	}
-	seen[spec.ID] = true
+	seen[spec.ID] = index
 	return nil
 }
 
-func validateModelRequiredFields(kind string, spec *ModelSpec) error {
+func validateModelRequiredFields(kind string, index int, spec *ModelSpec) error {
 	if strings.TrimSpace(spec.Label) == "" {
-		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelEmptyLabel)
+		return fmt.Errorf("backend %q: model #%d, field Label: %w", kind, index, ErrModelEmptyLabel)
 	}
 	if strings.TrimSpace(spec.Arg) == "" {
-		return fmt.Errorf("backend %q: model %q: %w", kind, spec.ID, ErrModelEmptyArg)
+		return fmt.Errorf("backend %q: model #%d, field Arg: %w", kind, index, ErrModelEmptyArg)
 	}
 	return nil
 }
 
-func validateModelControlChars(kind string, spec *ModelSpec) error {
+func validateModelControlChars(kind string, index int, spec *ModelSpec) error {
 	for _, field := range []struct{ name, value string }{
 		{"ID", spec.ID}, {"Label", spec.Label}, {"Arg", spec.Arg},
 	} {
 		if hasControlChar(field.value) {
-			return fmt.Errorf("backend %q: model %q, field %s: %w", kind, spec.ID, field.name, ErrModelControlChar)
+			return fmt.Errorf("backend %q: model #%d, field %s: %w", kind, index, field.name, ErrModelControlChar)
 		}
 	}
-	for _, effort := range spec.Efforts {
+	for effortIndex, effort := range spec.Efforts {
 		if hasControlChar(effort) {
-			return fmt.Errorf("backend %q: model %q, effort %q: %w", kind, spec.ID, effort, ErrModelControlChar)
+			return fmt.Errorf("backend %q: model #%d, effort #%d: %w", kind, index, effortIndex, ErrModelControlChar)
 		}
 	}
 	return nil
 }
 
-func validateModelRoute(kind string, spec *ModelSpec) error {
+func validateModelRoute(kind string, index int, spec *ModelSpec) error {
 	if spec.Route != RouteNative && spec.Route != RouteGateway {
-		return fmt.Errorf("backend %q: model %q, route %q: %w", kind, spec.ID, spec.Route, ErrModelUnknownRoute)
+		return fmt.Errorf("backend %q: model #%d, field Route: %w", kind, index, ErrModelUnknownRoute)
 	}
 	return nil
 }
