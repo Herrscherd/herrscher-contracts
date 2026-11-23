@@ -117,7 +117,8 @@ type eventWire Event
 // turn outcome is refused with [ErrInvalidEvent] and [ErrUnknownTurnOutcome], and
 // its message does not repeat the text. A null decodes to the zero Event. This is
 // the entry point that names the wire field: json.Unmarshal into an Event keeps
-// the error of encoding/json, which names the Go type.
+// the error of encoding/json, which names the Go type, and returns the bare
+// [ErrUnknownTurnOutcome] for an unknown outcome.
 func DecodeEvent(data []byte) (Event, error) {
 	var decoded eventWire
 	if err := json.Unmarshal(data, &decoded); err != nil {

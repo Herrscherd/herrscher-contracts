@@ -17,30 +17,29 @@ const (
 // Match it with errors.Is.
 var ErrUnknownTurnOutcome = errors.New("unknown turn outcome")
 
-func turnOutcomes() []TurnOutcome {
-	return []TurnOutcome{TurnFailed, TurnInterrupted}
-}
-
 // ParseTurnOutcome reads an outcome from its text form. The empty text is a
 // completed turn, the zero TurnOutcome. Any other text that is not a constant
 // returns an error matching [ErrUnknownTurnOutcome], which does not repeat the text.
 func ParseTurnOutcome(text string) (TurnOutcome, error) {
-	if text == "" {
-		return "", nil
-	}
-	for _, outcome := range turnOutcomes() {
-		if string(outcome) == text {
-			return outcome, nil
-		}
+	if outcome, ok := knownTurnOutcome(text); ok {
+		return outcome, nil
 	}
 	return "", ErrUnknownTurnOutcome
+}
+
+func knownTurnOutcome(text string) (TurnOutcome, bool) {
+	switch outcome := TurnOutcome(text); outcome {
+	case "", TurnFailed, TurnInterrupted:
+		return outcome, true
+	}
+	return "", false
 }
 
 // MarshalText writes the text form of the outcome. A value that names no turn
 // outcome returns an error matching [ErrUnknownTurnOutcome].
 func (o TurnOutcome) MarshalText() ([]byte, error) {
-	if _, err := ParseTurnOutcome(string(o)); err != nil {
-		return nil, err
+	if _, ok := knownTurnOutcome(string(o)); !ok {
+		return nil, ErrUnknownTurnOutcome
 	}
 	return []byte(o), nil
 }

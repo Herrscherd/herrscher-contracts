@@ -401,13 +401,26 @@ totals stand alone.
 `Event.Outcome` (`TurnOutcome`) says how a turn ended when it did not complete:
 `failed` when the backend failed, `interrupted` when the turn was cut. It is
 carried on the terminal reply (`done`) only. The zero value is a completed turn,
-which is omitted on the wire. `TurnOutcome` marshals and unmarshals through
+which is omitted on the wire, and a `null` outcome reads as absent, as it does
+for every other field. `TurnOutcome` marshals and unmarshals through
 `ParseTurnOutcome`, which refuses any other text with `ErrUnknownTurnOutcome`
-and never repeats it. The policy is strict on purpose: a reader refuses an
-outcome it does not know, instead of taking the turn for a completed one. An
-older reader therefore refuses a newer outcome with `ErrInvalidEvent` rather
-than reading the turn as a success, and a producer must not send an outcome that
-this version does not name.
+and never repeats it.
+
+Two kinds of reader meet an outcome, and they behave differently:
+
+- A reader built on this version, which knows the field, refuses an unknown
+  outcome value: `DecodeEvent` refuses the event with `ErrInvalidEvent`, and
+  `json.Unmarshal` returns the bare `ErrUnknownTurnOutcome`. It never reads the
+  turn as completed. This strictness is deliberate.
+- A reader built before the field existed ignores the `outcome` key, because
+  `encoding/json` does not know it, and reads a failed or interrupted turn as a
+  completed one. No change in this package can make such a reader refuse it.
+
+Deployment: in herrscher the bridge and the host ship in one binary and update
+together, so the host reads the outcome from the bridge it runs with. A gateway
+or an external consumer kept on an older version reads a failed or interrupted
+turn as a success. Upgrade every consumer that reads `outcome` before a producer
+starts to emit one.
 
 A reader of the wire must decode each line, that is each `Event`, with
 `DecodeEvent(data)`. It refuses a field of the wrong JSON type, a number out
@@ -531,9 +544,10 @@ JSON: it is not a refusal of the contract, so it may quote a character of the
 input. A logger that must keep the input out logs only the type of the error.
 The second is the `*json.MarshalerError` that `json.Marshal` wraps around a
 refusal of `ToolCall.MarshalJSON`, whose message names the Go type
-`*contracts.ToolCall`. `errors.Is` still matches `ErrInvalidToolCall` through
-that wrap. A direct call to `ToolCall.MarshalJSON` or to `ToolCall.Validate`
-gives the message without it.
+`*contracts.ToolCall`, or of `TurnOutcome.MarshalText`, whose message names
+`contracts.TurnOutcome`. `errors.Is` still matches `ErrInvalidToolCall` or
+`ErrUnknownTurnOutcome` through that wrap. A direct call to `ToolCall.MarshalJSON`
+or to `ToolCall.Validate` gives the message without it.
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
