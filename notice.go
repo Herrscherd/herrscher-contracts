@@ -366,7 +366,7 @@ func (a Arg) Value() any { return a.value }
 
 func (a Arg) checkKind() error {
 	if (a.name == countName) != (a.kind == ArgCount) {
-		return fmt.Errorf("argument %q of kind %d: %w", a.name, uint8(a.kind), ErrNoticeArgs)
+		return fmt.Errorf("argument of kind %d: %w", uint8(a.kind), ErrNoticeArgs)
 	}
 	return nil
 }
@@ -418,13 +418,13 @@ func (n Notice) params() (map[string]any, error) {
 	for _, arg := range n.Args {
 		value, valid := arg.param()
 		if !valid {
-			return nil, fmt.Errorf("argument %q of kind %d: %w", arg.name, uint8(arg.kind), ErrNoticeArgs)
+			return nil, fmt.Errorf("argument of kind %d: %w", uint8(arg.kind), ErrNoticeArgs)
 		}
 		if err := arg.checkKind(); err != nil {
 			return nil, err
 		}
 		if want, expected := declared[arg.name]; !expected || want != arg.kind {
-			return nil, fmt.Errorf("argument %q of kind %d does not match code %q: %w", arg.name, uint8(arg.kind), n.Code.Key(), ErrNoticeArgs)
+			return nil, fmt.Errorf("argument of kind %d does not match code %q: %w", uint8(arg.kind), n.Code.Key(), ErrNoticeArgs)
 		}
 		if _, given := params[arg.name]; given {
 			return nil, fmt.Errorf("argument %q given twice: %w", arg.name, ErrNoticeArgs)
