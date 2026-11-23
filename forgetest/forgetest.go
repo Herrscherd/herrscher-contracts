@@ -6,6 +6,7 @@ package forgetest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -34,15 +35,16 @@ type foreignCall struct {
 // request, a job, a thread or an issue, each with a reference on the foreign host,
 // and fails the test for each call that does not return an error matching
 // [contracts.ErrForgeWrongHost]. foreign must name a repository on a host other than
-// the one forge serves. Each call gets ten seconds. The check proves only the
-// refusal: a forge that refuses every call passes it, so the plugin's own tests
-// prove the calls on its own host.
+// the one forge serves. Each call gets ten seconds: a call still running then is
+// reported as a failure and left running, whether or not it watches its context.
+// The check proves only the refusal: a forge that refuses every call passes it, so
+// the plugin's own tests prove the calls on its own host.
 func CheckRefusesForeignHost(tb testing.TB, forge contracts.Forge, foreign contracts.ForgeRepoRef) {
 	tb.Helper()
-	checkRefusesForeignHost(tb, forge, foreign)
+	checkRefusesForeignHost(tb, forge, foreign, callTimeout)
 }
 
-func checkRefusesForeignHost(report reporter, forge contracts.Forge, foreign contracts.ForgeRepoRef) {
+func checkRefusesForeignHost(report reporter, forge contracts.Forge, foreign contracts.ForgeRepoRef, timeout time.Duration) {
 	report.Helper()
 	refs, err := newForeignRefs(foreign)
 	if err != nil {
@@ -50,17 +52,24 @@ func checkRefusesForeignHost(report reporter, forge contracts.Forge, foreign con
 		return
 	}
 	for _, call := range foreignCalls(forge, foreign, refs) {
-		callErr := runWithDeadline(call)
+		callErr := runWithDeadline(call, timeout)
 		if !errors.Is(callErr, contracts.ErrForgeWrongHost) {
 			report.Errorf("%s with a repository on another host: error = %v, want ErrForgeWrongHost", call.name, callErr)
 		}
 	}
 }
 
-func runWithDeadline(call foreignCall) error {
-	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+func runWithDeadline(call foreignCall, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return call.run(ctx)
+	result := make(chan error, 1)
+	go func() { result <- call.run(ctx) }()
+	select {
+	case err := <-result:
+		return err
+	case <-ctx.Done():
+		return fmt.Errorf("no answer within %v: %w", timeout, ctx.Err())
+	}
 }
 
 func newForeignRefs(foreign contracts.ForgeRepoRef) (foreignRefs, error) {

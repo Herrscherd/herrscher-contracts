@@ -30,9 +30,9 @@ type ForgeRepoRef struct {
 // first segment of the first form must parse as a [ForgeHost], so "owner/name"
 // without a host is refused. Userinfo in an https URL is refused, and the ssh://
 // and scp forms require the git@ user. Port 443 is dropped from the host in every
-// form, as [ParseForgeHost] does, and the port of an ssh:// URL is dropped too, which is the SSH service's and not
-// the forge's. A ".git" suffix on the name is dropped, and so is one trailing slash
-// of a bare or https path. A "?" or "#" anywhere refuses the text, even an empty
+// form, as [ParseForgeHost] does, and the port of an ssh:// URL is dropped too,
+// since it is the SSH service's and not the forge's. A ".git" suffix on the name
+// is dropped, and so is one trailing slash of a bare or https path. A "?" or "#" anywhere refuses the text, even an empty
 // query or fragment, and an "@" fails the segment or host validation. It returns an
 // error matching [ErrInvalidRepoRef] for any other userinfo, percent-encoding, a "."
 // or ".." segment, an empty segment, a segment that starts with "-" or ".", a byte

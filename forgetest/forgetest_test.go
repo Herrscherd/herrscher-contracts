@@ -4,15 +4,20 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	contracts "github.com/Herrscherd/herrscher-contracts"
 )
 
 type fakeForge struct {
 	refuses bool
+	stall   <-chan struct{}
 }
 
 func (f fakeForge) refusal() error {
+	if f.stall != nil {
+		<-f.stall
+	}
 	if f.refuses {
 		return contracts.ErrForgeWrongHost
 	}
@@ -90,7 +95,7 @@ func TestCheckRefusesForeignHostPassesAForgeThatRefuses(t *testing.T) {
 
 func TestCheckRefusesForeignHostCatchesAForgetfulForge(t *testing.T) {
 	rec := &recorder{}
-	checkRefusesForeignHost(rec, fakeForge{}, foreignRepo(t))
+	checkRefusesForeignHost(rec, fakeForge{}, foreignRepo(t), callTimeout)
 	if len(rec.failures) != 10 {
 		t.Fatalf("forgetful forge reported %d failures, want one per repository method (10): %q", len(rec.failures), rec.failures)
 	}
@@ -98,7 +103,7 @@ func TestCheckRefusesForeignHostCatchesAForgetfulForge(t *testing.T) {
 
 func TestCheckRefusesForeignHostIsSilentForAGuardedForge(t *testing.T) {
 	rec := &recorder{}
-	checkRefusesForeignHost(rec, fakeForge{refuses: true}, foreignRepo(t))
+	checkRefusesForeignHost(rec, fakeForge{refuses: true}, foreignRepo(t), callTimeout)
 	if len(rec.failures) != 0 {
 		t.Fatalf("guarded forge reported failures: %q", rec.failures)
 	}
@@ -106,8 +111,28 @@ func TestCheckRefusesForeignHostIsSilentForAGuardedForge(t *testing.T) {
 
 func TestCheckRefusesForeignHostRefusesAZeroForeignRepository(t *testing.T) {
 	rec := &recorder{}
-	checkRefusesForeignHost(rec, fakeForge{refuses: true}, contracts.ForgeRepoRef{})
+	checkRefusesForeignHost(rec, fakeForge{refuses: true}, contracts.ForgeRepoRef{}, callTimeout)
 	if len(rec.failures) != 1 {
 		t.Fatalf("zero foreign repository reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+	}
+}
+
+func TestCheckRefusesForeignHostReportsACallThatIgnoresItsDeadline(t *testing.T) {
+	stall := make(chan struct{})
+	defer close(stall)
+	rec := &recorder{}
+	start := time.Now()
+	checkRefusesForeignHost(rec, fakeForge{refuses: true, stall: stall}, foreignRepo(t), 20*time.Millisecond)
+	if len(rec.failures) != 10 {
+		t.Fatalf("stalled forge reported %d failures, want one per repository method (10): %q", len(rec.failures), rec.failures)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("check took %v on a forge that ignores its context, want it bounded by the deadline", elapsed)
+	}
+}
+
+func TestCheckRefusesForeignHostGivesEachCallTenSeconds(t *testing.T) {
+	if callTimeout != 10*time.Second {
+		t.Fatalf("callTimeout = %v, want the documented ten seconds", callTimeout)
 	}
 }

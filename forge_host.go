@@ -23,14 +23,15 @@ const (
 type ForgeHost struct{ name string }
 
 // ParseForgeHost reads a forge host and keeps it lowercase, with its port in
-// canonical digits and the default https port 443 dropped, so "github.com:443"
-// and "github.com" name the same host. It returns an error matching [ErrInvalidForgeHost] when the text
-// holds a byte above 127, which is checked before lowercasing so that no character
-// lowercases into ASCII; when a label is empty, longer than 63 bytes, starts or ends
-// with a hyphen, or holds a byte other than a letter, a digit or a hyphen; when the
-// name has no dot; when the port is empty, not made of digits, or outside 1 to
-// 65535; or when the whole host, port included, is longer than 253 bytes. The error
-// quotes at most the first 64 bytes of the text.
+// canonical digits and the default https port 443 dropped, so "github.com:443" and
+// "github.com" name the same host. It returns an error matching
+// [ErrInvalidForgeHost] when the text holds a byte above 127, which is checked
+// before lowercasing so that no character lowercases into ASCII; when a label is
+// empty, longer than 63 bytes, starts or ends with a hyphen, or holds a byte other
+// than a letter, a digit or a hyphen; when the name has no dot; when the port is
+// empty, not made of digits, or outside 1 to 65535; or when the whole host, port
+// included, is longer than 253 bytes. The error quotes at most the first 64 bytes
+// of the text.
 func ParseForgeHost(text string) (ForgeHost, error) {
 	if !allBytes(text, isASCIIByte) {
 		return ForgeHost{}, invalidForgeHost(text)
