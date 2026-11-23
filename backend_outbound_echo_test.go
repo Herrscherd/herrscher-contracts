@@ -13,11 +13,11 @@ func TestValidateOutboundFileRefusesWithoutEchoingTheFile(t *testing.T) {
 	}{
 		{
 			name: "relative path",
-			file: OutboundFile{Path: "rel/" + receivedSecret, Name: "fact.txt"},
+			file: OutboundFile{Path: receivedSecret + "/fact.txt", Name: "fact.txt"},
 		},
 		{
 			name: "path outside the outbox",
-			file: OutboundFile{Path: "/elsewhere/" + receivedSecret, Name: "fact.txt"},
+			file: OutboundFile{Path: "/" + receivedSecret + "/elsewhere", Name: "fact.txt"},
 		},
 		{
 			name: "name with a separator",
