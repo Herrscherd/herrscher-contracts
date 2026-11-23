@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestParseForgeHostRefusalsDoNotEchoTheirInput(t *testing.T) {
@@ -22,7 +24,7 @@ func TestParseForgeHostRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, ErrInvalidForgeHost) {
 				t.Fatalf("error = %v, want ErrInvalidForgeHost", err)
 			}
-			requireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }
@@ -43,7 +45,7 @@ func TestParseRepoRefRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, ErrInvalidRepoRef) {
 				t.Fatalf("error = %v, want ErrInvalidRepoRef", err)
 			}
-			requireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

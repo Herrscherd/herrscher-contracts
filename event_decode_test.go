@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func richEvent() Event {
@@ -142,7 +144,7 @@ func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
 	if !strings.Contains(msg, "tool_call has the wrong JSON type") {
 		t.Fatalf("message %q does not name tool_call", msg)
 	}
-	requireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
 }
 
 func TestDecodeEventLeavesASyntaxErrorUnwrapped(t *testing.T) {

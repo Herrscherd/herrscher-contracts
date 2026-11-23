@@ -4,15 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
-	"strings"
 	"testing"
 
 	contracts "github.com/Herrscherd/herrscher-contracts"
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
-
-const answeredSecret = "zq8Vk2wXr7Lm"
-
-const echoFragmentBytes = 4
 
 func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 	client, server := net.Pipe()
@@ -29,7 +25,7 @@ func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 			t.Errorf("read request: %v", err)
 			return
 		}
-		answer := contracts.ApprovalAnswer{ID: answeredSecret, Decision: contracts.DecisionAllow}
+		answer := contracts.ApprovalAnswer{ID: echotest.Secret, Decision: contracts.DecisionAllow}
 		if err := json.NewEncoder(server).Encode(answer); err != nil {
 			t.Errorf("encode answer: %v", err)
 		}
@@ -38,15 +34,5 @@ func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrAnswerMismatch) {
 		t.Fatalf("error = %v, want ErrAnswerMismatch", err)
 	}
-	requireNoSecretFragment(t, err.Error(), answeredSecret)
-}
-
-func requireNoSecretFragment(tb testing.TB, msg, secret string) {
-	tb.Helper()
-	for start := 0; start+echoFragmentBytes <= len(secret); start++ {
-		fragment := secret[start : start+echoFragmentBytes]
-		if strings.Contains(msg, fragment) {
-			tb.Fatalf("message %q echoes %q from the answer ID", msg, fragment)
-		}
-	}
+	echotest.RequireNoSecretFragment(t, err.Error(), echotest.Secret)
 }

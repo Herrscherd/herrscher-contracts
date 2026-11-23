@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestTurnOutcomeTextFormIsPinned(t *testing.T) {
@@ -50,7 +52,7 @@ func TestTurnOutcomeRefusesAnUnknownTextWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrUnknownTurnOutcome) {
 		t.Fatalf("error = %v, want ErrUnknownTurnOutcome", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }
 
 func TestTurnOutcomeMarshalRefusesAnUnknownValue(t *testing.T) {
@@ -70,5 +72,5 @@ func TestDecodeEventRefusesAnUnknownOutcomeByItsWireName(t *testing.T) {
 	if !strings.Contains(msg, "outcome") {
 		t.Fatalf("message %q does not name outcome", msg)
 	}
-	requireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
 }

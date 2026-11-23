@@ -3,6 +3,8 @@ package contracts
 import (
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestBudgetErrorDoesNotRepeatTheKey(t *testing.T) {
@@ -10,5 +12,5 @@ func TestBudgetErrorDoesNotRepeatTheKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("EnforceBudget accepted a body over its budget")
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

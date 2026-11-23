@@ -3,6 +3,8 @@ package contracts
 import (
 	"errors"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestValidateOutboundFileRefusesWithoutEchoingTheFile(t *testing.T) {
@@ -38,7 +40,7 @@ func TestValidateOutboundFileRefusesWithoutEchoingTheFile(t *testing.T) {
 			if !errors.Is(err, ErrInvalidOutboundFile) {
 				t.Fatalf("error = %v, want ErrInvalidOutboundFile", err)
 			}
-			requireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

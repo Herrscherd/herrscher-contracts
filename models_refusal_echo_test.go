@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestValidateModelsRefusalsDoNotEchoTheirInput(t *testing.T) {
@@ -35,7 +37,7 @@ func TestValidateModelsRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error = %v, want %v", err, tt.wantErr)
 			}
-			requireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

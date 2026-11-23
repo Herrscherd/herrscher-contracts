@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestArgMarshalJSONRefusesALongValueWithoutEchoingTheName(t *testing.T) {
@@ -13,5 +15,5 @@ func TestArgMarshalJSONRefusesALongValueWithoutEchoingTheName(t *testing.T) {
 	if !errors.Is(err, ErrNoticeLimit) {
 		t.Fatalf("error = %v, want ErrNoticeLimit", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

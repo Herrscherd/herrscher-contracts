@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestParseForgeHostAcceptsItsForms(t *testing.T) {
@@ -181,5 +183,5 @@ func mustParseForgeHost(t *testing.T, text string) ForgeHost {
 
 func TestParseForgeHostRefusalRepeatsNoPartOfTheText(t *testing.T) {
 	_, err := ParseForgeHost(receivedSecret + strings.Repeat("x", 200) + "!")
-	requireBareSentinel(t, err, ErrInvalidForgeHost)
+	echotest.RequireBareSentinel(t, err, ErrInvalidForgeHost)
 }

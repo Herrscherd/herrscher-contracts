@@ -3,6 +3,8 @@ package contracts
 import (
 	"errors"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestParsePruneActionRefusesAnUnknownTextWithoutEcho(t *testing.T) {
@@ -10,5 +12,5 @@ func TestParsePruneActionRefusesAnUnknownTextWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrUnknownPruneAction) {
 		t.Fatalf("error = %v, want ErrUnknownPruneAction", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

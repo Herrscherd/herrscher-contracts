@@ -3,6 +3,8 @@ package contracts
 import (
 	"errors"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestParseForgeHostRefusesAnUnknownTextWithoutEcho(t *testing.T) {
@@ -10,5 +12,5 @@ func TestParseForgeHostRefusesAnUnknownTextWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrInvalidForgeHost) {
 		t.Fatalf("error = %v, want ErrInvalidForgeHost", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestToolCallStateParsesItsOwnText(t *testing.T) {
@@ -262,7 +264,7 @@ func TestToolCallRefusalsDoNotEchoDetail(t *testing.T) {
 	}
 	for name, err := range cases {
 		t.Run(name, func(t *testing.T) {
-			requireRefusalWithoutEcho(t, err, ErrInvalidToolCall, secret)
+			echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidToolCall, secret)
 		})
 	}
 }
@@ -300,7 +302,7 @@ func TestToolCallUnmarshalRefusesWrongJSONTypeWithoutGoNames(t *testing.T) {
 					t.Fatalf("Unmarshal(%s) error %q contains %q", raw, err, leak)
 				}
 			}
-			requireNoSecretFragment(t, err.Error(), secret)
+			echotest.RequireNoSecretFragment(t, err.Error(), secret)
 		})
 	}
 }
@@ -433,7 +435,7 @@ func TestToolCallRefusalsDoNotEchoWireText(t *testing.T) {
 					t.Fatalf("Unmarshal(%s) error = %v, want %v", tc.raw, err, want)
 				}
 			}
-			requireNoSecretFragment(t, err.Error(), secret)
+			echotest.RequireNoSecretFragment(t, err.Error(), secret)
 		})
 	}
 	refusals := map[string]error{
@@ -444,12 +446,12 @@ func TestToolCallRefusalsDoNotEchoWireText(t *testing.T) {
 	}
 	for name, err := range refusals {
 		t.Run(name, func(t *testing.T) {
-			requireRefusalWithoutEcho(t, err, ErrInvalidToolCall, secret)
+			echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidToolCall, secret)
 		})
 	}
 	_, err := ParseToolCallState(secret)
 	if !errors.Is(err, ErrUnknownToolCallState) {
 		t.Fatalf("ParseToolCallState(secret) error = %v, want ErrUnknownToolCallState", err)
 	}
-	requireNoSecretFragment(t, err.Error(), secret)
+	echotest.RequireNoSecretFragment(t, err.Error(), secret)
 }

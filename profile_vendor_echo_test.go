@@ -3,6 +3,8 @@ package contracts
 import (
 	"errors"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestProfileHomeEnvRefusesAVendorWithoutEchoingIt(t *testing.T) {
@@ -10,5 +12,5 @@ func TestProfileHomeEnvRefusesAVendorWithoutEchoingIt(t *testing.T) {
 	if !errors.Is(err, ErrNoProfileHome) {
 		t.Fatalf("error = %v, want ErrNoProfileHome", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

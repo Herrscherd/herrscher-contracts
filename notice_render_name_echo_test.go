@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestRenderRefusesAnArgumentWithoutEchoingItsName(t *testing.T) {
@@ -37,7 +39,7 @@ func TestRenderRefusesAnArgumentWithoutEchoingItsName(t *testing.T) {
 			if !errors.Is(err, ErrNoticeArgs) {
 				t.Fatalf("error = %v, want ErrNoticeArgs", err)
 			}
-			requireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

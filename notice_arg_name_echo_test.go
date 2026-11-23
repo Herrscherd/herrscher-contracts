@@ -3,6 +3,8 @@ package contracts
 import (
 	"fmt"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestArgUnmarshalJSONRefusesAWrongValueWithoutEchoingTheName(t *testing.T) {
@@ -12,5 +14,5 @@ func TestArgUnmarshalJSONRefusesAWrongValueWithoutEchoingTheName(t *testing.T) {
 	if err == nil {
 		t.Fatal("a number is accepted as a text value")
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

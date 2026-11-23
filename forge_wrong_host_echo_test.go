@@ -3,6 +3,8 @@ package contracts
 import (
 	"errors"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestRequireRepoHostRefusesAWrongHostWithoutEchoingTheRepository(t *testing.T) {
@@ -18,5 +20,5 @@ func TestRequireRepoHostRefusesAWrongHostWithoutEchoingTheRepository(t *testing.
 	if !errors.Is(err, ErrForgeWrongHost) {
 		t.Fatalf("error = %v, want ErrForgeWrongHost", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

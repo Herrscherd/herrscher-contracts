@@ -3,6 +3,8 @@ package contracts
 import (
 	"errors"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestParseCommitSHARefusesAnUnknownTextWithoutEcho(t *testing.T) {
@@ -10,5 +12,5 @@ func TestParseCommitSHARefusesAnUnknownTextWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrInvalidCommitSHA) {
 		t.Fatalf("error = %v, want ErrInvalidCommitSHA", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }

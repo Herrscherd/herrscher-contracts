@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestParseRepoRefAcceptsEachForm(t *testing.T) {
@@ -240,7 +242,7 @@ func TestParseRepoRefRefusalRepeatsNoPartOfTheText(t *testing.T) {
 	for name, text := range texts {
 		t.Run(name, func(t *testing.T) {
 			_, err := ParseRepoRef(text)
-			requireBareSentinel(t, err, ErrInvalidRepoRef)
+			echotest.RequireBareSentinel(t, err, ErrInvalidRepoRef)
 		})
 	}
 }

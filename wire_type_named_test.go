@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 const (
-	receivedSecret      = "zq8Vk2wXr7Lm"
+	receivedSecret      = echotest.Secret
 	oversizedValueBytes = 70000
 	unknownArgKind      = 9
 )
@@ -28,7 +30,7 @@ func requireNamedWireType(t *testing.T, err, sentinel error, field string) {
 			t.Fatalf("message %q leaks %q: it must name the wire field only", msg, leak)
 		}
 	}
-	requireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
 }
 
 func requireNamedWireRange(t *testing.T, err, sentinel error, field, value string) {
@@ -45,7 +47,7 @@ func requireNamedWireRange(t *testing.T, err, sentinel error, field, value strin
 			t.Fatalf("message %q leaks %q: it must name the wire field only", msg, leak)
 		}
 	}
-	requireNoSecretFragment(t, msg, value)
+	echotest.RequireNoSecretFragment(t, msg, value)
 }
 
 func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
@@ -206,7 +208,7 @@ func TestApprovalAnswerUnknownDecisionNamesTheFieldNotTheText(t *testing.T) {
 	if !strings.Contains(msg, "Decision") {
 		t.Fatalf("message %q does not name Decision", msg)
 	}
-	requireNoSecretFragment(t, msg, receivedSecret)
+	echotest.RequireNoSecretFragment(t, msg, receivedSecret)
 }
 
 func TestApprovalDecisionUnknownTextIsNotEchoed(t *testing.T) {
@@ -215,7 +217,7 @@ func TestApprovalDecisionUnknownTextIsNotEchoed(t *testing.T) {
 	if !errors.Is(err, ErrInvalidDecision) {
 		t.Fatalf("error = %v, want ErrInvalidDecision", err)
 	}
-	requireNoSecretFragment(t, err.Error(), receivedSecret)
+	echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 }
 
 func TestNoticeArgumentErrorNamesTheWireFieldNotTheValue(t *testing.T) {
@@ -255,7 +257,7 @@ func TestNoticeArgumentErrorNamesTheWireFieldNotTheValue(t *testing.T) {
 			if strings.Contains(msg, "nom-fil") || strings.Contains(msg, "aaa") {
 				t.Fatalf("message %q echoes the received value", msg)
 			}
-			requireNoSecretFragment(t, msg, receivedSecret)
+			echotest.RequireNoSecretFragment(t, msg, receivedSecret)
 		})
 	}
 }

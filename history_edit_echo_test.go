@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestValidateHistoryEditsRefusesEachEditByRankWithoutEchoingTheCall(t *testing.T) {
@@ -53,7 +55,7 @@ func TestValidateHistoryEditsRefusesEachEditByRankWithoutEchoingTheCall(t *testi
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("message %q does not name %q", err, tt.want)
 			}
-			requireNoSecretFragment(t, err.Error(), receivedSecret)
+			echotest.RequireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }
