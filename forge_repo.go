@@ -9,6 +9,7 @@ const (
 	maxRepoRefBytes  = 512
 	maxRepoNameBytes = 100
 	minRepoSegments  = 2
+	defaultHTTPSPort = 443
 	gitSuffix        = ".git"
 )
 
@@ -16,7 +17,9 @@ const (
 // name. A namespace is one or more segments joined by "/", as GitLab subgroups
 // need; each forge plugin checks the depth it supports. Its fields are unexported,
 // so the only way to a value that names a repository is [ParseRepoRef]; the zero
-// value names none.
+// value names none. Two references compare equal with == only when their namespace
+// and name match in case too, because some forges are case-sensitive: match
+// repositories with [ForgeRepoRef.SameRepo].
 type ForgeRepoRef struct {
 	host      ForgeHost
 	namespace string
@@ -24,14 +27,19 @@ type ForgeRepoRef struct {
 }
 
 // ParseRepoRef reads a repository from "host/namespace/name", an https URL, an
-// ssh:// URL naming the git user, or a git@ address. The first segment of the first
-// two forms must parse as a [ForgeHost], so "owner/name" without a host is refused.
-// A ".git" suffix on the name is dropped, and so is one trailing slash of an https
-// path. It returns an error matching [ErrInvalidRepoRef] for userinfo other than
-// git@, a query or a fragment (even an empty one), percent-encoding, a "." or ".."
-// segment, an empty segment, a segment that starts with "-" or ".", a byte outside
-// ASCII letters, digits, ".", "-" and "_", a name longer than 100 bytes, or a text
-// longer than 512 bytes. The error quotes at most the first 64 bytes of the text.
+// ssh:// URL, or a git@ address in scp form ("git@host:namespace/name"). The
+// first segment of the first form must parse as a [ForgeHost], so "owner/name"
+// without a host is refused. Userinfo in an https URL is refused, and the ssh://
+// and scp forms require the git@ user. The default port 443 of an https URL is
+// dropped, and so is the port of an ssh:// URL, which is the SSH service's and not
+// the forge's. A ".git" suffix on the name is dropped, and so is one trailing slash
+// of a bare or https path. A "?" or "#" anywhere refuses the text, even an empty
+// query or fragment, and an "@" fails the segment or host validation. It returns an
+// error matching [ErrInvalidRepoRef] for any other userinfo, percent-encoding, a "."
+// or ".." segment, an empty segment, a segment that starts with "-" or ".", a byte
+// outside ASCII letters, digits, ".", "-" and "_", a name longer than 100 bytes, or
+// a text longer than 512 bytes. The error quotes at most the first 64 bytes of the
+// text.
 func ParseRepoRef(text string) (ForgeRepoRef, error) {
 	if len(text) > maxRepoRefBytes || strings.ContainsAny(text, "?#") {
 		return ForgeRepoRef{}, invalidRepoRef(text)
@@ -51,9 +59,17 @@ func ParseRepoRef(text string) (ForgeRepoRef, error) {
 	return ForgeRepoRef{host: host, namespace: path.namespace, name: path.name}, nil
 }
 
-// RequireRepoHost returns an error matching [ErrForgeWrongHost] when repo is not on
-// host. A forge plugin calls it first in every method that takes a repository.
+// RequireRepoHost returns an error matching [ErrInvalidForgeHost] when host is the
+// zero value, and one matching [ErrInvalidRepoRef] when repo is. It returns an error
+// matching [ErrForgeWrongHost] when repo is not on host. A forge plugin calls it
+// first in every method that takes a repository.
 func RequireRepoHost(host ForgeHost, repo ForgeRepoRef) error {
+	if host == (ForgeHost{}) {
+		return ErrInvalidForgeHost
+	}
+	if repo == (ForgeRepoRef{}) {
+		return ErrInvalidRepoRef
+	}
 	if repo.host != host {
 		return fmt.Errorf("%s is not on %s: %w", repo, host, ErrForgeWrongHost)
 	}
@@ -69,6 +85,14 @@ func (r ForgeRepoRef) Namespace() string { return r.namespace }
 
 // Name is the repository name, without the namespace and without ".git".
 func (r ForgeRepoRef) Name() string { return r.name }
+
+// SameRepo reports whether r and o name the same repository. The host must match
+// exactly, and the namespace and the name match when they are equal ignoring case.
+// Use it to match repositories, because == is case-sensitive on the namespace and
+// the name.
+func (r ForgeRepoRef) SameRepo(o ForgeRepoRef) bool {
+	return r.host == o.host && strings.EqualFold(r.namespace, o.namespace) && strings.EqualFold(r.name, o.name)
+}
 
 // String renders the reference as "host/namespace/name", the form [ParseRepoRef]
 // reads back. The zero value renders as the empty string.
@@ -106,7 +130,7 @@ func splitRepoLocation(text string) (repoLocation, bool) {
 		return repoLocation{}, false
 	}
 	host, path, found := strings.Cut(text, "/")
-	return repoLocation{host: host, path: path}, found
+	return repoLocation{host: host, path: strings.TrimSuffix(path, "/")}, found
 }
 
 func splitHTTPSLocation(rest string) (repoLocation, bool) {
@@ -114,13 +138,22 @@ func splitHTTPSLocation(rest string) (repoLocation, bool) {
 	if !found || strings.Contains(authority, "@") {
 		return repoLocation{}, false
 	}
-	return repoLocation{host: authority, path: strings.TrimSuffix(path, "/")}, true
+	return repoLocation{host: withoutDefaultHTTPSPort(authority), path: strings.TrimSuffix(path, "/")}, true
+}
+
+func withoutDefaultHTTPSPort(authority string) string {
+	host, port, _ := strings.Cut(authority, ":")
+	if number, ok := parsePort(port); ok && number == defaultHTTPSPort {
+		return host
+	}
+	return authority
 }
 
 func splitSSHLocation(rest string) (repoLocation, bool) {
 	authority, path, found := strings.Cut(rest, "/")
-	host, isGitUser := strings.CutPrefix(authority, "git@")
-	if !found || !isGitUser {
+	account, isGitUser := strings.CutPrefix(authority, "git@")
+	host, port, hasPort := strings.Cut(account, ":")
+	if !found || !isGitUser || (hasPort && !isPort(port)) {
 		return repoLocation{}, false
 	}
 	return repoLocation{host: host, path: path}, true

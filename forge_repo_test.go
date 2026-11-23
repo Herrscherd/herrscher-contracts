@@ -13,14 +13,19 @@ func TestParseRepoRefAcceptsEachForm(t *testing.T) {
 		{"github.com/octo/hello", "github.com", "octo", "hello"},
 		{"gitlab.example.com/team/platform/app", "gitlab.example.com", "team/platform", "app"},
 		{"GitHub.com/octo/hello", "github.com", "octo", "hello"},
+		{"github.com/octo/hello/", "github.com", "octo", "hello"},
 		{"https://github.com/octo/hello", "github.com", "octo", "hello"},
 		{"https://github.com/octo/hello.git", "github.com", "octo", "hello"},
 		{"https://github.com/octo/hello/", "github.com", "octo", "hello"},
 		{"https://github.com:8443/octo/hello", "github.com:8443", "octo", "hello"},
+		{"https://github.com:443/octo/hello", "github.com", "octo", "hello"},
+		{"https://github.com:0443/octo/hello", "github.com", "octo", "hello"},
+		{"https://github.com:80/octo/hello", "github.com:80", "octo", "hello"},
 		{"git@github.com:octo/hello.git", "github.com", "octo", "hello"},
 		{"git@forge.example.com:team/app_v2", "forge.example.com", "team", "app_v2"},
 		{"ssh://git@github.com/octo/hello.git", "github.com", "octo", "hello"},
-		{"ssh://git@forge.example.com:2222/team/app.git", "forge.example.com:2222", "team", "app"},
+		{"ssh://git@github.com:22/octo/hello", "github.com", "octo", "hello"},
+		{"ssh://git@forge.example.com:2222/team/app.git", "forge.example.com", "team", "app"},
 	}
 	for _, tt := range tests {
 		ref, err := ParseRepoRef(tt.text)
@@ -58,6 +63,7 @@ func TestParseRepoRefRefusesOtherForms(t *testing.T) {
 		"github.com/octo/../hello",
 		"github.com/octo/./hello",
 		"github.com//hello",
+		"github.com/octo//",
 		"github.com/octo/-hello",
 		"github.com/octo/.hello",
 		"github.com/octo/he llo",
@@ -66,23 +72,37 @@ func TestParseRepoRefRefusesOtherForms(t *testing.T) {
 		"github.com/octo/hello?",
 		"github.com/octo/hello#",
 		"github.com/octo/hello#frag",
+		"github.com/octo/hel@lo",
+		"github.com/octo/hello@1",
+		"@github.com/octo/hello",
 		"https://github.com/octo/hello?x=1",
 		"https://github.com/octo/hello#frag",
 		"https://github.com/octo/hello?",
-		"github.com:/octo/hello",
+		"https://github.com:443:1/octo/hello",
 		"https://github.com:/octo/hello",
+		"github.com:/octo/hello",
+		"github.com:octo/hello",
+		"forge.example.com:octo/hello",
 		"github.com/%6Fcto/hello",
 		"http://github.com/octo/hello",
 		"https://user@github.com/octo/hello",
+		"https://user:pass@github.com/octo/hello",
 		"https://github.com/octo",
 		"ssh://github.com/octo/hello",
+		"ssh://github.com:22/octo/hello",
 		"ssh://bob@github.com/octo/hello.git",
+		"ssh://git@github.com:/octo/hello",
+		"ssh://git@github.com:x/octo/hello",
+		"ssh://git@github.com:0/octo/hello",
+		"ssh://git@github.com:65536/octo/hello",
 		"git@github.com/octo/hello",
 		"git@github.com:octo",
 		"git@github.com:octo/hello/",
 		"git@github.com:octo/.git",
+		"git@github.com:octo/hel@lo",
 		"bad_host/octo/hello",
 		"github/octo/hello",
+		"githuK.com/octo/hello",
 	}
 	for _, text := range texts {
 		ref, err := ParseRepoRef(text)
@@ -95,26 +115,30 @@ func TestParseRepoRefRefusesOtherForms(t *testing.T) {
 	}
 }
 
-func TestParseRepoRefRefusesTheNameLimit(t *testing.T) {
-	longest := "github.com/octo/" + strings.Repeat("n", maxRepoNameBytes)
-	if _, err := ParseRepoRef(longest); err != nil {
-		t.Fatalf("ParseRepoRef(name of %d bytes) error = %v, want none", maxRepoNameBytes, err)
+func TestParseRepoRefPinsTheNameLimit(t *testing.T) {
+	if _, err := ParseRepoRef("github.com/octo/" + strings.Repeat("n", 100)); err != nil {
+		t.Fatalf("ParseRepoRef(name of 100 bytes) error = %v, want none", err)
 	}
-	tooLong := "github.com/octo/" + strings.Repeat("n", maxRepoNameBytes+1)
-	if _, err := ParseRepoRef(tooLong); !errors.Is(err, ErrInvalidRepoRef) {
-		t.Fatalf("ParseRepoRef(name of %d bytes) error = %v, want ErrInvalidRepoRef", maxRepoNameBytes+1, err)
+	if _, err := ParseRepoRef("github.com/octo/" + strings.Repeat("n", 101)); !errors.Is(err, ErrInvalidRepoRef) {
+		t.Fatalf("ParseRepoRef(name of 101 bytes) error = %v, want ErrInvalidRepoRef", err)
 	}
 }
 
-func TestParseRepoRefRefusesTheInputLimit(t *testing.T) {
+func TestParseRepoRefPinsTheInputLimit(t *testing.T) {
 	const prefix, suffix = "github.com/", "/hello"
-	atLimit := prefix + strings.Repeat("a", maxRepoRefBytes-len(prefix)-len(suffix)) + suffix
-	if _, err := ParseRepoRef(atLimit); err != nil {
-		t.Fatalf("ParseRepoRef(%d bytes) error = %v, want none", len(atLimit), err)
+	atLimit := prefix + strings.Repeat("a", 512-len(prefix)-len(suffix)) + suffix
+	if len(atLimit) != 512 {
+		t.Fatalf("fixture is %d bytes, want 512", len(atLimit))
 	}
-	overLimit := prefix + strings.Repeat("a", maxRepoRefBytes+1-len(prefix)-len(suffix)) + suffix
+	if _, err := ParseRepoRef(atLimit); err != nil {
+		t.Fatalf("ParseRepoRef(512 bytes) error = %v, want none", err)
+	}
+	overLimit := prefix + strings.Repeat("a", 513-len(prefix)-len(suffix)) + suffix
+	if len(overLimit) != 513 {
+		t.Fatalf("fixture is %d bytes, want 513", len(overLimit))
+	}
 	if _, err := ParseRepoRef(overLimit); !errors.Is(err, ErrInvalidRepoRef) {
-		t.Fatalf("ParseRepoRef(%d bytes) error = %v, want ErrInvalidRepoRef", len(overLimit), err)
+		t.Fatalf("ParseRepoRef(513 bytes) error = %v, want ErrInvalidRepoRef", err)
 	}
 }
 
@@ -124,11 +148,11 @@ func TestParseRepoRefQuotesAtMostTheFirstSixtyFourBytes(t *testing.T) {
 	if !errors.Is(err, ErrInvalidRepoRef) {
 		t.Fatalf("ParseRepoRef(long) error = %v, want ErrInvalidRepoRef", err)
 	}
-	if strings.Contains(err.Error(), long[:maxQuotedBytes+1]) {
-		t.Fatalf("error quotes more than %d bytes of the input: %d bytes", maxQuotedBytes, len(err.Error()))
+	if strings.Contains(err.Error(), long[:65]) {
+		t.Fatalf("error quotes more than 64 bytes of the input: %d bytes", len(err.Error()))
 	}
-	if !strings.Contains(err.Error(), long[:maxQuotedBytes]) {
-		t.Fatalf("error = %q, want the first %d bytes of the input", err.Error(), maxQuotedBytes)
+	if !strings.Contains(err.Error(), long[:64]) {
+		t.Fatalf("error = %q, want the first 64 bytes of the input", err.Error())
 	}
 }
 
@@ -162,11 +186,59 @@ func TestRequireRepoHostRefusesAnotherHost(t *testing.T) {
 	}
 }
 
+func TestRequireRepoHostRefusesTheZeroValues(t *testing.T) {
+	github := mustParseForgeHost(t, "github.com")
+	ref := mustOctoHelloRepo(t)
+
+	if err := RequireRepoHost(ForgeHost{}, ref); !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("RequireRepoHost(zero host) error = %v, want ErrInvalidForgeHost", err)
+	}
+	if err := RequireRepoHost(github, ForgeRepoRef{}); !errors.Is(err, ErrInvalidRepoRef) {
+		t.Fatalf("RequireRepoHost(zero repo) error = %v, want ErrInvalidRepoRef", err)
+	}
+	if err := RequireRepoHost(ForgeHost{}, ForgeRepoRef{}); !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("RequireRepoHost(zero host, zero repo) error = %v, want ErrInvalidForgeHost", err)
+	}
+}
+
+func TestSameRepoIgnoresCaseOnNamespaceAndName(t *testing.T) {
+	lower := mustParseRepo(t, "github.com/octo/hello")
+	mixed := mustParseRepo(t, "GitHub.com/Octo/HELLO")
+	if !lower.SameRepo(mixed) || !mixed.SameRepo(lower) {
+		t.Fatalf("SameRepo(%v, %v) = false, want true: the host is lowercased and the rest compares without case", lower, mixed)
+	}
+}
+
+func TestSameRepoRefusesAnotherHostOrRepository(t *testing.T) {
+	base := mustParseRepo(t, "github.com/octo/hello")
+	for _, other := range []string{"gitlab.example.com/octo/hello", "github.com/octo/world", "github.com/other/hello"} {
+		if base.SameRepo(mustParseRepo(t, other)) {
+			t.Errorf("SameRepo(%v, %s) = true, want false", base, other)
+		}
+	}
+	if !(ForgeRepoRef{}).SameRepo(ForgeRepoRef{}) {
+		t.Errorf("SameRepo of two zero references = false, want true")
+	}
+}
+
+func TestEqualityOfRepoRefIsCaseSensitive(t *testing.T) {
+	lower := mustParseRepo(t, "github.com/octo/hello")
+	mixed := mustParseRepo(t, "github.com/Octo/hello")
+	if lower == mixed {
+		t.Fatalf("%v == %v, want false: == is case-sensitive on the namespace and name", lower, mixed)
+	}
+}
+
 func mustOctoHelloRepo(t *testing.T) ForgeRepoRef {
 	t.Helper()
-	ref, err := ParseRepoRef("github.com/octo/hello")
+	return mustParseRepo(t, "github.com/octo/hello")
+}
+
+func mustParseRepo(t *testing.T, text string) ForgeRepoRef {
+	t.Helper()
+	ref, err := ParseRepoRef(text)
 	if err != nil {
-		t.Fatalf("ParseRepoRef(github.com/octo/hello) error = %v", err)
+		t.Fatalf("ParseRepoRef(%q) error = %v", text, err)
 	}
 	return ref
 }

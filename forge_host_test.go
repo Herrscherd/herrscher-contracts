@@ -12,6 +12,8 @@ func TestParseForgeHostAcceptsItsForms(t *testing.T) {
 		{"GitHub.COM", "github.com"},
 		{"forge.example.com:8443", "forge.example.com:8443"},
 		{"forge.example.com:0443", "forge.example.com:443"},
+		{"forge.example.com:1", "forge.example.com:1"},
+		{"forge.example.com:65535", "forge.example.com:65535"},
 		{"a-b.example.org:65535", "a-b.example.org:65535"},
 		{"10.0.0.1", "10.0.0.1"},
 	}
@@ -50,6 +52,7 @@ func TestParseForgeHostRefusesOtherText(t *testing.T) {
 		"github.com:1:2",
 		"github.com/octo",
 		"héllo.example.com",
+		"githuK.com",
 		"https://github.com",
 		strings.Repeat("a", 64) + ".com",
 		strings.Repeat("a.", 127) + "com",
@@ -65,21 +68,64 @@ func TestParseForgeHostRefusesOtherText(t *testing.T) {
 	}
 }
 
-func TestParseForgeHostAcceptsTheLabelAndTotalLimits(t *testing.T) {
-	longestLabel := strings.Repeat("a", maxDNSLabelBytes) + ".com"
-	if _, err := ParseForgeHost(longestLabel); err != nil {
-		t.Fatalf("ParseForgeHost(label of %d bytes) error = %v, want none", maxDNSLabelBytes, err)
+func TestParseForgeHostRefusesANonASCIICharacterThatLowercasesIntoASCII(t *testing.T) {
+	const kelvinSign = "K"
+	if !strings.EqualFold(kelvinSign, "k") {
+		t.Fatalf("fixture: the Kelvin sign no longer lowercases to k")
 	}
-	longestTotal := strings.Repeat("a", 60) + "." + strings.Repeat("b", 60) + "." + strings.Repeat("c", 60) + "." + strings.Repeat("d", 60)
-	if len(longestTotal) > maxForgeHostBytes {
-		t.Fatalf("fixture is %d bytes, want at most %d", len(longestTotal), maxForgeHostBytes)
+	if _, err := ParseForgeHost("githu" + kelvinSign + ".com"); !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("ParseForgeHost(Kelvin sign) error = %v, want ErrInvalidForgeHost", err)
 	}
-	if _, err := ParseForgeHost(longestTotal); err != nil {
-		t.Fatalf("ParseForgeHost(%d bytes) error = %v, want none", len(longestTotal), err)
+}
+
+func TestParseForgeHostPinsTheLabelLimit(t *testing.T) {
+	if _, err := ParseForgeHost(strings.Repeat("a", 63) + ".com"); err != nil {
+		t.Fatalf("ParseForgeHost(label of 63 bytes) error = %v, want none", err)
 	}
-	overTotal := longestTotal + ".example.com"
-	if _, err := ParseForgeHost(overTotal); !errors.Is(err, ErrInvalidForgeHost) {
-		t.Fatalf("ParseForgeHost(%d bytes) error = %v, want ErrInvalidForgeHost", len(overTotal), err)
+	if _, err := ParseForgeHost(strings.Repeat("a", 64) + ".com"); !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("ParseForgeHost(label of 64 bytes) error = %v, want ErrInvalidForgeHost", err)
+	}
+}
+
+func TestParseForgeHostPinsTheTotalLimitWithAndWithoutThePort(t *testing.T) {
+	atLimit := hostOfLength(253)
+	if len(atLimit) != 253 {
+		t.Fatalf("fixture is %d bytes, want 253", len(atLimit))
+	}
+	if _, err := ParseForgeHost(atLimit); err != nil {
+		t.Fatalf("ParseForgeHost(253 bytes) error = %v, want none", err)
+	}
+	if _, err := ParseForgeHost(hostOfLength(254)); !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("ParseForgeHost(254 bytes) error = %v, want ErrInvalidForgeHost", err)
+	}
+	if _, err := ParseForgeHost(hostOfLength(247) + ":65535"); err != nil {
+		t.Fatalf("ParseForgeHost(253 bytes with port) error = %v, want none", err)
+	}
+	if _, err := ParseForgeHost(hostOfLength(248) + ":65535"); !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("ParseForgeHost(254 bytes with port) error = %v, want ErrInvalidForgeHost", err)
+	}
+}
+
+func TestParseForgeHostPinsThePortRange(t *testing.T) {
+	if _, err := ParseForgeHost("forge.example.com:65535"); err != nil {
+		t.Fatalf("ParseForgeHost(port 65535) error = %v, want none", err)
+	}
+	if _, err := ParseForgeHost("forge.example.com:65536"); !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("ParseForgeHost(port 65536) error = %v, want ErrInvalidForgeHost", err)
+	}
+}
+
+func TestParseForgeHostQuotesAtMostTheFirstSixtyFourBytes(t *testing.T) {
+	long := strings.Repeat("x", 200) + "!"
+	_, err := ParseForgeHost(long)
+	if !errors.Is(err, ErrInvalidForgeHost) {
+		t.Fatalf("ParseForgeHost(long) error = %v, want ErrInvalidForgeHost", err)
+	}
+	if strings.Contains(err.Error(), long[:65]) {
+		t.Fatalf("error quotes more than 64 bytes of the input: %d bytes", len(err.Error()))
+	}
+	if !strings.Contains(err.Error(), long[:64]) {
+		t.Fatalf("error = %q, want the first 64 bytes of the input", err.Error())
 	}
 }
 
@@ -95,6 +141,30 @@ func TestZeroForgeHostStringIsEmpty(t *testing.T) {
 	if got := (ForgeHost{}).String(); got != "" {
 		t.Fatalf("zero ForgeHost String() = %q, want empty", got)
 	}
+}
+
+func TestSSHPortIsDroppedAndTheWebPortKept(t *testing.T) {
+	ssh, err := ParseRepoRef("ssh://git@github.com:22/octo/hello")
+	if err != nil {
+		t.Fatalf("ParseRepoRef(ssh with port) error = %v, want none", err)
+	}
+	if ssh.Host() != mustParseForgeHost(t, "github.com") {
+		t.Fatalf("ssh host = %q, want github.com: the port is the SSH service's", ssh.Host())
+	}
+	web, err := ParseRepoRef("https://github.com:443/octo/hello")
+	if err != nil {
+		t.Fatalf("ParseRepoRef(https with default port) error = %v, want none", err)
+	}
+	if web.Host() != mustParseForgeHost(t, "github.com") {
+		t.Fatalf("https host = %q, want github.com: 443 is the default port", web.Host())
+	}
+}
+
+func hostOfLength(length int) string {
+	const label, dots = 63, 3
+	last := length - 3*label - dots
+	return strings.Repeat("a", label) + "." + strings.Repeat("b", label) + "." +
+		strings.Repeat("c", label) + "." + strings.Repeat("d", last)
 }
 
 func mustParseForgeHost(t *testing.T, text string) ForgeHost {

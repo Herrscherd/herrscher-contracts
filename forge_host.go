@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -15,16 +16,23 @@ const (
 
 // ForgeHost names the host a forge lives on, such as "github.com" or
 // "forge.example.com:8443": a lowercase DNS name of at least two labels, with an
-// optional port. Build one with [ParseForgeHost]; the zero value names no host.
+// optional port. The port is the one of the forge's web and API service, not of its
+// SSH service, so [ParseRepoRef] drops the port of an ssh:// reference. Build one
+// with [ParseForgeHost]; the zero value names no host.
 type ForgeHost struct{ name string }
 
 // ParseForgeHost reads a forge host and keeps it lowercase, with its port in
-// canonical digits. It returns an error matching [ErrInvalidForgeHost] when a
-// label is empty, longer than 63 bytes, starts or ends with a hyphen, or holds a
-// byte other than a letter, a digit or a hyphen; when the name has no dot; when
-// the port is empty, not made of digits, or outside 1 to 65535; or when the whole
-// host, port included, is longer than 253 bytes.
+// canonical digits. It returns an error matching [ErrInvalidForgeHost] when the text
+// holds a byte above 127, which is checked before lowercasing so that no character
+// lowercases into ASCII; when a label is empty, longer than 63 bytes, starts or ends
+// with a hyphen, or holds a byte other than a letter, a digit or a hyphen; when the
+// name has no dot; when the port is empty, not made of digits, or outside 1 to
+// 65535; or when the whole host, port included, is longer than 253 bytes. The error
+// quotes at most the first 64 bytes of the text.
 func ParseForgeHost(text string) (ForgeHost, error) {
+	if !allBytes(text, isASCIIByte) {
+		return ForgeHost{}, invalidForgeHost(text)
+	}
 	name, port, hasPort := strings.Cut(strings.ToLower(text), ":")
 	if !validDNSName(name) {
 		return ForgeHost{}, invalidForgeHost(text)
@@ -83,6 +91,11 @@ func parsePort(text string) (int, bool) {
 	return number, true
 }
 
+func isPort(text string) bool {
+	_, ok := parsePort(text)
+	return ok
+}
+
 func allBytes(text string, allowed func(byte) bool) bool {
 	for index := range len(text) {
 		if !allowed(text[index]) {
@@ -90,6 +103,10 @@ func allBytes(text string, allowed func(byte) bool) bool {
 		}
 	}
 	return true
+}
+
+func isASCIIByte(character byte) bool {
+	return character < utf8.RuneSelf
 }
 
 func isLabelByte(character byte) bool {
