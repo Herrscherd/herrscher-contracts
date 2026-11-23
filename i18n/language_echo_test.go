@@ -9,9 +9,9 @@ import (
 )
 
 func TestParseLanguageRefusesAnUnsupportedTextWithoutEcho(t *testing.T) {
-	_, err := i18n.ParseLanguage(echotest.Secret + "_XX.UTF-8")
+	_, err := i18n.ParseLanguage(echotest.Probe + "_XX.UTF-8")
 	if !errors.Is(err, i18n.ErrUnsupportedLanguage) {
 		t.Fatalf("error = %v, want ErrUnsupportedLanguage", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), echotest.Secret)
+	echotest.RequireNoSecretFragment(t, err.Error(), echotest.Probe)
 }

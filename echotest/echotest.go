@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-// Secret is the input a test feeds to a parser, and the value its refusal must
+// Probe is the input a test feeds to a parser, and the value its refusal must
 // not echo.
-const Secret = "zq8Vk2wXr7Lm"
+const Probe = "zq8Vk2wXr7Lm"
 
 const fragmentBytes = 4
 

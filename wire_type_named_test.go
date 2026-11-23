@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	receivedSecret      = echotest.Secret
+	receivedSecret      = echotest.Probe
 	oversizedValueBytes = 70000
 	unknownArgKind      = 9
 )

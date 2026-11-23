@@ -25,7 +25,7 @@ func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 			t.Errorf("read request: %v", err)
 			return
 		}
-		answer := contracts.ApprovalAnswer{ID: echotest.Secret, Decision: contracts.DecisionAllow}
+		answer := contracts.ApprovalAnswer{ID: echotest.Probe, Decision: contracts.DecisionAllow}
 		if err := json.NewEncoder(server).Encode(answer); err != nil {
 			t.Errorf("encode answer: %v", err)
 		}
@@ -34,5 +34,5 @@ func TestRoundTripRefusesAnAnswerForAnotherRequestWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrAnswerMismatch) {
 		t.Fatalf("error = %v, want ErrAnswerMismatch", err)
 	}
-	echotest.RequireNoSecretFragment(t, err.Error(), echotest.Secret)
+	echotest.RequireNoSecretFragment(t, err.Error(), echotest.Probe)
 }
