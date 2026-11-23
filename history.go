@@ -102,7 +102,7 @@ func ParseHistoryRole(text string) (HistoryRole, error) {
 			return role, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownHistoryRole, text)
+	return 0, ErrUnknownHistoryRole
 }
 
 // MarshalText writes the text form of the role. A value that names no role returns
@@ -171,7 +171,7 @@ func ParsePruneAction(text string) (PruneAction, error) {
 			return action, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownPruneAction, text)
+	return 0, ErrUnknownPruneAction
 }
 
 // MarshalText writes the text form of the action. A value that names no action
