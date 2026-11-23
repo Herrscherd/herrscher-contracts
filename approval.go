@@ -112,7 +112,7 @@ func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
 		RefusalUnclassified:
 		return refusal, nil
 	}
-	return "", fmt.Errorf("%w: %q", ErrInvalidRefusal, text)
+	return "", ErrInvalidRefusal
 }
 
 // Known reports whether the refusal is one of the codes this version defines. A
