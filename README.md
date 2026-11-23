@@ -703,8 +703,10 @@ The model is deliberately closed:
   seconds is dropped. `Ask` refuses an oversized request with `ErrRequestTooLarge`
   before it dials. At most `MaxConcurrentConnections` (16) connections are answered
   at once. A connection that arrives while all of them are taken is closed at once
-  without an answer, and reported as `OpBusy` with `ErrBusy`: the hook reads it as
-  a denial, and it does not wait in the listen backlog. A request is answered
+  without an answer, and reported to the error handler as `OpBusy` with `ErrBusy`.
+  The hook never receives `ErrBusy`: it sees its connection closed or reset, which
+  `Ask` returns as a read error, and it reads that as a denial. The connection does
+  not wait in the listen backlog. A request is answered
   within ten minutes: the asker's context ends then, and also when the hook closes
   its connection, so an asker that waits for a human stops when nobody is waiting
   for it. A malformed, oversized or silent request closes its connection without

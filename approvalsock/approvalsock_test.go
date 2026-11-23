@@ -368,8 +368,8 @@ func TestAskRejectsUnreadableAnswer(t *testing.T) {
 	t.Parallel()
 	path := fakeServer(t, "not json\n")
 	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "7"})
-	if err == nil {
-		t.Fatal("Ask accepted an answer that is not JSON")
+	if !errors.Is(err, contracts.ErrInvalidDecision) {
+		t.Fatalf("Ask error = %v, want contracts.ErrInvalidDecision", err)
 	}
 }
 

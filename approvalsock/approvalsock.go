@@ -66,8 +66,9 @@ var (
 	// ErrForeignPeer is returned by Ask when the process listening on the socket does
 	// not run as the current user.
 	ErrForeignPeer = errors.New("approval socket is answered by another user")
-	// ErrBusy is the cause of a connection refused because MaxConcurrentConnections
-	// are already being answered.
+	// ErrBusy is the cause Serve reports for a connection refused because
+	// MaxConcurrentConnections are already being answered. Ask never returns it: the
+	// client sees its connection closed without an answer.
 	ErrBusy = errors.New("approval socket is answering the maximum number of connections")
 	// ErrReportsDropped is the cause of a ReportsDroppedError.
 	ErrReportsDropped = errors.New("approval connection errors were dropped while the error handler was busy")
@@ -199,7 +200,8 @@ func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts
 // on other platforms Ask relies on the private directory alone, and on Windows Ask
 // returns an error matching errors.ErrUnsupported. A request whose line exceeds 64
 // KiB matches ErrRequestTooLarge and is not sent. An answer that is not one JSON
-// line, or whose decision is unknown, matches ErrInvalidDecision. An answer whose
+// line, that does not decode as an approval answer, or whose decision is unknown,
+// matches ErrInvalidDecision. An answer whose
 // refusal is a code this version does not know is returned as it is, and it is never
 // an allowance: Allowed reports false for any refusal. An answer whose ID is not req.ID
 // matches ErrAnswerMismatch. Every error means the daemon was not reached, and the
@@ -368,7 +370,7 @@ func roundTrip(connection net.Conn, line []byte, requestID string) (contracts.Ap
 	}
 	var answer contracts.ApprovalAnswer
 	if err := json.Unmarshal(answerLine, &answer); err != nil {
-		return contracts.ApprovalAnswer{}, fmt.Errorf("decode approval answer: %w", err)
+		return contracts.ApprovalAnswer{}, fmt.Errorf("%w: decode approval answer: %w", contracts.ErrInvalidDecision, err)
 	}
 	if _, err := contracts.ParseApprovalDecision(string(answer.Decision)); err != nil {
 		return contracts.ApprovalAnswer{}, fmt.Errorf("read approval answer: %w", err)
