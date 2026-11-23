@@ -9,7 +9,6 @@ const (
 	maxRepoRefBytes  = 512
 	maxRepoNameBytes = 100
 	minRepoSegments  = 2
-	defaultHTTPSPort = 443
 	gitSuffix        = ".git"
 )
 
@@ -30,8 +29,8 @@ type ForgeRepoRef struct {
 // ssh:// URL, or a git@ address in scp form ("git@host:namespace/name"). The
 // first segment of the first form must parse as a [ForgeHost], so "owner/name"
 // without a host is refused. Userinfo in an https URL is refused, and the ssh://
-// and scp forms require the git@ user. The default port 443 of an https URL is
-// dropped, and so is the port of an ssh:// URL, which is the SSH service's and not
+// and scp forms require the git@ user. Port 443 is dropped from the host in every
+// form, as [ParseForgeHost] does, and the port of an ssh:// URL is dropped too, which is the SSH service's and not
 // the forge's. A ".git" suffix on the name is dropped, and so is one trailing slash
 // of a bare or https path. A "?" or "#" anywhere refuses the text, even an empty
 // query or fragment, and an "@" fails the segment or host validation. It returns an
@@ -138,15 +137,7 @@ func splitHTTPSLocation(rest string) (repoLocation, bool) {
 	if !found || strings.Contains(authority, "@") {
 		return repoLocation{}, false
 	}
-	return repoLocation{host: withoutDefaultHTTPSPort(authority), path: strings.TrimSuffix(path, "/")}, true
-}
-
-func withoutDefaultHTTPSPort(authority string) string {
-	host, port, _ := strings.Cut(authority, ":")
-	if number, ok := parsePort(port); ok && number == defaultHTTPSPort {
-		return host
-	}
-	return authority
+	return repoLocation{host: authority, path: strings.TrimSuffix(path, "/")}, true
 }
 
 func splitSSHLocation(rest string) (repoLocation, bool) {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	contracts "github.com/Herrscherd/herrscher-contracts"
 )
@@ -33,7 +34,9 @@ type foreignCall struct {
 // request, a job, a thread or an issue, each with a reference on the foreign host,
 // and fails the test for each call that does not return an error matching
 // [contracts.ErrForgeWrongHost]. foreign must name a repository on a host other than
-// the one forge serves.
+// the one forge serves. Each call gets ten seconds. The check proves only the
+// refusal: a forge that refuses every call passes it, so the plugin's own tests
+// prove the calls on its own host.
 func CheckRefusesForeignHost(tb testing.TB, forge contracts.Forge, foreign contracts.ForgeRepoRef) {
 	tb.Helper()
 	checkRefusesForeignHost(tb, forge, foreign)
@@ -47,11 +50,17 @@ func checkRefusesForeignHost(report reporter, forge contracts.Forge, foreign con
 		return
 	}
 	for _, call := range foreignCalls(forge, foreign, refs) {
-		callErr := call.run(context.Background())
+		callErr := runWithDeadline(call)
 		if !errors.Is(callErr, contracts.ErrForgeWrongHost) {
 			report.Errorf("%s with a repository on another host: error = %v, want ErrForgeWrongHost", call.name, callErr)
 		}
 	}
+}
+
+func runWithDeadline(call foreignCall) error {
+	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
+	defer cancel()
+	return call.run(ctx)
 }
 
 func newForeignRefs(foreign contracts.ForgeRepoRef) (foreignRefs, error) {
@@ -77,6 +86,8 @@ func newForeignRefs(foreign contracts.ForgeRepoRef) (foreignRefs, error) {
 	}
 	return foreignRefs{commit: commit, pull: pull, issue: issue, job: job, thread: thread}, nil
 }
+
+const callTimeout = 10 * time.Second
 
 const foreignCommit = "0000000000000000000000000000000000000000"
 

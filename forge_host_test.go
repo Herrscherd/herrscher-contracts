@@ -11,7 +11,8 @@ func TestParseForgeHostAcceptsItsForms(t *testing.T) {
 		{"github.com", "github.com"},
 		{"GitHub.COM", "github.com"},
 		{"forge.example.com:8443", "forge.example.com:8443"},
-		{"forge.example.com:0443", "forge.example.com:443"},
+		{"forge.example.com:0443", "forge.example.com"},
+		{"github.com:443", "github.com"},
 		{"forge.example.com:1", "forge.example.com:1"},
 		{"forge.example.com:65535", "forge.example.com:65535"},
 		{"a-b.example.org:65535", "a-b.example.org:65535"},
@@ -130,10 +131,10 @@ func TestParseForgeHostQuotesAtMostTheFirstSixtyFourBytes(t *testing.T) {
 }
 
 func TestParseForgeHostPortRoundTrips(t *testing.T) {
-	host := mustParseForgeHost(t, "forge.example.com:0443")
+	host := mustParseForgeHost(t, "forge.example.com:08443")
 	back := mustParseForgeHost(t, host.String())
-	if back != host || back.String() != "forge.example.com:443" {
-		t.Fatalf("round trip = %q, want the canonical form forge.example.com:443", back)
+	if back != host || back.String() != "forge.example.com:8443" {
+		t.Fatalf("round trip = %q, want the canonical form forge.example.com:8443", back)
 	}
 }
 
@@ -157,6 +158,22 @@ func TestSSHPortIsDroppedAndTheWebPortKept(t *testing.T) {
 	}
 	if web.Host() != mustParseForgeHost(t, "github.com") {
 		t.Fatalf("https host = %q, want github.com: 443 is the default port", web.Host())
+	}
+}
+
+func TestPort443IsDroppedInEveryForm(t *testing.T) {
+	for _, text := range []string{
+		"github.com:443/octo/hello",
+		"https://github.com:443/octo/hello",
+		"ssh://git@github.com:443/octo/hello",
+	} {
+		ref, err := ParseRepoRef(text)
+		if err != nil {
+			t.Fatalf("ParseRepoRef(%q) error = %v, want none", text, err)
+		}
+		if ref.Host() != mustParseForgeHost(t, "github.com") {
+			t.Fatalf("ParseRepoRef(%q) host = %q, want github.com", text, ref.Host())
+		}
 	}
 }
 

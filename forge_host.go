@@ -12,6 +12,7 @@ const (
 	maxDNSLabelBytes  = 63
 	maxForgePort      = 65535
 	maxQuotedBytes    = 64
+	defaultHTTPSPort  = 443
 )
 
 // ForgeHost names the host a forge lives on, such as "github.com" or
@@ -22,7 +23,8 @@ const (
 type ForgeHost struct{ name string }
 
 // ParseForgeHost reads a forge host and keeps it lowercase, with its port in
-// canonical digits. It returns an error matching [ErrInvalidForgeHost] when the text
+// canonical digits and the default https port 443 dropped, so "github.com:443"
+// and "github.com" name the same host. It returns an error matching [ErrInvalidForgeHost] when the text
 // holds a byte above 127, which is checked before lowercasing so that no character
 // lowercases into ASCII; when a label is empty, longer than 63 bytes, starts or ends
 // with a hyphen, or holds a byte other than a letter, a digit or a hyphen; when the
@@ -43,7 +45,9 @@ func ParseForgeHost(text string) (ForgeHost, error) {
 		if !ok {
 			return ForgeHost{}, invalidForgeHost(text)
 		}
-		canonical += ":" + strconv.Itoa(number)
+		if number != defaultHTTPSPort {
+			canonical += ":" + strconv.Itoa(number)
+		}
 	}
 	if len(canonical) > maxForgeHostBytes {
 		return ForgeHost{}, invalidForgeHost(text)

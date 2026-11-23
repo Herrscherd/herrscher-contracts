@@ -97,6 +97,13 @@ func TestNewForgeTokenRefusesAnUnknownSource(t *testing.T) {
 	}
 }
 
+func TestNewForgeTokenNamesTheRefusedSourceNumber(t *testing.T) {
+	_, err := NewForgeToken(forgeTestSecret, "octocat", TokenSource(9))
+	if err == nil || err.Error() != "token source 9: unknown forge token source" {
+		t.Fatalf("NewForgeToken(source 9) error = %v, want the source number", err)
+	}
+}
+
 func TestNewForgeTokenAcceptsEveryKnownSource(t *testing.T) {
 	sources := map[TokenSource]string{
 		TokenSourceSaved: "saved",

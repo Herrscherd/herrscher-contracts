@@ -29,7 +29,7 @@ func NewForgeToken(secret, login string, source TokenSource) (ForgeToken, error)
 		return ForgeToken{}, ErrEmptyForgeToken
 	}
 	if !source.known() {
-		return ForgeToken{}, fmt.Errorf("%s: %w", source, ErrUnknownTokenSource)
+		return ForgeToken{}, fmt.Errorf("token source %d: %w", int(source), ErrUnknownTokenSource)
 	}
 	return ForgeToken{secret: &secret, login: login, source: source}, nil
 }
