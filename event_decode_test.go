@@ -134,7 +134,7 @@ func TestDecodeEventKeepsAToolCallRefusal(t *testing.T) {
 }
 
 func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
-	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":"s3cret-received-text"}`))
+	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":"` + receivedSecret + `"}`))
 	if !errors.Is(err, ErrInvalidToolCall) {
 		t.Fatalf("DecodeEvent() = %v, want ErrInvalidToolCall", err)
 	}
@@ -142,9 +142,7 @@ func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
 	if !strings.Contains(msg, "tool_call has the wrong JSON type") {
 		t.Fatalf("message %q does not name tool_call", msg)
 	}
-	if strings.Contains(msg, "s3cret-received-text") {
-		t.Fatalf("message %q echoes the received text", msg)
-	}
+	requireNoSecretFragment(t, msg, receivedSecret)
 }
 
 func TestDecodeEventLeavesASyntaxErrorUnwrapped(t *testing.T) {

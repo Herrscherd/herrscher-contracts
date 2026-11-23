@@ -40,11 +40,12 @@ func requireNamedWireRange(t *testing.T, err, sentinel error, field, value strin
 	if want := field + " is out of range"; !strings.Contains(msg, want) {
 		t.Fatalf("message %q does not contain %q", msg, want)
 	}
-	for _, leak := range []string{value, "contracts.", "Go", "of type", "uint16", "uint8", "int64", "float64"} {
+	for _, leak := range []string{"contracts.", "Go", "of type", "uint16", "uint8", "int64", "float64"} {
 		if strings.Contains(msg, leak) {
 			t.Fatalf("message %q leaks %q: it must name the wire field only", msg, leak)
 		}
 	}
+	requireNoSecretFragment(t, msg, value)
 }
 
 func TestNoticeWrongJSONTypeNamesTheWireField(t *testing.T) {
