@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestToolCallStateParsesItsOwnText(t *testing.T) {
@@ -262,7 +264,7 @@ func TestToolCallRefusalsDoNotEchoDetail(t *testing.T) {
 	}
 	for name, err := range cases {
 		t.Run(name, func(t *testing.T) {
-			assertRefusalHidesSecret(t, name, err, secret)
+			echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidToolCall, secret)
 		})
 	}
 }
@@ -295,11 +297,12 @@ func TestToolCallUnmarshalRefusesWrongJSONTypeWithoutGoNames(t *testing.T) {
 			if !errors.Is(err, ErrInvalidToolCall) {
 				t.Fatalf("Unmarshal(%s) error = %v, want ErrInvalidToolCall", raw, err)
 			}
-			for _, leak := range []string{"toolCallInput", "true", "5", secret} {
+			for _, leak := range []string{"toolCallInput", "true", "5"} {
 				if strings.Contains(err.Error(), leak) {
 					t.Fatalf("Unmarshal(%s) error %q contains %q", raw, err, leak)
 				}
 			}
+			echotest.RequireNoSecretFragment(t, err.Error(), secret)
 		})
 	}
 }
@@ -408,16 +411,6 @@ func TestToolCallUnmarshalMethodReturnsSyntaxErrorUnwrapped(t *testing.T) {
 	}
 }
 
-func assertRefusalHidesSecret(tb testing.TB, name string, err error, secret string) {
-	tb.Helper()
-	if !errors.Is(err, ErrInvalidToolCall) {
-		tb.Fatalf("%s: error = %v, want ErrInvalidToolCall", name, err)
-	}
-	if strings.Contains(err.Error(), secret) {
-		tb.Fatalf("%s: error %q echoes the secret", name, err)
-	}
-}
-
 func TestToolCallRefusalsDoNotEchoWireText(t *testing.T) {
 	const secret = "token=sk-live-7f3a9c"
 	cases := map[string]struct {
@@ -442,9 +435,7 @@ func TestToolCallRefusalsDoNotEchoWireText(t *testing.T) {
 					t.Fatalf("Unmarshal(%s) error = %v, want %v", tc.raw, err, want)
 				}
 			}
-			if strings.Contains(err.Error(), secret) {
-				t.Fatalf("Unmarshal(%s) error %q echoes the wire text", tc.raw, err)
-			}
+			echotest.RequireNoSecretFragment(t, err.Error(), secret)
 		})
 	}
 	refusals := map[string]error{
@@ -455,10 +446,12 @@ func TestToolCallRefusalsDoNotEchoWireText(t *testing.T) {
 	}
 	for name, err := range refusals {
 		t.Run(name, func(t *testing.T) {
-			assertRefusalHidesSecret(t, name, err, secret)
+			echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidToolCall, secret)
 		})
 	}
-	if _, err := ParseToolCallState(secret); !errors.Is(err, ErrUnknownToolCallState) || strings.Contains(err.Error(), secret) {
-		t.Fatalf("ParseToolCallState(secret) error = %v, want ErrUnknownToolCallState without the text", err)
+	_, err := ParseToolCallState(secret)
+	if !errors.Is(err, ErrUnknownToolCallState) {
+		t.Fatalf("ParseToolCallState(secret) error = %v, want ErrUnknownToolCallState", err)
 	}
+	echotest.RequireNoSecretFragment(t, err.Error(), secret)
 }

@@ -1,7 +1,5 @@
 package contracts
 
-import "fmt"
-
 const (
 	sha1HexLength   = 40
 	sha256HexLength = 64
@@ -17,7 +15,7 @@ type CommitSHA struct{ hex string }
 func ParseCommitSHA(text string) (CommitSHA, error) {
 	lengthOK := len(text) == sha1HexLength || len(text) == sha256HexLength
 	if !lengthOK || !allBytes(text, isLowerHexByte) {
-		return CommitSHA{}, fmt.Errorf("%q: %w", truncatedForError(text), ErrInvalidCommitSHA)
+		return CommitSHA{}, ErrInvalidCommitSHA
 	}
 	return CommitSHA{hex: text}, nil
 }

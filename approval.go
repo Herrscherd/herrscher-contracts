@@ -29,7 +29,7 @@ func ParseApprovalDecision(text string) (ApprovalDecision, error) {
 	if decision, ok := knownDecision(text); ok {
 		return decision, nil
 	}
-	return "", fmt.Errorf("%w: %q", ErrInvalidDecision, text)
+	return "", ErrInvalidDecision
 }
 
 func knownDecision(text string) (ApprovalDecision, bool) {
@@ -112,7 +112,7 @@ func ParseApprovalRefusal(text string) (ApprovalRefusal, error) {
 		RefusalUnclassified:
 		return refusal, nil
 	}
-	return "", fmt.Errorf("%w: %q", ErrInvalidRefusal, text)
+	return "", ErrInvalidRefusal
 }
 
 // Known reports whether the refusal is one of the codes this version defines. A

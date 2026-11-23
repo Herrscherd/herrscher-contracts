@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func TestParseForgeHostAcceptsItsForms(t *testing.T) {
@@ -116,20 +118,6 @@ func TestParseForgeHostPinsThePortRange(t *testing.T) {
 	}
 }
 
-func TestParseForgeHostQuotesAtMostTheFirstSixtyFourBytes(t *testing.T) {
-	long := strings.Repeat("x", 200) + "!"
-	_, err := ParseForgeHost(long)
-	if !errors.Is(err, ErrInvalidForgeHost) {
-		t.Fatalf("ParseForgeHost(long) error = %v, want ErrInvalidForgeHost", err)
-	}
-	if strings.Contains(err.Error(), long[:65]) {
-		t.Fatalf("error quotes more than 64 bytes of the input: %d bytes", len(err.Error()))
-	}
-	if !strings.Contains(err.Error(), long[:64]) {
-		t.Fatalf("error = %q, want the first 64 bytes of the input", err.Error())
-	}
-}
-
 func TestParseForgeHostPortRoundTrips(t *testing.T) {
 	host := mustParseForgeHost(t, "forge.example.com:08443")
 	back := mustParseForgeHost(t, host.String())
@@ -191,4 +179,9 @@ func mustParseForgeHost(t *testing.T, text string) ForgeHost {
 		t.Fatalf("ParseForgeHost(%q) error = %v", text, err)
 	}
 	return host
+}
+
+func TestParseForgeHostRefusalRepeatsNoPartOfTheText(t *testing.T) {
+	_, err := ParseForgeHost(receivedProbe + strings.Repeat("x", 200) + "!")
+	echotest.RequireBareSentinel(t, err, ErrInvalidForgeHost)
 }

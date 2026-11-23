@@ -102,7 +102,7 @@ func ParseHistoryRole(text string) (HistoryRole, error) {
 			return role, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownHistoryRole, text)
+	return 0, ErrUnknownHistoryRole
 }
 
 // MarshalText writes the text form of the role. A value that names no role returns
@@ -171,7 +171,7 @@ func ParsePruneAction(text string) (PruneAction, error) {
 			return action, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownPruneAction, text)
+	return 0, ErrUnknownPruneAction
 }
 
 // MarshalText writes the text form of the action. A value that names no action
@@ -229,21 +229,22 @@ var ErrUnknownHistoryCall = errors.New("unknown history call")
 // history, and every failure matches [ErrInvalidHistoryEdit].
 func ValidateHistoryEdits(edits []HistoryEdit) error {
 	seen := make(map[string]bool, len(edits))
-	for _, edit := range edits {
+	for index, edit := range edits {
+		rank := index + 1
 		switch {
 		case edit.CallID == "":
-			return fmt.Errorf("%w: an edit names no call", ErrInvalidHistoryEdit)
+			return fmt.Errorf("%w: edit %d names no call", ErrInvalidHistoryEdit, rank)
 		case seen[edit.CallID]:
-			return fmt.Errorf("%w: call %q edited twice", ErrInvalidHistoryEdit, edit.CallID)
+			return fmt.Errorf("%w: edit %d edits a call twice", ErrInvalidHistoryEdit, rank)
 		case edit.KeepChars < 0:
-			return fmt.Errorf("%w: call %q keeps %d runes", ErrInvalidHistoryEdit, edit.CallID, edit.KeepChars)
+			return fmt.Errorf("%w: edit %d keeps %d runes", ErrInvalidHistoryEdit, rank, edit.KeepChars)
 		case edit.KeepTail < 0:
-			return fmt.Errorf("%w: call %q keeps %d runes from its end", ErrInvalidHistoryEdit, edit.CallID, edit.KeepTail)
+			return fmt.Errorf("%w: edit %d keeps %d runes from its end", ErrInvalidHistoryEdit, rank, edit.KeepTail)
 		case edit.Action == PruneCall && edit.KeepTail != 0:
-			return fmt.Errorf("%w: call %q keeps a tail of a pruned call", ErrInvalidHistoryEdit, edit.CallID)
+			return fmt.Errorf("%w: edit %d keeps a tail of a pruned call", ErrInvalidHistoryEdit, rank)
 		}
 		if !edit.Action.isKnown() {
-			return fmt.Errorf("%w: call %q: %w: %d", ErrInvalidHistoryEdit, edit.CallID, ErrUnknownPruneAction, int(edit.Action))
+			return fmt.Errorf("%w: edit %d: %w: %d", ErrInvalidHistoryEdit, rank, ErrUnknownPruneAction, int(edit.Action))
 		}
 		seen[edit.CallID] = true
 	}

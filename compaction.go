@@ -83,7 +83,7 @@ func ParseCompactTrigger(text string) (CompactTrigger, error) {
 			return trigger, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownCompactTrigger, text)
+	return 0, ErrUnknownCompactTrigger
 }
 
 // MarshalText writes the text form of the trigger. A value that names no trigger

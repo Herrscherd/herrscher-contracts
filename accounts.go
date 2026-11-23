@@ -1,9 +1,6 @@
 package contracts
 
-import (
-	"errors"
-	"fmt"
-)
+import "errors"
 
 // Vendor names the vendor CLI a backend runs. It equals the Manifest.Kind of the backend plugin.
 const (
@@ -39,7 +36,7 @@ type ProfileName string
 // ParseProfileName validates a profile name, wrapping [ErrProfileName] when it is refused.
 func ParseProfileName(name string) (ProfileName, error) {
 	if !validProfileName(name) {
-		return "", fmt.Errorf("%q: %w", name, ErrProfileName)
+		return "", ErrProfileName
 	}
 	return ProfileName(name), nil
 }
@@ -72,7 +69,7 @@ func ProfileHomeEnv(vendor string) (string, error) {
 	case VendorCodex:
 		return EnvCodexHome, nil
 	}
-	return "", fmt.Errorf("vendor %q: %w", vendor, ErrNoProfileHome)
+	return "", ErrNoProfileHome
 }
 
 // ProfileEnv returns the single variable that points a vendor CLI at the profile directory home.

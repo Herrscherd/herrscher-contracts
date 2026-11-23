@@ -98,7 +98,8 @@ it is absent.
 | `History`, `HistoryMessage`, `HistoryCall`, `HistoryRole`, `HistoryEdit`, `PruneAction`, `PruneOutcome`, `ValidateHistoryEdits` | `history.go` | a session's conversation as a stage reads it, and the edits that prune its tool calls |
 | `ToolCall`, `ToolCallState`, `ToolCallStates`, `ParseToolCallState`, `ErrUnknownToolCallState`, `ErrInvalidToolCall` | `tool_call.go` | one transition of a tool call (`started`, `succeeded` or `failed`) under the same `ID` for its start and finish, the closed set of states, and the check that refuses a malformed call on the wire |
 | `BackendKindTool`, `BackendKindToolDone`, `BackendEvent.ValidateToolCall` | `backend.go`, `tool_call.go` | the kinds that start and finish a tool call, and the check of the call's shape against its kind |
-| `DecodeEvent`, `ErrInvalidEvent` | `event.go` | the entry point that decodes an `Event` from its JSON, and the refusal of a field of the wrong type, named by its wire name |
+| `DecodeEvent`, `ErrInvalidEvent` | `event.go` | the entry point that decodes an `Event` from its JSON, and the refusal of a field of the wrong type, named by its wire name, and of an outcome that names no turn outcome |
+| `TurnOutcome`, `TurnFailed`, `TurnInterrupted`, `ParseTurnOutcome`, `ErrUnknownTurnOutcome` | `turn_outcome.go` | how a turn ended when it did not complete (`failed` or `interrupted`), carried by `Event.Outcome` on the terminal reply. The empty outcome is a completed turn. Any other text is refused, and the refusal never repeats it |
 | `ErrInvalidApproval` | `approval.go` | the refusal of an `ApprovalRequest` or `ApprovalAnswer` field of the wrong JSON type, named by its wire name, and of an `ApprovalAnswer` whose `Decision` names no decision |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
@@ -112,6 +113,7 @@ it is absent.
 | `PageRequest`, `PageCursor`, `Page`, `MaxPageLimit`, `ErrInvalidPageLimit` | `forge_page.go` | a paged read: a cursor, a limit from 0 to `MaxPageLimit`, and the page that returns the items and the next cursor |
 | `MaxJobLogBytes`, `ValidateLogLimit`, `ErrInvalidLogLimit` | `forge_refs.go` | the largest log tail `Forge.JobLog` returns, and the check of a requested size against it |
 | `CheckRefusesForeignHost` | `forgetest/` | test support, imported from `_test.go` files only: calls every method of a `Forge` that takes a repository, pull request, job, thread or issue with a reference on a foreign host, and fails the test unless each returns `ErrForgeWrongHost`. A plugin runs it against its forge in its own tests |
+| `RequireRefusalWithoutEcho`, `RequireBareSentinel`, `RequireNoSecretFragment`, `Probe` | `echotest/` | test support, imported from `_test.go` files only: the checks that a refusal does not echo the input it refuses, by a run of four bytes, and that a bare sentinel carries no text added to it |
 
 ## Registration and config
 
@@ -397,18 +399,44 @@ each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
+From v0.39.0 on, `Event.Outcome` (`TurnOutcome`) says how a turn ended when it
+did not complete:
+`failed` when the backend failed, `interrupted` when the turn was cut. It is
+carried on the terminal reply (`done`) only. The zero value is a completed turn,
+which is omitted on the wire, and a `null` outcome reads as absent, as it does
+for every other field. `TurnOutcome` marshals and unmarshals through
+`ParseTurnOutcome`, which refuses any other text with `ErrUnknownTurnOutcome`
+and never repeats it.
+
+Two kinds of reader meet an outcome, and they behave differently:
+
+- A reader built on this version, which knows the field, refuses an unknown
+  outcome value: `DecodeEvent` refuses the event with `ErrInvalidEvent`, and
+  `json.Unmarshal` returns the bare `ErrUnknownTurnOutcome`. It never reads the
+  turn as completed. This strictness is deliberate.
+- A reader built before the field existed ignores the `outcome` key, because
+  `encoding/json` does not know it, and reads a failed or interrupted turn as a
+  completed one. No change in this package can make such a reader refuse it.
+
+Deployment: in herrscher the bridge and the host ship in one binary and update
+together, so the host reads the outcome from the bridge it runs with. A gateway
+or an external consumer kept on an older version reads a failed or interrupted
+turn as a success. Upgrade every consumer that reads `outcome` before a producer
+starts to emit one.
+
 A reader of the wire must decode each line, that is each `Event`, with
-`DecodeEvent(data)`. It refuses a field of the wrong JSON type, or a number out
-of range, with `ErrInvalidEvent`. Its message names the wire field, such as `t`
-or `coordination`, and never the Go type or the value. A number is out of range
-when it is a nonzero integer written with digits only, an optional minus sign
-in front, that its integer field cannot hold, or when it is beyond `float64`.
-Any other number refused by an integer field, such as `1.5`, `1.0` or `1e2`, has
-the wrong JSON type, and so has `-0` for an unsigned field, while a signed field
-accepts it as zero. A field nested in `coordination`, `todos`, `models` or
-`subagent` is named by its top-level field. A `tool_call` refused inside the
-event keeps `ErrInvalidToolCall`, a document that is not valid JSON is returned
-as its `*json.SyntaxError`, and a `null` decodes to the zero `Event`.
+`DecodeEvent(data)`. It refuses a field of the wrong JSON type, a number out of
+range, or an outcome that names no turn outcome, with `ErrInvalidEvent`. Its
+message names the wire field, such as `t` or `coordination`, and never the Go
+type or the value. A number is out of range when it is a nonzero integer written
+with digits only, an optional minus sign in front, that its integer field cannot
+hold, or when it is beyond `float64`. Any other number refused by an integer
+field, such as `1.5`, `1.0` or `1e2`, has the wrong JSON type, and so has `-0`
+for an unsigned field, while a signed field accepts it as zero. A field nested
+in `coordination`, `todos`, `models` or `subagent` is named by its top-level
+field. A `tool_call` refused inside the event keeps `ErrInvalidToolCall`, a
+document that is not valid JSON is returned as its `*json.SyntaxError`, and a
+`null` decodes to the zero `Event`.
 
 A type that embeds `Event` must decode its `Event` with `DecodeEvent` too, then
 read its own envelope fields apart. It never receives a promoted
@@ -513,15 +541,30 @@ the field that has the wrong JSON type, never the text of `detail`, `error`,
 `state`, `at`, `tool` or `kind`, so a secret that lands in a malformed field
 stays out of logs. A field is named in its wire spelling from a fixed list, so a
 key the input wrote differently (`ID` for `id`) is never echoed either.
-`ParseToolCallState` does not quote the text it was given either. Two exceptions
-apply. The first is the `*json.SyntaxError` of a document that is not valid
-JSON: it is not a refusal of the contract, so it may quote a character of the
-input. A logger that must keep the input out logs only the type of the error.
-The second is the `*json.MarshalerError` that `json.Marshal` wraps around a
-refusal of `ToolCall.MarshalJSON`, whose message names the Go type
-`*contracts.ToolCall`. `errors.Is` still matches `ErrInvalidToolCall` through
-that wrap. A direct call to `ToolCall.MarshalJSON` or to `ToolCall.Validate`
-gives the message without it.
+`ParseToolCallState` does not quote the text it was given either. A refusal may
+give a number, such as an ordinal, a count, a length or an index: it names a
+position or a size, not the input. Four exceptions apply. The first is the
+`*json.SyntaxError` of a document that is not valid JSON: it is not a refusal of
+the contract, so it may quote a character of the input. A logger that must keep
+the input out logs only the type of the error. The second is the
+`*json.MarshalerError` that `json.Marshal` wraps around a refusal of
+`ToolCall.MarshalJSON`, whose message names the Go type `*contracts.ToolCall`,
+or of `TurnOutcome.MarshalText`, whose message names `contracts.TurnOutcome`.
+`errors.Is` still matches `ErrInvalidToolCall` or `ErrUnknownTurnOutcome`
+through that wrap. A direct call to `ToolCall.MarshalJSON` or to
+`ToolCall.Validate` gives the message without it. The third is a path the host
+sets, not the input: the outbox that `ValidateOutboundFile` names, and the
+socket path and directory of `approvalsock`, which an error may name so the
+operator can find them. The fourth is a value fixed by the compiled code of the
+host, not by the input: a refusal may name it, as `ValidateModels` names the
+kind of a backend, which comes from the manifest of a plugin built into the
+binary, and as `NewCatalog` names the key, the language or the file name of a
+message or file it refuses. The sources a host passes to `NewCatalog` are the
+locales embedded in the module or in a plugin built into the binary, so the
+exception covers them; a caller that reads user files into `NewCatalog` is
+outside it. A parameter name that `Catalog.Message` refuses is likewise a name
+the calling code chose. The rule does not concern the test tooling packages
+(`*test`, such as `forgetest` and `i18ntest`).
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and

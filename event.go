@@ -35,6 +35,7 @@ type CoordinationEvent struct {
 //	{"t":"status","text":"reading envfile.go"}
 //	{"t":"chunk","text":"proposing 3 changes"}
 //	{"t":"reply","text":"done","done":true,"cost":0.0042}
+//	{"t":"reply","text":"the backend failed","done":true,"outcome":"failed"}
 //	{"t":"input","who":"terminal","text":"apply them"}
 //	{"t":"pick","value":"2"}
 //	{"t":"interrupt"}  // cancel the in-flight turn (esc-to-interrupt from a gateway)
@@ -45,6 +46,11 @@ type Event struct {
 	Text  string `json:"text,omitempty"`
 	Value string `json:"value,omitempty"`
 	Done  bool   `json:"done,omitempty"`
+	// Outcome says how the turn ended when it did not complete. It means something
+	// only on the terminal reply (Done). Its value is checked on every event, but
+	// its presence is not checked elsewhere, as for Done. The zero value is a
+	// completed turn and is omitted on the wire.
+	Outcome TurnOutcome `json:"outcome,omitempty"`
 	// Cost is the turn's total cost in USD, carried on the terminal reply
 	// (Done) so the hub can render it in the progress summary. Zero when the
 	// backend reports no cost.
@@ -107,12 +113,18 @@ type eventWire Event
 // type or a number out of range is refused with [ErrInvalidEvent], whose
 // message names the wire field and never the Go type or the value. A tool_call
 // refused inside the event keeps [ErrInvalidToolCall]. A document that is not
-// valid JSON returns its *json.SyntaxError unchanged. A null decodes to the
-// zero Event. This is the entry point that names the wire field: json.Unmarshal
-// into an Event keeps the error of encoding/json, which names the Go type.
+// valid JSON returns its *json.SyntaxError unchanged. An outcome that names no
+// turn outcome is refused with [ErrInvalidEvent] and [ErrUnknownTurnOutcome], and
+// its message does not repeat the text. A null decodes to the zero Event. This is
+// the entry point that names the wire field: json.Unmarshal into an Event keeps
+// the error of encoding/json, which names the Go type, and returns the bare
+// [ErrUnknownTurnOutcome] for an unknown outcome.
 func DecodeEvent(data []byte) (Event, error) {
 	var decoded eventWire
 	if err := json.Unmarshal(data, &decoded); err != nil {
+		if errors.Is(err, ErrUnknownTurnOutcome) {
+			return Event{}, unknownWireOutcome(ErrInvalidEvent, "outcome")
+		}
 		return Event{}, nameWrongJSONType(err, ErrInvalidEvent, "event", eventWireFields())
 	}
 	return Event(decoded), nil
@@ -120,7 +132,7 @@ func DecodeEvent(data []byte) (Event, error) {
 
 func eventWireFields() []string {
 	return []string{
-		"t", "who", "text", "value", "done", "cost", "tokens", "tokens_in",
+		"t", "who", "text", "value", "done", "outcome", "cost", "tokens", "tokens_in",
 		"cache_read", "cache_create", "models", "resume", "project",
 		"attachments", "session_incarnation", "turn_id", "agent",
 		"coordination", "todos", "subagent", "tool_call",

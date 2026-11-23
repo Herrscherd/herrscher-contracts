@@ -67,7 +67,7 @@ func ParseLanguage(text string) (Language, error) {
 	case "fr":
 		return French, nil
 	}
-	return 0, fmt.Errorf("language %q: %w", text, ErrUnsupportedLanguage)
+	return 0, ErrUnsupportedLanguage
 }
 
 func primarySubtag(text string) string {

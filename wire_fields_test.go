@@ -33,6 +33,16 @@ func TestWireNameListsAreTheJSONTagsOfTheirStructs(t *testing.T) {
 			}
 		})
 	}
+	t.Run("malformed tags", func(t *testing.T) {
+		for _, tag := range []string{``, `xml:"name"`, `json:"name`} {
+			if name, ok := parseJSONWireName(tag); ok {
+				t.Fatalf("parseJSONWireName(%q) = %q, want no name", tag, name)
+			}
+		}
+		if name, ok := parseJSONWireName(`json:"kind,omitempty"`); !ok || name != "kind" {
+			t.Fatalf("parseJSONWireName of a well-formed tag = %q, %v; want kind, true", name, ok)
+		}
+	})
 }
 
 func TestWireNameListsAreAllMarshaled(t *testing.T) {
@@ -122,11 +132,22 @@ func jsonWireName(t *testing.T, field *ast.Field) string {
 	if err != nil {
 		t.Fatalf("struct tag %s: %v", field.Tag.Value, err)
 	}
+	name, ok := parseJSONWireName(tag)
+	if !ok {
+		t.Fatalf("struct tag %s has no well-formed json key", tag)
+	}
+	return name
+}
+
+func parseJSONWireName(tag string) (string, bool) {
 	_, afterKey, found := strings.Cut(tag, `json:"`)
 	if !found {
-		t.Fatalf("struct tag %s has no json key", tag)
+		return "", false
 	}
-	quoted, _, _ := strings.Cut(afterKey, `"`)
+	quoted, _, closed := strings.Cut(afterKey, `"`)
+	if !closed {
+		return "", false
+	}
 	name, _, _ := strings.Cut(quoted, ",")
-	return name
+	return name, true
 }

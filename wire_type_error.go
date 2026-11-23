@@ -61,6 +61,10 @@ func wrongWireRange(sentinel error, field string) error {
 	return fmt.Errorf("%w: %s is out of range", sentinel, field)
 }
 
+func unknownWireOutcome(sentinel error, field string) error {
+	return fmt.Errorf("%w: %s: %w", sentinel, field, ErrUnknownTurnOutcome)
+}
+
 func wireFieldOf(path string, wireFields []string, subject string) string {
 	topLevel, _, _ := strings.Cut(path, ".")
 	for _, field := range wireFields {

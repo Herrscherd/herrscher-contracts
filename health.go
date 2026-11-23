@@ -60,7 +60,7 @@ func ParseHealthState(text string) (HealthState, error) {
 			return state, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownHealthState, text)
+	return 0, ErrUnknownHealthState
 }
 
 // MarshalText writes the text form of the state. A value that names no state

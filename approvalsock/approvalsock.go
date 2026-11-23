@@ -374,7 +374,7 @@ func roundTrip(connection net.Conn, line []byte, requestID string) (contracts.Ap
 		return contracts.ApprovalAnswer{}, fmt.Errorf("read approval answer: %w", err)
 	}
 	if answer.ID != requestID {
-		return contracts.ApprovalAnswer{}, fmt.Errorf("%w: got %q for %q", ErrAnswerMismatch, answer.ID, requestID)
+		return contracts.ApprovalAnswer{}, ErrAnswerMismatch
 	}
 	return answer, nil
 }

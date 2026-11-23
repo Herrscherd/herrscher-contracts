@@ -69,7 +69,7 @@ func ParseCompactOutcome(text string) (CompactOutcome, error) {
 			return outcome, nil
 		}
 	}
-	return 0, fmt.Errorf("%w: %q", ErrUnknownCompactOutcome, text)
+	return 0, ErrUnknownCompactOutcome
 }
 
 // MarshalText writes the text form of the outcome. A value that names no outcome

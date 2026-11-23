@@ -161,15 +161,15 @@ func ValidateOutboundFile(file OutboundFile, outbox string) error {
 	}
 	switch {
 	case strings.TrimSpace(file.Name) == "", file.Name == ".", file.Name == "..":
-		return fmt.Errorf("%w: file %q has no usable name", ErrInvalidOutboundFile, file.Path)
+		return fmt.Errorf("%w: file has no usable name", ErrInvalidOutboundFile)
 	case strings.ContainsAny(file.Name, "/\\\x00"):
-		return fmt.Errorf("%w: name %q holds a path separator or a NUL", ErrInvalidOutboundFile, file.Name)
+		return fmt.Errorf("%w: name holds a path separator or a NUL", ErrInvalidOutboundFile)
 	}
 	if file.ContentType == "" {
 		return nil
 	}
 	if _, _, err := mime.ParseMediaType(file.ContentType); err != nil {
-		return fmt.Errorf("%w: content type %q: %w", ErrInvalidOutboundFile, file.ContentType, err)
+		return fmt.Errorf("%w: content type: %w", ErrInvalidOutboundFile, err)
 	}
 	return nil
 }
@@ -179,11 +179,11 @@ func validateOutboundPath(path, outbox string) error {
 	case !filepath.IsAbs(outbox) || filepath.Clean(outbox) != outbox || filepath.Dir(outbox) == outbox:
 		return fmt.Errorf("%w: outbox %q is not a clean absolute directory below the root", ErrInvalidOutboundFile, outbox)
 	case !filepath.IsAbs(path) || filepath.Clean(path) != path:
-		return fmt.Errorf("%w: path %q is not a clean absolute path", ErrInvalidOutboundFile, path)
+		return fmt.Errorf("%w: path is not a clean absolute path", ErrInvalidOutboundFile)
 	}
 	rel, err := filepath.Rel(outbox, path)
 	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return fmt.Errorf("%w: path %q is outside the outbox %q", ErrInvalidOutboundFile, path, outbox)
+		return fmt.Errorf("%w: path is outside the outbox %q", ErrInvalidOutboundFile, outbox)
 	}
 	return nil
 }

@@ -8,11 +8,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
 
 func richEvent() Event {
 	return Event{
-		T: "reply", Who: "alice", Text: "done", Value: "2", Done: true, Cost: 0.0042,
+		T: "reply", Who: "alice", Text: "done", Value: "2", Done: true, Outcome: TurnInterrupted, Cost: 0.0042,
 		Tokens: 55, TokensIn: 30, CacheRead: 12, CacheCreate: 3,
 		Models: []ModelUsage{{Model: "opus", In: 30, Out: 55, Cost: 0.004}},
 		Resume: "resume-1", Project: "neublox", Attachments: []string{"shot.png"},
@@ -134,7 +136,7 @@ func TestDecodeEventKeepsAToolCallRefusal(t *testing.T) {
 }
 
 func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
-	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":"s3cret-received-text"}`))
+	_, err := DecodeEvent([]byte(`{"t":"reply","tool_call":"` + receivedProbe + `"}`))
 	if !errors.Is(err, ErrInvalidToolCall) {
 		t.Fatalf("DecodeEvent() = %v, want ErrInvalidToolCall", err)
 	}
@@ -142,9 +144,7 @@ func TestDecodeEventNamesAToolCallThatIsNotAnObject(t *testing.T) {
 	if !strings.Contains(msg, "tool_call has the wrong JSON type") {
 		t.Fatalf("message %q does not name tool_call", msg)
 	}
-	if strings.Contains(msg, "s3cret-received-text") {
-		t.Fatalf("message %q echoes the received text", msg)
-	}
+	echotest.RequireNoSecretFragment(t, msg, receivedProbe)
 }
 
 func TestDecodeEventLeavesASyntaxErrorUnwrapped(t *testing.T) {
@@ -223,5 +223,26 @@ func TestDecodeEventAcceptsNegativeZeroOnASignedField(t *testing.T) {
 	}
 	if event.Tokens != 0 {
 		t.Fatalf("Tokens = %d, want 0", event.Tokens)
+	}
+}
+
+func TestEventRoundTripKeepsTurnFailedOutcome(t *testing.T) {
+	encoded, err := json.Marshal(Event{T: "reply", Done: true, Outcome: TurnFailed})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	got, err := DecodeEvent(encoded)
+	if err != nil {
+		t.Fatalf("DecodeEvent(%s) error = %v", encoded, err)
+	}
+	if got.Outcome != TurnFailed {
+		t.Fatalf("decoded outcome = %q, want %q", got.Outcome, TurnFailed)
+	}
+	again, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("Marshal(decoded) error = %v", err)
+	}
+	if !bytes.Equal(again, encoded) {
+		t.Fatalf("round trip = %s, want %s", again, encoded)
 	}
 }

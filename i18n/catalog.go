@@ -48,12 +48,14 @@ type warning struct {
 
 // NewCatalog builds a catalog from the sources of a catalog, each a file system
 // whose root holds one go-i18n JSON file per language, named by its BCP 47 tag
-// (en.json, fr.json). It refuses a file named after an unsupported language, a key
-// that a language defines twice across the sources (ErrDuplicateKey), and a
+// (en.json, fr.json). It refuses a file named after an unsupported language, a
+// key that a language defines twice across the sources (ErrDuplicateKey), and a
 // message whose template does not parse, which includes any call to a template
-// function. The logger receives one warning per key and language that falls back
-// or is missing, for at most 1024 of them; past that, each further missing key is
-// logged every time it is asked for. A nil logger uses slog.Default.
+// function. The logger receives one warning per key and language that falls
+// back or is missing, for at most 1024 of them; past that, each further missing
+// key is logged every time it is asked for. A nil logger uses slog.Default. Its
+// sources must be compiled into the binary, since its errors name the key, the
+// language and the file name they refuse.
 func NewCatalog(logger *slog.Logger, sources ...fs.FS) (*Catalog, error) {
 	byLanguage, err := catalogfile.Read(sources, languageOfFile)
 	if err != nil {
