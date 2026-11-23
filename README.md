@@ -557,7 +557,8 @@ socket path and directory of `approvalsock`, which an error may name so the
 operator can find them. The fourth is a value fixed by the compiled code of the
 host, not by the input: a refusal may name it, as `ValidateModels` names the
 kind of a backend, which comes from the manifest of a plugin built into the
-binary.
+binary. The rule does not concern the test tooling packages (`*test`, such as
+`forgetest` and `i18ntest`).
 
 Unknown states are refused, not skipped. A reader that meets an unknown state
 refuses the whole event, and the error wraps both `ErrInvalidToolCall` and
