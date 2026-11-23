@@ -12,7 +12,7 @@ import (
 
 func richEvent() Event {
 	return Event{
-		T: "reply", Who: "alice", Text: "done", Value: "2", Done: true, Cost: 0.0042,
+		T: "reply", Who: "alice", Text: "done", Value: "2", Done: true, Outcome: TurnInterrupted, Cost: 0.0042,
 		Tokens: 55, TokensIn: 30, CacheRead: 12, CacheCreate: 3,
 		Models: []ModelUsage{{Model: "opus", In: 30, Out: 55, Cost: 0.004}},
 		Resume: "resume-1", Project: "neublox", Attachments: []string{"shot.png"},

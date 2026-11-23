@@ -40,11 +40,12 @@ type CoordinationEvent struct {
 //	{"t":"interrupt"}  // cancel the in-flight turn (esc-to-interrupt from a gateway)
 //	{"t":"reset"}  // the backend started a new process mid-turn and the same prompt runs again
 type Event struct {
-	T     string `json:"t"`
-	Who   string `json:"who,omitempty"`
-	Text  string `json:"text,omitempty"`
-	Value string `json:"value,omitempty"`
-	Done  bool   `json:"done,omitempty"`
+	T       string      `json:"t"`
+	Who     string      `json:"who,omitempty"`
+	Text    string      `json:"text,omitempty"`
+	Value   string      `json:"value,omitempty"`
+	Done    bool        `json:"done,omitempty"`
+	Outcome TurnOutcome `json:"outcome,omitempty"`
 	// Cost is the turn's total cost in USD, carried on the terminal reply
 	// (Done) so the hub can render it in the progress summary. Zero when the
 	// backend reports no cost.
@@ -120,12 +121,22 @@ func DecodeEvent(data []byte) (Event, error) {
 
 func eventWireFields() []string {
 	return []string{
-		"t", "who", "text", "value", "done", "cost", "tokens", "tokens_in",
+		"t", "who", "text", "value", "done", "outcome", "cost", "tokens", "tokens_in",
 		"cache_read", "cache_create", "models", "resume", "project",
 		"attachments", "session_incarnation", "turn_id", "agent",
 		"coordination", "todos", "subagent", "tool_call",
 	}
 }
+
+// TurnOutcome says how a turn ended when it did not complete: a failed backend or
+// an interrupted turn. A completed turn carries no outcome.
+type TurnOutcome string
+
+// The outcomes a terminal reply can carry besides a completed turn.
+const (
+	TurnFailed      TurnOutcome = "failed"
+	TurnInterrupted TurnOutcome = "interrupted"
+)
 
 // EventSink is an optional gateway capability: a gateway that renders the live
 // turn event stream itself (the terminal TUI does) implements it. The hub fans
