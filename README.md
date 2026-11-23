@@ -398,7 +398,8 @@ each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
-`Event.Outcome` (`TurnOutcome`) says how a turn ended when it did not complete:
+From v0.39.0 on, `Event.Outcome` (`TurnOutcome`) says how a turn ended when it
+did not complete:
 `failed` when the backend failed, `interrupted` when the turn was cut. It is
 carried on the terminal reply (`done`) only. The zero value is a completed turn,
 which is omitted on the wire, and a `null` outcome reads as absent, as it does
