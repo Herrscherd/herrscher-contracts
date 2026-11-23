@@ -22,9 +22,7 @@ func TestParseForgeHostRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, ErrInvalidForgeHost) {
 				t.Fatalf("error = %v, want ErrInvalidForgeHost", err)
 			}
-			if strings.Contains(err.Error(), receivedSecret) {
-				t.Fatalf("message %q echoes the received host", err)
-			}
+			requireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }
@@ -45,9 +43,7 @@ func TestParseRepoRefRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, ErrInvalidRepoRef) {
 				t.Fatalf("error = %v, want ErrInvalidRepoRef", err)
 			}
-			if strings.Contains(err.Error(), receivedSecret) {
-				t.Fatalf("message %q echoes the received repository", err)
-			}
+			requireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

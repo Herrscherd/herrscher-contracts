@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
@@ -38,9 +37,7 @@ func TestRenderRefusesAnArgumentWithoutEchoingItsName(t *testing.T) {
 			if !errors.Is(err, ErrNoticeArgs) {
 				t.Fatalf("error = %v, want ErrNoticeArgs", err)
 			}
-			if strings.Contains(err.Error(), receivedSecret) {
-				t.Fatalf("message %q echoes the received name", err)
-			}
+			requireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

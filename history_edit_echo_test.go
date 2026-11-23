@@ -53,9 +53,7 @@ func TestValidateHistoryEditsRefusesEachEditByRankWithoutEchoingTheCall(t *testi
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("message %q does not name %q", err, tt.want)
 			}
-			if strings.Contains(err.Error(), receivedSecret) {
-				t.Fatalf("message %q echoes the received call", err)
-			}
+			requireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

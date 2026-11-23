@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -13,7 +12,5 @@ func TestArgUnmarshalJSONRefusesAWrongValueWithoutEchoingTheName(t *testing.T) {
 	if err == nil {
 		t.Fatal("a number is accepted as a text value")
 	}
-	if strings.Contains(err.Error(), receivedSecret) {
-		t.Fatalf("message %q echoes the received name", err)
-	}
+	requireNoSecretFragment(t, err.Error(), receivedSecret)
 }

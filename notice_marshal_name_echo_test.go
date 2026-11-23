@@ -13,7 +13,5 @@ func TestArgMarshalJSONRefusesALongValueWithoutEchoingTheName(t *testing.T) {
 	if !errors.Is(err, ErrNoticeLimit) {
 		t.Fatalf("error = %v, want ErrNoticeLimit", err)
 	}
-	if strings.Contains(err.Error(), receivedSecret) {
-		t.Fatalf("message %q echoes the argument name", err)
-	}
+	requireNoSecretFragment(t, err.Error(), receivedSecret)
 }

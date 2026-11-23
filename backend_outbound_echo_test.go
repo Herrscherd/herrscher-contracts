@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -39,9 +38,7 @@ func TestValidateOutboundFileRefusesWithoutEchoingTheFile(t *testing.T) {
 			if !errors.Is(err, ErrInvalidOutboundFile) {
 				t.Fatalf("error = %v, want ErrInvalidOutboundFile", err)
 			}
-			if strings.Contains(err.Error(), receivedSecret) {
-				t.Fatalf("message %q echoes the received file", err)
-			}
+			requireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

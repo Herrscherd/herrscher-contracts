@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -19,7 +18,5 @@ func TestRequireRepoHostRefusesAWrongHostWithoutEchoingTheRepository(t *testing.
 	if !errors.Is(err, ErrForgeWrongHost) {
 		t.Fatalf("error = %v, want ErrForgeWrongHost", err)
 	}
-	if strings.Contains(err.Error(), receivedSecret) {
-		t.Fatalf("message %q echoes the received repository", err)
-	}
+	requireNoSecretFragment(t, err.Error(), receivedSecret)
 }

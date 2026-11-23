@@ -50,9 +50,7 @@ func TestTurnOutcomeRefusesAnUnknownTextWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrUnknownTurnOutcome) {
 		t.Fatalf("error = %v, want ErrUnknownTurnOutcome", err)
 	}
-	if strings.Contains(err.Error(), receivedSecret) {
-		t.Fatalf("message %q echoes the received text", err)
-	}
+	requireNoSecretFragment(t, err.Error(), receivedSecret)
 }
 
 func TestTurnOutcomeMarshalRefusesAnUnknownValue(t *testing.T) {
@@ -72,7 +70,5 @@ func TestDecodeEventRefusesAnUnknownOutcomeByItsWireName(t *testing.T) {
 	if !strings.Contains(msg, "outcome") {
 		t.Fatalf("message %q does not name outcome", msg)
 	}
-	if strings.Contains(msg, receivedSecret) {
-		t.Fatalf("message %q echoes the received text", msg)
-	}
+	requireNoSecretFragment(t, msg, receivedSecret)
 }

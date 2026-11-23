@@ -3,7 +3,6 @@ package contracts
 import (
 	"errors"
 	"math"
-	"strings"
 	"testing"
 )
 
@@ -36,9 +35,7 @@ func TestValidateModelsRefusalsDoNotEchoTheirInput(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error = %v, want %v", err, tt.wantErr)
 			}
-			if strings.Contains(err.Error(), receivedSecret) {
-				t.Fatalf("message %q echoes the received model ID", err.Error())
-			}
+			requireNoSecretFragment(t, err.Error(), receivedSecret)
 		})
 	}
 }

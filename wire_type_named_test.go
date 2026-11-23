@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	receivedSecret      = "s3cret-received-text"
+	receivedSecret      = "zq8Vk2wXr7Lm"
 	oversizedValueBytes = 70000
 	unknownArgKind      = 9
 )
@@ -23,11 +23,12 @@ func requireNamedWireType(t *testing.T, err, sentinel error, field string) {
 	if want := field + " has the wrong JSON type"; !strings.Contains(msg, want) {
 		t.Fatalf("message %q does not contain %q", msg, want)
 	}
-	for _, leak := range []string{receivedSecret, "contracts.", "Go", "of type", "uint16", "string", "float64", "bool"} {
+	for _, leak := range []string{"contracts.", "Go", "of type", "uint16", "string", "float64", "bool"} {
 		if strings.Contains(msg, leak) {
 			t.Fatalf("message %q leaks %q: it must name the wire field only", msg, leak)
 		}
 	}
+	requireNoSecretFragment(t, msg, receivedSecret)
 }
 
 func requireNamedWireRange(t *testing.T, err, sentinel error, field, value string) {
@@ -204,9 +205,7 @@ func TestApprovalAnswerUnknownDecisionNamesTheFieldNotTheText(t *testing.T) {
 	if !strings.Contains(msg, "Decision") {
 		t.Fatalf("message %q does not name Decision", msg)
 	}
-	if strings.Contains(msg, receivedSecret) {
-		t.Fatalf("message %q echoes the received text", msg)
-	}
+	requireNoSecretFragment(t, msg, receivedSecret)
 }
 
 func TestApprovalDecisionUnknownTextIsNotEchoed(t *testing.T) {
@@ -215,9 +214,7 @@ func TestApprovalDecisionUnknownTextIsNotEchoed(t *testing.T) {
 	if !errors.Is(err, ErrInvalidDecision) {
 		t.Fatalf("error = %v, want ErrInvalidDecision", err)
 	}
-	if strings.Contains(err.Error(), receivedSecret) {
-		t.Fatalf("message %q echoes the received text", err)
-	}
+	requireNoSecretFragment(t, err.Error(), receivedSecret)
 }
 
 func TestNoticeArgumentErrorNamesTheWireFieldNotTheValue(t *testing.T) {
@@ -254,9 +251,10 @@ func TestNoticeArgumentErrorNamesTheWireFieldNotTheValue(t *testing.T) {
 			if !strings.HasPrefix(msg, "argument: ") {
 				t.Fatalf("message %q does not name the wire field", msg)
 			}
-			if strings.Contains(msg, "nom-fil") || strings.Contains(msg, receivedSecret) || strings.Contains(msg, "aaa") {
+			if strings.Contains(msg, "nom-fil") || strings.Contains(msg, "aaa") {
 				t.Fatalf("message %q echoes the received value", msg)
 			}
+			requireNoSecretFragment(t, msg, receivedSecret)
 		})
 	}
 }

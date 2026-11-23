@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"errors"
-	"strings"
 	"testing"
 )
 
@@ -11,7 +10,5 @@ func TestParseApprovalRefusalRefusesAnUnknownTextWithoutEcho(t *testing.T) {
 	if !errors.Is(err, ErrInvalidRefusal) {
 		t.Fatalf("error = %v, want ErrInvalidRefusal", err)
 	}
-	if strings.Contains(err.Error(), receivedSecret) {
-		t.Fatalf("message %q echoes the received text", err)
-	}
+	requireNoSecretFragment(t, err.Error(), receivedSecret)
 }
