@@ -3,6 +3,7 @@ package forgetest
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -134,5 +135,20 @@ func TestCheckRefusesForeignHostReportsACallThatIgnoresItsDeadline(t *testing.T)
 func TestCheckRefusesForeignHostGivesEachCallTenSeconds(t *testing.T) {
 	if callTimeout != 10*time.Second {
 		t.Fatalf("callTimeout = %v, want the documented ten seconds", callTimeout)
+	}
+}
+
+func TestCheckRefusesForeignHostLetsALateCallFinish(t *testing.T) {
+	baseline := runtime.NumGoroutine()
+	stall := make(chan struct{})
+	rec := &recorder{}
+	checkRefusesForeignHost(rec, fakeForge{refuses: true, stall: stall}, foreignRepo(t), time.Millisecond)
+	close(stall)
+	deadline := time.Now().Add(5 * time.Second)
+	for runtime.NumGoroutine() > baseline {
+		if time.Now().After(deadline) {
+			t.Fatalf("goroutines = %d after the late calls answered, want %d: a late answer must not block", runtime.NumGoroutine(), baseline)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

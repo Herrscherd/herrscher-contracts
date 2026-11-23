@@ -1,6 +1,9 @@
 // Package forgetest holds the checks a forge plugin's tests run against its
 // implementation of [contracts.Forge]. It is test support: import it from _test.go
-// files only.
+// files only. It departs from the rule that every goroutine is joined by its
+// owner: a call that outlives its deadline and ignores its context cannot be
+// stopped from Go, so the check reports it and leaves its goroutine running rather
+// than block the whole test binary.
 package forgetest
 
 import (
