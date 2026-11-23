@@ -24,8 +24,9 @@ func (e *BudgetError) Error() string {
 }
 
 // EnforceBudget returns a *BudgetError when body exceeds limit runes. A limit
-// of zero or less disables the check and returns nil. key labels the rejected
-// item in the returned error. Rune count, not byte length, is authoritative.
+// of zero or less disables the check and returns nil. key is kept in the Key
+// field of the returned error, not in its message. Rune count, not byte length,
+// is authoritative.
 func EnforceBudget(key, body string, limit int) error {
 	if limit <= 0 {
 		return nil
