@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -11,7 +10,6 @@ const (
 	maxForgeHostBytes = 253
 	maxDNSLabelBytes  = 63
 	maxForgePort      = 65535
-	maxQuotedBytes    = 64
 	defaultHTTPSPort  = 443
 )
 
@@ -30,28 +28,28 @@ type ForgeHost struct{ name string }
 // is empty, longer than 63 bytes, starts or ends with a hyphen, or holds a byte
 // other than a letter, a digit or a hyphen; when the name has no dot; when the
 // port is empty, not made of digits, or outside 1 to 65535; or when the whole
-// host, port included, is longer than 253 bytes. The error quotes at most the
-// first 64 bytes of the text.
+// host, port included, is longer than 253 bytes. The error does not repeat the
+// text.
 func ParseForgeHost(text string) (ForgeHost, error) {
 	if !allBytes(text, isASCIIByte) {
-		return ForgeHost{}, invalidForgeHost(text)
+		return ForgeHost{}, ErrInvalidForgeHost
 	}
 	name, port, hasPort := strings.Cut(strings.ToLower(text), ":")
 	if !validDNSName(name) {
-		return ForgeHost{}, invalidForgeHost(text)
+		return ForgeHost{}, ErrInvalidForgeHost
 	}
 	canonical := name
 	if hasPort {
 		number, ok := parsePort(port)
 		if !ok {
-			return ForgeHost{}, invalidForgeHost(text)
+			return ForgeHost{}, ErrInvalidForgeHost
 		}
 		if number != defaultHTTPSPort {
 			canonical += ":" + strconv.Itoa(number)
 		}
 	}
 	if len(canonical) > maxForgeHostBytes {
-		return ForgeHost{}, invalidForgeHost(text)
+		return ForgeHost{}, ErrInvalidForgeHost
 	}
 	return ForgeHost{name: canonical}, nil
 }
@@ -59,14 +57,6 @@ func ParseForgeHost(text string) (ForgeHost, error) {
 // String renders the host as ParseForgeHost reads it back. The zero value
 // renders as the empty string.
 func (h ForgeHost) String() string { return h.name }
-
-func invalidForgeHost(text string) error {
-	return fmt.Errorf("%q: %w", truncatedForError(text), ErrInvalidForgeHost)
-}
-
-func truncatedForError(text string) string {
-	return text[:min(len(text), maxQuotedBytes)]
-}
 
 func validDNSName(name string) bool {
 	if !strings.Contains(name, ".") {
