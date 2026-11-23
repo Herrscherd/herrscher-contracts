@@ -123,7 +123,10 @@ func argOfKind(name string, kind ArgKind) Arg {
 func TestRenderRefusesRefForEveryDeclaredTextParam(t *testing.T) {
 	renderer := NewRenderer()
 	for _, code := range Codes() {
-		declared, _ := code.params()
+		declared, known := code.params()
+		if !known {
+			t.Fatalf("code %q has no declared params", code.Key())
+		}
 		for name, kind := range declared {
 			if kind != ArgText {
 				continue
@@ -139,7 +142,10 @@ func TestRenderRefusesRefForEveryDeclaredTextParam(t *testing.T) {
 func TestRenderAcceptsTextForEveryDeclaredParam(t *testing.T) {
 	renderer := NewRenderer()
 	for _, code := range Codes() {
-		declared, _ := code.params()
+		declared, known := code.params()
+		if !known {
+			t.Fatalf("code %q has no declared params", code.Key())
+		}
 		var args []Arg
 		for name, kind := range declared {
 			args = append(args, argOfKind(name, kind))
