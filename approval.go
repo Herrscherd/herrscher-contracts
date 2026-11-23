@@ -29,7 +29,7 @@ func ParseApprovalDecision(text string) (ApprovalDecision, error) {
 	if decision, ok := knownDecision(text); ok {
 		return decision, nil
 	}
-	return "", fmt.Errorf("%w: %q", ErrInvalidDecision, text)
+	return "", ErrInvalidDecision
 }
 
 func knownDecision(text string) (ApprovalDecision, bool) {
