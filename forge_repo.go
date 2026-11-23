@@ -1,9 +1,6 @@
 package contracts
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
 const (
 	maxRepoRefBytes  = 512
@@ -71,7 +68,7 @@ func RequireRepoHost(host ForgeHost, repo ForgeRepoRef) error {
 		return ErrInvalidRepoRef
 	}
 	if repo.host != host {
-		return fmt.Errorf("%s is not on %s: %w", repo, host, ErrForgeWrongHost)
+		return ErrForgeWrongHost
 	}
 	return nil
 }
