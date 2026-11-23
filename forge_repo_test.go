@@ -228,3 +228,8 @@ func mustParseRepo(t *testing.T, text string) ForgeRepoRef {
 	}
 	return ref
 }
+
+func TestParseRepoRefRefusalRepeatsNoPartOfTheText(t *testing.T) {
+	_, err := ParseRepoRef("github.com/octo/" + receivedSecret + strings.Repeat("x", 600) + "?")
+	requireBareSentinel(t, err, ErrInvalidRepoRef)
+}
