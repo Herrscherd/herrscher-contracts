@@ -12,7 +12,7 @@ func TestBudgetErrorMessageAndAs(t *testing.T) {
 	err := error(&contracts.BudgetError{Key: "projects/x/fact", Runes: 2100, Limit: 2000})
 
 	msg := err.Error()
-	for _, want := range []string{"projects/x/fact", "2100", "2000"} {
+	for _, want := range []string{"2100", "2000"} {
 		if !strings.Contains(msg, want) {
 			t.Fatalf("message %q missing %q", msg, want)
 		}

@@ -18,8 +18,8 @@ type BudgetError struct {
 
 func (e *BudgetError) Error() string {
 	return fmt.Sprintf(
-		"memory: node %q body is %d runes, over the %d-rune budget; consolidate before recording",
-		e.Key, e.Runes, e.Limit,
+		"memory: node body is %d runes, over the %d-rune budget; consolidate before recording",
+		e.Runes, e.Limit,
 	)
 }
 
