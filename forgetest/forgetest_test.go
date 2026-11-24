@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -16,16 +17,26 @@ const listedHost = "github.example.com"
 type repositoryListing struct {
 	fakeForge
 
-	repos   []contracts.ForgeRepo
-	lax     bool
-	endless bool
+	repos    []contracts.ForgeRepo
+	lax      bool
+	endless  bool
+	blocks   bool
+	limitErr error
+	pageErr  error
 }
 
-func (l repositoryListing) Repositories(_ context.Context, page contracts.PageRequest) (contracts.Page[contracts.ForgeRepo], error) {
+func (l repositoryListing) Repositories(ctx context.Context, page contracts.PageRequest) (contracts.Page[contracts.ForgeRepo], error) {
 	if !l.lax {
 		if err := page.Validate(); err != nil {
-			return contracts.Page[contracts.ForgeRepo]{}, err
+			return contracts.Page[contracts.ForgeRepo]{}, l.refusedLimit(err)
 		}
+	}
+	if l.blocks {
+		<-ctx.Done()
+		return contracts.Page[contracts.ForgeRepo]{}, ctx.Err()
+	}
+	if l.pageErr != nil {
+		return contracts.Page[contracts.ForgeRepo]{}, l.pageErr
 	}
 	if l.endless {
 		return contracts.Page[contracts.ForgeRepo]{Next: "more"}, nil
@@ -50,17 +61,38 @@ func (l repositoryListing) Repositories(_ context.Context, page contracts.PageRe
 	return contracts.Page[contracts.ForgeRepo]{Items: l.repos[start:end], Next: next}, nil
 }
 
-func listedRepo(t *testing.T, repoText string) contracts.ForgeRepo {
+func (l repositoryListing) refusedLimit(validation error) error {
+	if l.limitErr != nil {
+		return l.limitErr
+	}
+	return validation
+}
+
+func listedHostRef(t *testing.T) contracts.ForgeHost {
 	t.Helper()
 	host, err := contracts.ParseForgeHost(listedHost)
 	if err != nil {
 		t.Fatalf("ParseForgeHost() error = %v", err)
 	}
+	return host
+}
+
+func listedRepo(t *testing.T, repoText string) contracts.ForgeRepo {
+	t.Helper()
+	return listedRepoOn(t, listedHost, repoText)
+}
+
+func listedRepoOn(t *testing.T, hostText, repoText string) contracts.ForgeRepo {
+	t.Helper()
+	host, err := contracts.ParseForgeHost(hostText)
+	if err != nil {
+		t.Fatalf("ParseForgeHost(%q) error = %v", hostText, err)
+	}
 	repo, err := contracts.ParseRepoRef(repoText)
 	if err != nil {
 		t.Fatalf("ParseRepoRef(%q) error = %v", repoText, err)
 	}
-	listed, err := contracts.NewForgeRepo(host, repo, "https://"+repoText, "", false)
+	listed, err := contracts.NewForgeRepo(host, contracts.ForgeRepoFields{Repo: repo, CloneURL: "https://" + repoText})
 	if err != nil {
 		t.Fatalf("NewForgeRepo(%q) error = %v", repoText, err)
 	}
@@ -74,11 +106,7 @@ func TestCheckListsRepositoriesPassesAPagedListing(t *testing.T) {
 		listedRepo(t, listedHost+"/octo/two"),
 		listedRepo(t, listedHost+"/octo/three"),
 	}}
-	host, err := contracts.ParseForgeHost(listedHost)
-	if err != nil {
-		t.Fatalf("ParseForgeHost() error = %v", err)
-	}
-	checkListsRepositories(rec, listing, host)
+	checkListsRepositories(rec, listing, listedHostRef(t), callTimeout, listingTimeout)
 	if len(rec.failures) != 0 {
 		t.Fatalf("paged listing reported failures: %q", rec.failures)
 	}
@@ -86,11 +114,7 @@ func TestCheckListsRepositoriesPassesAPagedListing(t *testing.T) {
 
 func TestCheckListsRepositoriesPassesAnEmptyListing(t *testing.T) {
 	rec := &recorder{}
-	host, err := contracts.ParseForgeHost(listedHost)
-	if err != nil {
-		t.Fatalf("ParseForgeHost() error = %v", err)
-	}
-	checkListsRepositories(rec, repositoryListing{}, host)
+	checkListsRepositories(rec, repositoryListing{}, listedHostRef(t), callTimeout, listingTimeout)
 	if len(rec.failures) != 0 {
 		t.Fatalf("empty listing reported failures: %q", rec.failures)
 	}
@@ -98,38 +122,89 @@ func TestCheckListsRepositoriesPassesAnEmptyListing(t *testing.T) {
 
 func TestCheckListsRepositoriesCatchesAListingThatIgnoresTheLimit(t *testing.T) {
 	rec := &recorder{}
-	host, err := contracts.ParseForgeHost(listedHost)
-	if err != nil {
-		t.Fatalf("ParseForgeHost() error = %v", err)
-	}
-	checkListsRepositories(rec, repositoryListing{lax: true}, host)
+	checkListsRepositories(rec, repositoryListing{lax: true}, listedHostRef(t), callTimeout, listingTimeout)
 	if len(rec.failures) != 2 {
 		t.Fatalf("listing that ignores the limit reported %d failures, want one per refused limit (2): %q", len(rec.failures), rec.failures)
 	}
 }
 
+func TestCheckListsRepositoriesRequiresInvalidPageLimitForARefusedLimit(t *testing.T) {
+	rec := &recorder{}
+	checkListsRepositories(rec, repositoryListing{limitErr: contracts.ErrForgeNotFound}, listedHostRef(t), callTimeout, listingTimeout)
+	if len(rec.failures) != 2 {
+		t.Fatalf("listing that refuses a limit with another error reported %d failures, want one per refused limit (2): %q", len(rec.failures), rec.failures)
+	}
+}
+
+func TestCheckListsRepositoriesReportsAPageErrorAsAFailure(t *testing.T) {
+	rec := &recorder{}
+	checkListsRepositories(rec, repositoryListing{pageErr: contracts.ErrForgeUnauthorized}, listedHostRef(t), callTimeout, listingTimeout)
+	if len(rec.failures) != 1 {
+		t.Fatalf("listing that fails a valid page reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+	}
+	if !strings.Contains(rec.failures[0], contracts.ErrForgeUnauthorized.Error()) {
+		t.Fatalf("failure %q does not carry the page error %q", rec.failures[0], contracts.ErrForgeUnauthorized)
+	}
+}
+
 func TestCheckListsRepositoriesCatchesAZeroRepository(t *testing.T) {
 	rec := &recorder{}
-	host, err := contracts.ParseForgeHost(listedHost)
-	if err != nil {
-		t.Fatalf("ParseForgeHost() error = %v", err)
-	}
 	listing := repositoryListing{repos: []contracts.ForgeRepo{listedRepo(t, listedHost+"/octo/one"), {}}}
-	checkListsRepositories(rec, listing, host)
+	checkListsRepositories(rec, listing, listedHostRef(t), callTimeout, listingTimeout)
 	if len(rec.failures) != 1 {
 		t.Fatalf("listing with a zero repository reported %d failures, want 1: %q", len(rec.failures), rec.failures)
 	}
 }
 
+func TestCheckListsRepositoriesCatchesARepositoryOnAnotherHost(t *testing.T) {
+	rec := &recorder{}
+	listing := repositoryListing{repos: []contracts.ForgeRepo{
+		listedRepo(t, listedHost+"/octo/one"),
+		listedRepoOn(t, "gitlab.example.com", "gitlab.example.com/octo/two"),
+	}}
+	checkListsRepositories(rec, listing, listedHostRef(t), callTimeout, listingTimeout)
+	if len(rec.failures) != 1 {
+		t.Fatalf("listing with a repository on another host reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+	}
+}
+
 func TestCheckListsRepositoriesCatchesAListingThatNeverEnds(t *testing.T) {
 	rec := &recorder{}
-	host, err := contracts.ParseForgeHost(listedHost)
-	if err != nil {
-		t.Fatalf("ParseForgeHost() error = %v", err)
-	}
-	checkListsRepositories(rec, repositoryListing{endless: true}, host)
+	checkListsRepositories(rec, repositoryListing{endless: true}, listedHostRef(t), callTimeout, listingTimeout)
 	if len(rec.failures) != 1 {
 		t.Fatalf("endless listing reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+	}
+}
+
+func TestCheckListsRepositoriesReportsAPageThatIgnoresItsDeadline(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		rec := &recorder{}
+		checkListsRepositories(rec, repositoryListing{blocks: true}, listedHostRef(t), 20*time.Millisecond, time.Minute)
+		if len(rec.failures) != 1 {
+			t.Fatalf("listing that ignores its page deadline reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+		}
+		if !strings.Contains(rec.failures[0], "within 20ms") {
+			t.Fatalf("failure %q does not name the page deadline of 20ms", rec.failures[0])
+		}
+	})
+}
+
+func TestCheckListsRepositoriesReportsAWalkPastItsBudget(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		rec := &recorder{}
+		checkListsRepositories(rec, repositoryListing{blocks: true}, listedHostRef(t), time.Hour, 50*time.Millisecond)
+		if len(rec.failures) != 1 {
+			t.Fatalf("walk past its budget reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+		}
+		if !strings.Contains(rec.failures[0], "did not finish within 50ms") {
+			t.Fatalf("failure %q does not name the budget of 50ms", rec.failures[0])
+		}
+	})
+}
+
+func TestCheckListsRepositoriesGivesTheWalkTwoMinutes(t *testing.T) {
+	if listingTimeout != 2*time.Minute {
+		t.Fatalf("listingTimeout = %v, want the documented two minutes", listingTimeout)
 	}
 }
 
