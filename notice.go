@@ -119,6 +119,8 @@ const (
 	CodeTurnInterrupted
 	// CodeResumeLost reports that the earlier conversation of the session could not be resumed, so the turn runs on a new session without its context.
 	CodeResumeLost
+	// CodeHealthRepoAccessUnreadable reports that the permission on the repository Repo could not be read. Reason holds the technical reason, shown as it is.
+	CodeHealthRepoAccessUnreadable
 )
 
 // Codes returns every code, in declaration order. Key and params switch over the
@@ -139,6 +141,7 @@ func Codes() []Code {
 		CodeHealthConnected, CodeHealthSignedInAs, CodeHealthNotLoggedIn, CodeHealthRateLimited, CodeHealthCredentialsRefused,
 		CodeHealthUnreachable, CodeHealthEnvMissing, CodeHealthRemedyRun, CodeHealthRemedyEnvRestart,
 		CodeAccountFallback, CodeAccountNoQuota, CodeTurnInterrupted, CodeResumeLost,
+		CodeHealthRepoAccessUnreadable,
 	}
 }
 
@@ -242,6 +245,8 @@ func (c Code) Key() string {
 		return "turn.interrupted"
 	case CodeResumeLost:
 		return "session.resume_lost"
+	case CodeHealthRepoAccessUnreadable:
+		return "health.repo_access_unreadable"
 	}
 	return "code." + strconv.FormatUint(uint64(c), 10)
 }
@@ -294,6 +299,8 @@ func (c Code) params() (map[string]ArgKind, bool) {
 		return map[string]ArgKind{nameParam: ArgText}, true
 	case CodeHealthUnreachable:
 		return map[string]ArgKind{wireReason: ArgText}, true
+	case CodeHealthRepoAccessUnreadable:
+		return map[string]ArgKind{"Repo": ArgText, wireReason: ArgText}, true
 	case CodeHealthRemedyRun:
 		return map[string]ArgKind{"Command": ArgText}, true
 	case CodeAccountFallback:

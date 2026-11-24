@@ -861,9 +861,10 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   `CodeChannelKindHome`, `CodeInvalidValueHint`, `CodeSessionCloseDirty`, and the
   health codes `CodeHealthConnected`, `CodeHealthSignedInAs`, `CodeHealthNotLoggedIn`,
   `CodeHealthRateLimited`, `CodeHealthCredentialsRefused`, `CodeHealthUnreachable`,
-  `CodeHealthEnvMissing`, `CodeHealthRemedyRun` and `CodeHealthRemedyEnvRestart`, and
-  the account codes `CodeAccountFallback` and `CodeAccountNoQuota`, and the transcript
-  notice codes `CodeTurnInterrupted` and `CodeResumeLost`.
+  `CodeHealthEnvMissing`, `CodeHealthRemedyRun`, `CodeHealthRemedyEnvRestart` and
+  `CodeHealthRepoAccessUnreadable`, and the account codes `CodeAccountFallback`
+  and `CodeAccountNoQuota`, and the transcript notice codes `CodeTurnInterrupted`
+  and `CodeResumeLost`.
   `Code.Key()` returns its catalog key (`session.not_found`, ...) through an
   exhaustive switch; a value outside the list returns its raw number, `code.N`.
   `Codes()` lists every code, and a test scans the whole `uint16` range, so a
@@ -888,7 +889,8 @@ Messages a human reads are named by a code, not by a sentence. The host emits
   Among the health codes, `CodeHealthSignedInAs` takes `Name`,
   `CodeHealthUnreachable` takes `Reason`, `CodeHealthEnvMissing` and
   `CodeHealthRemedyEnvRestart` take `Name`, `CodeHealthRemedyRun` takes `Command`,
-  shown as it is, and the others carry no argument.
+  shown as it is, `CodeHealthRepoAccessUnreadable` takes `Repo` and `Reason`, and
+  the others carry no argument.
   `CodeSessionCloseDirty` takes `Name`, the session whose worktree holds
   uncommitted changes: a close refused for that reason is a normal outcome, not
   `CodeUnexpected`, and its text tells the operator to commit or to close with
