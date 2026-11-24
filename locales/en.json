@@ -221,6 +221,11 @@
     "other": "add {{.Name}} to the service environment, then run `herrscher service restart`"
   },
   {
+    "id": "health.repo_access_unreadable",
+    "description": "The permission on a repository could not be read, with the technical reason",
+    "other": "could not read the access to {{.Repo}}: {{.Reason}}"
+  },
+  {
     "id": "account.fallback",
     "description": "Account fallback notice",
     "other": "the new session starts on {{.To}}: {{.From}} has no quota left"
