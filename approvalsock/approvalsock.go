@@ -210,13 +210,13 @@ func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts
 // is not one JSON object decoding as an approval answer, or that exceeds 64 KiB,
 // matches ErrUnreadableAnswer and never ErrRequestTooLarge. A decoded answer whose
 // decision is unknown or missing matches ErrInvalidDecision. A connection closed
-// or reset before an answer is a read error that matches neither sentinel. An
-// answer whose refusal is a code this version does not know is returned as it
-// is, and it is never an allowance: Allowed reports false for any refusal. An
-// answer whose ID is not req.ID, or is absent, matches ErrAnswerMismatch. A request
-// whose ID is empty matches ErrMissingRequestID and is not sent. Every
-// error means the daemon was not reached, and the caller must treat it as a
-// denial.
+// or reset before an answer is a read or write error that matches neither
+// sentinel. An answer whose refusal is a code this version does not know is
+// returned as it is, and it is never an allowance: Allowed reports false for
+// any refusal. An answer whose ID is not req.ID, or is absent, matches
+// ErrAnswerMismatch. A request whose ID is empty matches ErrMissingRequestID
+// and is not sent. Every error means the daemon was not reached, and the
+// caller must treat it as a denial.
 func Ask(ctx context.Context, path string, req contracts.ApprovalRequest) (contracts.ApprovalAnswer, error) {
 	if req.ID == "" {
 		return contracts.ApprovalAnswer{}, ErrMissingRequestID
