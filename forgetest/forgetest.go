@@ -64,16 +64,79 @@ func checkRefusesForeignHost(report reporter, forge contracts.Forge, foreign con
 }
 
 func runWithDeadline(call foreignCall, timeout time.Duration) error {
+	_, err := withDeadline(timeout, func(ctx context.Context) (struct{}, error) {
+		return struct{}{}, call.run(ctx)
+	})
+	return err
+}
+
+type outcome[Value any] struct {
+	value Value
+	err   error
+}
+
+func withDeadline[Value any](timeout time.Duration, run func(ctx context.Context) (Value, error)) (Value, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	result := make(chan error, 1)
-	go func() { result <- call.run(ctx) }()
+	result := make(chan outcome[Value], 1)
+	go func() {
+		value, err := run(ctx)
+		result <- outcome[Value]{value: value, err: err}
+	}()
 	select {
-	case err := <-result:
-		return err
+	case done := <-result:
+		return done.value, done.err
 	case <-ctx.Done():
-		return fmt.Errorf("no answer within %v: %w", timeout, ctx.Err())
+		var none Value
+		return none, fmt.Errorf("no answer within %v: %w", timeout, ctx.Err())
 	}
+}
+
+// CheckListsRepositories lists the repositories of forge one at a time, and
+// fails the test unless the listing refuses a limit below 0 or above
+// [contracts.MaxPageLimit] with [contracts.ErrInvalidPageLimit], ends with an
+// empty Next, and holds only repositories on host, the forge host the plugin
+// serves. A listing that never ends fails the check after a bounded number of
+// pages, and each page gets the same ten seconds as the other calls.
+func CheckListsRepositories(tb testing.TB, forge contracts.Forge, host contracts.ForgeHost) {
+	tb.Helper()
+	checkListsRepositories(tb, forge, host)
+}
+
+const maxListedPages = 100
+
+func checkListsRepositories(report reporter, forge contracts.Forge, host contracts.ForgeHost) {
+	report.Helper()
+	for _, limit := range []int{-1, contracts.MaxPageLimit + 1} {
+		_, err := listRepositoryPage(forge, contracts.PageRequest{Limit: limit})
+		if !errors.Is(err, contracts.ErrInvalidPageLimit) {
+			report.Errorf("Repositories with limit %d: error = %v, want ErrInvalidPageLimit", limit, err)
+		}
+	}
+	var cursor contracts.PageCursor
+	for range maxListedPages {
+		page, err := listRepositoryPage(forge, contracts.PageRequest{Cursor: cursor, Limit: 1})
+		if err != nil {
+			report.Errorf("Repositories: error = %v, want a page", err)
+			return
+		}
+		for _, repo := range page.Items {
+			if repo.Repo().Host() != host {
+				report.Errorf("Repositories listed %q, want only repositories on %v", repo.Repo(), host)
+			}
+		}
+		if page.Next == "" {
+			return
+		}
+		cursor = page.Next
+	}
+	report.Errorf("Repositories: the listing did not end within %d pages", maxListedPages)
+}
+
+func listRepositoryPage(forge contracts.Forge, page contracts.PageRequest) (contracts.Page[contracts.ForgeRepo], error) {
+	return withDeadline(callTimeout, func(ctx context.Context) (contracts.Page[contracts.ForgeRepo], error) {
+		return forge.Repositories(ctx, page)
+	})
 }
 
 func newForeignRefs(foreign contracts.ForgeRepoRef) (foreignRefs, error) {

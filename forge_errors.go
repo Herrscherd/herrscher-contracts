@@ -37,6 +37,9 @@ var (
 	ErrInvalidPageLimit = errors.New("page limit must be between 0 and 100")
 	// ErrInvalidLogLimit reports a log size outside 1 to [MaxJobLogBytes].
 	ErrInvalidLogLimit = errors.New("log size limit must be between 1 and MaxJobLogBytes")
+	// ErrInvalidCloneURL reports a clone URL that is not an https URL naming the
+	// repository on its forge host.
+	ErrInvalidCloneURL = errors.New("not an https clone URL of the repository on its forge host")
 	// ErrInvalidRef reports a reference that names no repository, no positive
 	// number, or no thread identifier.
 	ErrInvalidRef = errors.New("reference names no repository, number or thread")

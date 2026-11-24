@@ -3,12 +3,135 @@ package forgetest
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"testing/synctest"
 	"time"
 
 	contracts "github.com/Herrscherd/herrscher-contracts"
 )
+
+const listedHost = "github.example.com"
+
+type repositoryListing struct {
+	fakeForge
+
+	repos   []contracts.ForgeRepo
+	lax     bool
+	endless bool
+}
+
+func (l repositoryListing) Repositories(_ context.Context, page contracts.PageRequest) (contracts.Page[contracts.ForgeRepo], error) {
+	if !l.lax {
+		if err := page.Validate(); err != nil {
+			return contracts.Page[contracts.ForgeRepo]{}, err
+		}
+	}
+	if l.endless {
+		return contracts.Page[contracts.ForgeRepo]{Next: "more"}, nil
+	}
+	start := 0
+	if page.Cursor != "" {
+		parsed, err := strconv.Atoi(string(page.Cursor))
+		if err != nil {
+			return contracts.Page[contracts.ForgeRepo]{}, err
+		}
+		start = parsed
+	}
+	size := page.Limit
+	if size < 1 {
+		size = 2
+	}
+	end := min(start+size, len(l.repos))
+	var next contracts.PageCursor
+	if end < len(l.repos) {
+		next = contracts.PageCursor(strconv.Itoa(end))
+	}
+	return contracts.Page[contracts.ForgeRepo]{Items: l.repos[start:end], Next: next}, nil
+}
+
+func listedRepo(t *testing.T, repoText string) contracts.ForgeRepo {
+	t.Helper()
+	host, err := contracts.ParseForgeHost(listedHost)
+	if err != nil {
+		t.Fatalf("ParseForgeHost() error = %v", err)
+	}
+	repo, err := contracts.ParseRepoRef(repoText)
+	if err != nil {
+		t.Fatalf("ParseRepoRef(%q) error = %v", repoText, err)
+	}
+	listed, err := contracts.NewForgeRepo(host, repo, "https://"+repoText, "", false)
+	if err != nil {
+		t.Fatalf("NewForgeRepo(%q) error = %v", repoText, err)
+	}
+	return listed
+}
+
+func TestCheckListsRepositoriesPassesAPagedListing(t *testing.T) {
+	rec := &recorder{}
+	listing := repositoryListing{repos: []contracts.ForgeRepo{
+		listedRepo(t, listedHost+"/octo/one"),
+		listedRepo(t, listedHost+"/octo/two"),
+		listedRepo(t, listedHost+"/octo/three"),
+	}}
+	host, err := contracts.ParseForgeHost(listedHost)
+	if err != nil {
+		t.Fatalf("ParseForgeHost() error = %v", err)
+	}
+	checkListsRepositories(rec, listing, host)
+	if len(rec.failures) != 0 {
+		t.Fatalf("paged listing reported failures: %q", rec.failures)
+	}
+}
+
+func TestCheckListsRepositoriesPassesAnEmptyListing(t *testing.T) {
+	rec := &recorder{}
+	host, err := contracts.ParseForgeHost(listedHost)
+	if err != nil {
+		t.Fatalf("ParseForgeHost() error = %v", err)
+	}
+	checkListsRepositories(rec, repositoryListing{}, host)
+	if len(rec.failures) != 0 {
+		t.Fatalf("empty listing reported failures: %q", rec.failures)
+	}
+}
+
+func TestCheckListsRepositoriesCatchesAListingThatIgnoresTheLimit(t *testing.T) {
+	rec := &recorder{}
+	host, err := contracts.ParseForgeHost(listedHost)
+	if err != nil {
+		t.Fatalf("ParseForgeHost() error = %v", err)
+	}
+	checkListsRepositories(rec, repositoryListing{lax: true}, host)
+	if len(rec.failures) != 2 {
+		t.Fatalf("listing that ignores the limit reported %d failures, want one per refused limit (2): %q", len(rec.failures), rec.failures)
+	}
+}
+
+func TestCheckListsRepositoriesCatchesAZeroRepository(t *testing.T) {
+	rec := &recorder{}
+	host, err := contracts.ParseForgeHost(listedHost)
+	if err != nil {
+		t.Fatalf("ParseForgeHost() error = %v", err)
+	}
+	listing := repositoryListing{repos: []contracts.ForgeRepo{listedRepo(t, listedHost+"/octo/one"), {}}}
+	checkListsRepositories(rec, listing, host)
+	if len(rec.failures) != 1 {
+		t.Fatalf("listing with a zero repository reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+	}
+}
+
+func TestCheckListsRepositoriesCatchesAListingThatNeverEnds(t *testing.T) {
+	rec := &recorder{}
+	host, err := contracts.ParseForgeHost(listedHost)
+	if err != nil {
+		t.Fatalf("ParseForgeHost() error = %v", err)
+	}
+	checkListsRepositories(rec, repositoryListing{endless: true}, host)
+	if len(rec.failures) != 1 {
+		t.Fatalf("endless listing reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+	}
+}
 
 type fakeForge struct {
 	refuses bool
@@ -33,6 +156,10 @@ func (fakeForge) Connection(context.Context) (contracts.ForgeConnection, error) 
 
 func (f fakeForge) RepoAccess(context.Context, contracts.ForgeRepoRef) (contracts.RepoPermission, error) {
 	return contracts.PermissionNone, f.refusal()
+}
+
+func (fakeForge) Repositories(context.Context, contracts.PageRequest) (contracts.Page[contracts.ForgeRepo], error) {
+	return contracts.Page[contracts.ForgeRepo]{}, nil
 }
 
 func (f fakeForge) OpenPullRequest(context.Context, contracts.PullRequestDraft) (contracts.PullRequest, error) {

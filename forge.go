@@ -37,6 +37,12 @@ type ForgeCredentials interface {
 // reference names nothing, and [ErrInvalidRepoRef] for a reference a plugin
 // cannot map to its forge.
 //
+// [Forge.Repositories] lists the repositories the connected account can read on
+// the host, a page at a time, and a plugin builds each one with [NewForgeRepo],
+// which refuses a clone URL that does not name the repository on the host with
+// [ErrInvalidCloneURL]. Like every listing, it refuses a limit outside its range
+// with [ErrInvalidPageLimit].
+//
 // [PullRequest] with a non-empty since returns [ErrForgeNotModified] when the
 // pull request has not changed since that [Revision]. Following the event
 // stream of a forge belongs to an optional interface that part A adds, so it
@@ -45,6 +51,7 @@ type Forge interface {
 	Manifest() Manifest
 	Connection(ctx context.Context) (ForgeConnection, error)
 	RepoAccess(ctx context.Context, repo ForgeRepoRef) (RepoPermission, error)
+	Repositories(ctx context.Context, page PageRequest) (Page[ForgeRepo], error)
 	OpenPullRequest(ctx context.Context, draft PullRequestDraft) (PullRequest, error)
 	PullRequest(ctx context.Context, ref PullRequestRef, since Revision) (PullRequest, error)
 	MergePullRequest(ctx context.Context, ref PullRequestRef, method MergeMethod) error

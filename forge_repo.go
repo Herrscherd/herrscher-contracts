@@ -100,6 +100,54 @@ func (r ForgeRepoRef) String() string {
 	return r.host.String() + "/" + r.namespace + "/" + r.name
 }
 
+// ForgeRepo is a repository a forge lists for the connected account: its
+// reference, the https URL that clones it, its description and whether it is
+// private. Its fields are unexported, so a value is built only by
+// [NewForgeRepo]; the zero value names no repository.
+type ForgeRepo struct {
+	repo        ForgeRepoRef
+	cloneURL    string
+	description string
+	private     bool
+}
+
+// NewForgeRepo describes repo as listed on host. It returns an error matching
+// [ErrInvalidForgeHost] for the zero host, [ErrInvalidRepoRef] for the zero
+// repository, and [ErrForgeWrongHost] when repo is not on host, as
+// [RequireRepoHost] reports them. It returns an error matching
+// [ErrInvalidCloneURL] when cloneURL is not an https URL that names repo itself
+// on host, with or without a ".git" suffix. The error does not repeat cloneURL.
+func NewForgeRepo(host ForgeHost, repo ForgeRepoRef, cloneURL, description string, private bool) (ForgeRepo, error) {
+	if err := RequireRepoHost(host, repo); err != nil {
+		return ForgeRepo{}, err
+	}
+	if !clonesRepo(repo, cloneURL) {
+		return ForgeRepo{}, ErrInvalidCloneURL
+	}
+	return ForgeRepo{repo: repo, cloneURL: cloneURL, description: description, private: private}, nil
+}
+
+// Repo is the reference of the repository.
+func (r ForgeRepo) Repo() ForgeRepoRef { return r.repo }
+
+// CloneURL is the https URL that clones the repository, as the forge gives it.
+func (r ForgeRepo) CloneURL() string { return r.cloneURL }
+
+// Description is the text the owner wrote for the repository, empty when there
+// is none.
+func (r ForgeRepo) Description() string { return r.description }
+
+// Private reports whether the forge holds the repository as private.
+func (r ForgeRepo) Private() bool { return r.private }
+
+func clonesRepo(repo ForgeRepoRef, cloneURL string) bool {
+	if !strings.HasPrefix(cloneURL, "https://") {
+		return false
+	}
+	cloned, err := ParseRepoRef(cloneURL)
+	return err == nil && cloned.SameRepo(repo)
+}
+
 type repoLocation struct {
 	host string
 	path string
