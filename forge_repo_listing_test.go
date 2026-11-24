@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Herrscherd/herrscher-contracts/echotest"
@@ -28,7 +29,14 @@ func listingRepo(t *testing.T, text string) ForgeRepoRef {
 func TestNewForgeRepoKeepsWhatItIsGiven(t *testing.T) {
 	host := listingHost(t)
 	repo := listingRepo(t, "github.example.com/octo/hello")
-	listed, err := NewForgeRepo(host, repo, "https://github.example.com/octo/hello.git", "greets", true)
+	listed, err := NewForgeRepo(host, ForgeRepoFields{
+		Repo:          repo,
+		CloneURL:      "https://github.example.com/octo/hello.git",
+		Description:   "greets",
+		Private:       true,
+		Archived:      true,
+		DefaultBranch: "trunk",
+	})
 	if err != nil {
 		t.Fatalf("NewForgeRepo() error = %v, want none", err)
 	}
@@ -44,6 +52,24 @@ func TestNewForgeRepoKeepsWhatItIsGiven(t *testing.T) {
 	if !listed.Private() {
 		t.Errorf("Private() = false, want true")
 	}
+	if !listed.Archived() {
+		t.Errorf("Archived() = false, want true")
+	}
+	if listed.DefaultBranch() != "trunk" {
+		t.Errorf("DefaultBranch() = %q, want %q", listed.DefaultBranch(), "trunk")
+	}
+}
+
+func TestNewForgeRepoKeepsAnEmptyDefaultBranchWhenTheForgeGivesNone(t *testing.T) {
+	host := listingHost(t)
+	repo := listingRepo(t, "github.example.com/octo/hello")
+	listed, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: "https://github.example.com/octo/hello"})
+	if err != nil {
+		t.Fatalf("NewForgeRepo() error = %v, want none", err)
+	}
+	if listed.DefaultBranch() != "" || listed.Archived() {
+		t.Errorf("DefaultBranch() = %q, Archived() = %v, want empty and false", listed.DefaultBranch(), listed.Archived())
+	}
 }
 
 func TestNewForgeRepoAcceptsAnHTTPSCloneURLOfTheRepository(t *testing.T) {
@@ -57,7 +83,7 @@ func TestNewForgeRepoAcceptsAnHTTPSCloneURLOfTheRepository(t *testing.T) {
 		"https://GitHub.example.com/octo/hello",
 	}
 	for _, url := range urls {
-		if _, err := NewForgeRepo(host, repo, url, "", false); err != nil {
+		if _, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: url}); err != nil {
 			t.Errorf("NewForgeRepo(clone %q) error = %v, want none", url, err)
 		}
 	}
@@ -78,11 +104,50 @@ func TestNewForgeRepoRefusesACloneURLThatIsNotTheRepositoryOnTheHost(t *testing.
 		"https://github.example.com/octo/other",
 		"https://github.example.com/octo",
 		"https://gitlab.example.com/octo/hello",
+		"https://github.example.com/ghe/octo/hello",
 	}
 	for _, url := range urls {
-		_, err := NewForgeRepo(host, repo, url, "", false)
+		_, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: url})
 		if !errors.Is(err, ErrInvalidCloneURL) {
 			t.Errorf("NewForgeRepo(clone %q) error = %v, want ErrInvalidCloneURL", url, err)
+		}
+	}
+}
+
+func TestNewForgeRepoRefusesACloneURLLongerThan2048Bytes(t *testing.T) {
+	host := listingHost(t)
+	repo := listingRepo(t, "github.example.com/octo/hello")
+	url := "https://github.example.com/octo/hello" + strings.Repeat("x", 2048)
+	_, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: url})
+	if !errors.Is(err, ErrInvalidCloneURL) {
+		t.Errorf("NewForgeRepo(clone of %d bytes) error = %v, want ErrInvalidCloneURL", len(url), err)
+	}
+}
+
+func TestNewForgeRepoCutsADescriptionToAWholeRuneWithin1024Bytes(t *testing.T) {
+	host := listingHost(t)
+	repo := listingRepo(t, "github.example.com/octo/hello")
+	tests := []struct {
+		name        string
+		description string
+		want        string
+	}{
+		{"short description kept", "greets", "greets"},
+		{"1024 bytes kept whole", strings.Repeat("a", 1024), strings.Repeat("a", 1024)},
+		{"1025 ASCII bytes cut to 1024", strings.Repeat("a", 1025), strings.Repeat("a", 1024)},
+		{"two-byte rune starting at 1023 dropped", strings.Repeat("a", 1023) + "é", strings.Repeat("a", 1023)},
+		{"two-byte rune starting at 1024 cut away", strings.Repeat("a", 1024) + "é", strings.Repeat("a", 1024)},
+		{"three-byte rune spanning 1024 dropped", strings.Repeat("a", 1022) + "€", strings.Repeat("a", 1022)},
+		{"three-byte rune before a rune starting at 1024 kept", strings.Repeat("a", 1021) + "€" + "x", strings.Repeat("a", 1021) + "€"},
+		{"three-byte rune ending exactly at 1024 kept whole", strings.Repeat("a", 1021) + "€", strings.Repeat("a", 1021) + "€"},
+	}
+	for _, tt := range tests {
+		listed, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: "https://github.example.com/octo/hello", Description: tt.description})
+		if err != nil {
+			t.Fatalf("%s: NewForgeRepo() error = %v, want none", tt.name, err)
+		}
+		if listed.Description() != tt.want {
+			t.Errorf("%s: Description() has %d bytes, want the %d bytes expected", tt.name, len(listed.Description()), len(tt.want))
 		}
 	}
 }
@@ -102,7 +167,7 @@ func TestNewForgeRepoRefusesAZeroOrForeignRepositoryOrHost(t *testing.T) {
 		{"repository on another host", host, foreign, ErrForgeWrongHost},
 	}
 	for _, tt := range tests {
-		_, err := NewForgeRepo(tt.host, tt.repo, "https://github.example.com/octo/hello", "", false)
+		_, err := NewForgeRepo(tt.host, ForgeRepoFields{Repo: tt.repo, CloneURL: "https://github.example.com/octo/hello"})
 		if !errors.Is(err, tt.want) {
 			t.Errorf("%s: NewForgeRepo() error = %v, want %v", tt.name, err, tt.want)
 		}
@@ -116,7 +181,7 @@ func TestNewForgeRepoRefusesACloneURLWithoutEcho(t *testing.T) {
 		"http://" + echotest.Probe + "/octo/hello",
 		"https://github.example.com/octo/" + echotest.Probe,
 	} {
-		_, err := NewForgeRepo(host, repo, url, "", false)
+		_, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: url})
 		echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidCloneURL, echotest.Probe)
 	}
 }

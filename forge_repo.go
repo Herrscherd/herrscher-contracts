@@ -1,12 +1,17 @@
 package contracts
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 const (
-	maxRepoRefBytes  = 512
-	maxRepoNameBytes = 100
-	minRepoSegments  = 2
-	gitSuffix        = ".git"
+	maxRepoRefBytes     = 512
+	maxRepoNameBytes    = 100
+	minRepoSegments     = 2
+	gitSuffix           = ".git"
+	maxCloneURLBytes    = 2048
+	maxDescriptionBytes = 1024
 )
 
 // ForgeRepoRef names one repository of a forge: its host, its namespace and its
@@ -101,30 +106,57 @@ func (r ForgeRepoRef) String() string {
 }
 
 // ForgeRepo is a repository a forge lists for the connected account: its
-// reference, the https URL that clones it, its description and whether it is
-// private. Its fields are unexported, so a value is built only by
-// [NewForgeRepo]; the zero value names no repository.
+// reference, the https URL that clones it, its description, whether it is
+// private, whether it is archived and the branch it builds from by default.
+// Its fields are unexported, so a value is built only by [NewForgeRepo]; the
+// zero value names no repository.
 type ForgeRepo struct {
-	repo        ForgeRepoRef
-	cloneURL    string
-	description string
-	private     bool
+	repo          ForgeRepoRef
+	cloneURL      string
+	description   string
+	private       bool
+	archived      bool
+	defaultBranch string
 }
 
-// NewForgeRepo describes repo as listed on host. It returns an error matching
-// [ErrInvalidForgeHost] for the zero host, [ErrInvalidRepoRef] for the zero
-// repository, and [ErrForgeWrongHost] when repo is not on host, as
-// [RequireRepoHost] reports them. It returns an error matching
-// [ErrInvalidCloneURL] when cloneURL is not an https URL that names repo itself
-// on host, with or without a ".git" suffix. The error does not repeat cloneURL.
-func NewForgeRepo(host ForgeHost, repo ForgeRepoRef, cloneURL, description string, private bool) (ForgeRepo, error) {
-	if err := RequireRepoHost(host, repo); err != nil {
+// ForgeRepoFields is what a forge says about one listed repository, the input
+// [NewForgeRepo] checks. DefaultBranch is empty when the forge does not give
+// one.
+type ForgeRepoFields struct {
+	Repo          ForgeRepoRef
+	CloneURL      string
+	Description   string
+	Private       bool
+	Archived      bool
+	DefaultBranch string
+}
+
+// NewForgeRepo describes the repository fields.Repo as listed on host. It
+// returns an error matching [ErrInvalidForgeHost] for the zero host,
+// [ErrInvalidRepoRef] for the zero repository, and [ErrForgeWrongHost] when the
+// repository is not on host, as [RequireRepoHost] reports them. It returns an
+// error matching [ErrInvalidCloneURL] when CloneURL is longer than 2048 bytes or
+// is not an https URL that names the repository itself on host, with or without
+// a ".git" suffix; the error does not repeat the URL. A Description longer than
+// 1024 bytes is cut to at most 1024 bytes on a UTF-8 rune boundary, without an
+// error. A plugin skips a repository this refuses instead of failing the page.
+// A forge served under a base path, such as host/ghe, is not supported: its
+// clone URL names the repository under that path, which [ForgeHost] cannot hold.
+func NewForgeRepo(host ForgeHost, fields ForgeRepoFields) (ForgeRepo, error) {
+	if err := RequireRepoHost(host, fields.Repo); err != nil {
 		return ForgeRepo{}, err
 	}
-	if !clonesRepo(repo, cloneURL) {
+	if !clonesRepo(fields.Repo, fields.CloneURL) {
 		return ForgeRepo{}, ErrInvalidCloneURL
 	}
-	return ForgeRepo{repo: repo, cloneURL: cloneURL, description: description, private: private}, nil
+	return ForgeRepo{
+		repo:          fields.Repo,
+		cloneURL:      fields.CloneURL,
+		description:   truncateDescription(fields.Description),
+		private:       fields.Private,
+		archived:      fields.Archived,
+		defaultBranch: fields.DefaultBranch,
+	}, nil
 }
 
 // Repo is the reference of the repository.
@@ -134,18 +166,37 @@ func (r ForgeRepo) Repo() ForgeRepoRef { return r.repo }
 func (r ForgeRepo) CloneURL() string { return r.cloneURL }
 
 // Description is the text the owner wrote for the repository, empty when there
-// is none.
+// is none, cut to at most 1024 bytes.
 func (r ForgeRepo) Description() string { return r.description }
 
 // Private reports whether the forge holds the repository as private.
 func (r ForgeRepo) Private() bool { return r.private }
 
+// Archived reports whether the forge holds the repository as archived, read
+// only.
+func (r ForgeRepo) Archived() bool { return r.archived }
+
+// DefaultBranch is the name of the branch the repository builds from by
+// default, empty when the forge does not give one.
+func (r ForgeRepo) DefaultBranch() string { return r.defaultBranch }
+
 func clonesRepo(repo ForgeRepoRef, cloneURL string) bool {
-	if !strings.HasPrefix(cloneURL, "https://") {
+	if len(cloneURL) > maxCloneURLBytes || !strings.HasPrefix(cloneURL, "https://") {
 		return false
 	}
 	cloned, err := ParseRepoRef(cloneURL)
 	return err == nil && cloned.SameRepo(repo)
+}
+
+func truncateDescription(text string) string {
+	if len(text) <= maxDescriptionBytes {
+		return text
+	}
+	cut := maxDescriptionBytes
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return text[:cut]
 }
 
 type repoLocation struct {
