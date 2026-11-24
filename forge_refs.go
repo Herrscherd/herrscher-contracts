@@ -120,12 +120,10 @@ type BranchName struct {
 	name string
 }
 
-// ParseBranchName checks text against the rules of git check-ref-format for a
-// branch name: 1 to 255 bytes, not "@" alone, not starting with "-", not
-// containing ".." or "@{", no component that is empty or starts with "." or
-// ends with ".lock", no name ending with ".", and no control byte, space, "~",
-// "^", ":", "?", "*", "[" or "\". It returns an error matching
-// [ErrInvalidBranchName] otherwise; the error does not repeat the text.
+// ParseBranchName checks text against the rules of git check-ref-format
+// --branch, plus two rules of this package: text is not "@" alone, and it is at
+// most 255 bytes long. It returns an error matching [ErrInvalidBranchName]
+// otherwise; the error does not repeat the text.
 func ParseBranchName(text string) (BranchName, error) {
 	if !validBranchName(text) {
 		return BranchName{}, ErrInvalidBranchName
@@ -141,7 +139,7 @@ func (b BranchName) String() string { return b.name }
 func (b BranchName) IsZero() bool { return b.name == "" }
 
 func validBranchName(text string) bool {
-	if text == "" || len(text) > maxBranchNameBytes || text == "@" || strings.HasPrefix(text, "-") || strings.HasSuffix(text, ".") {
+	if text == "" || len(text) > maxBranchNameBytes || text == "@" || text == "HEAD" || strings.HasPrefix(text, "-") || strings.HasSuffix(text, ".") {
 		return false
 	}
 	if strings.Contains(text, "..") || strings.Contains(text, "@{") || !allBytes(text, isBranchNameByte) {

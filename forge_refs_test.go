@@ -33,6 +33,7 @@ func TestParseBranchNameRefusesHostileNames(t *testing.T) {
 	for _, text := range []string{
 		"",
 		"@",
+		"HEAD",
 		"--upload-pack=touch /tmp/x",
 		"-",
 		"-x",
