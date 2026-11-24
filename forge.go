@@ -45,6 +45,13 @@ type Forge interface {
 	Manifest() Manifest
 	Connection(ctx context.Context) (ForgeConnection, error)
 	RepoAccess(ctx context.Context, repo ForgeRepoRef) (RepoPermission, error)
+	// Repositories lists the repositories the connected account can read on the
+	// host, a page at a time. A plugin builds each one with [NewForgeRepo] and
+	// skips a repository that NewForgeRepo refuses, such as one whose clone URL
+	// is not on the host, instead of failing the page. A forge served under a
+	// base path is not supported, since [ForgeHost] has no path. Like every
+	// listing, it refuses a limit outside its range with [ErrInvalidPageLimit].
+	Repositories(ctx context.Context, page PageRequest) (Page[ForgeRepo], error)
 	OpenPullRequest(ctx context.Context, draft PullRequestDraft) (PullRequest, error)
 	PullRequest(ctx context.Context, ref PullRequestRef, since Revision) (PullRequest, error)
 	MergePullRequest(ctx context.Context, ref PullRequestRef, method MergeMethod) error
