@@ -91,7 +91,7 @@ it is absent.
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
 | `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalRefusal`, `ParseApprovalRefusal`, `ErrInvalidRefusal`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
-| `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
+| `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `ErrUnreadableAnswer`, `ErrMissingRequestID`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
@@ -662,89 +662,98 @@ socket on the same machine. The backend passes the socket path to the hook in
   `ApprovalAskerFrom` reads it back. `Backend.Respond` does not change.
 - `approvalsock.Serve` runs on the backend side with the asker it got from the
   daemon. `approvalsock.Ask` runs in the hook with the path it read from the
-  environment. `Reason` is free text the daemon supplies, and the contracts never
-  translate it.
+  environment. `Reason` is free text the daemon supplies, and the contracts
+  never translate it.
 
 The model is deliberately closed:
 
 - **No token travels.** The socket is local to the machine and carries one JSON
   line each way per connection.
 - **The directory is private.** `Serve` refuses a socket directory that is not
-  owned by the current user with mode 0700, with `ErrInsecureDirectory`, and `Ask`
-  applies the same check to the directory of the path before it dials. A wrong
-  directory is never reached. `Serve` does not remove a file already at the path.
-- **Binding is serialised.** While it binds, `Serve` holds an exclusive `flock` on
-  a lock file `<path>.lock` beside the socket, inside the same private directory.
-  Two `Serve` calls racing on one path never both bind: the loser finds the
-  winner's socket alive and returns `ErrPathInUse`. A wait for the lock ends as soon
-  as the context ends: `Serve` then returns the context error without waiting for
-  the holder. The lock file is left in place, empty and owner-only, once `Serve`
-  returns.
+  owned by the current user with mode 0700, with `ErrInsecureDirectory`, and
+  `Ask` applies the same check to the directory of the path before it dials. A
+  wrong directory is never reached. `Serve` does not remove a file already at
+  the path.
+- **Binding is serialised.** While it binds, `Serve` holds an exclusive `flock`
+  on a lock file `<path>.lock` beside the socket, inside the same private
+  directory. Two `Serve` calls racing on one path never both bind: the loser
+  finds the winner's socket alive and returns `ErrPathInUse`. A wait for the
+  lock ends as soon as the context ends: `Serve` then returns the context error
+  without waiting for the holder. The lock file is left in place, empty and
+  owner-only, once `Serve` returns.
 - **Orphan sockets are recovered, nothing else is.** A socket left by a killed
   run is detected with `Lstat` and a probe: when the probe is refused, `Serve`
   removes it and listens. A regular file, a symlink, or a socket that still
   answers returns `ErrPathInUse`, and the file is left untouched. If `Serve` is
   cancelled before the probe ends, it returns the context error and leaves the
   orphan in place, so a cancelled start never reads as a live socket.
-- **The socket is private through its directory.** `Serve` does not change the mode
-  of the socket file: it keeps the mode the umask gives it. The protection is the
-  directory, which is owned by the current user with mode 0700. `Serve` checks it
-  before the bind and checks with `SameFile` after the bind that it is still the
-  directory that holds the socket, and it closes the socket if it is not
-  (`ErrDirectoryChanged`). No other user can traverse the directory, so none can
-  reach the socket. Nothing else should be placed in that directory.
+- **The socket is private through its directory.** `Serve` does not change the
+  mode of the socket file: it keeps the mode the umask gives it. The protection
+  is the directory, which is owned by the current user with mode 0700. `Serve`
+  checks it before the bind and checks with `SameFile` after the bind that it is
+  still the directory that holds the socket, and it closes the socket if it is
+  not (`ErrDirectoryChanged`). No other user can traverse the directory, so none
+  can reach the socket. Nothing else should be placed in that directory.
 - **The peer is checked on Linux.** `Ask` reads the peer credentials with
   `SO_PEERCRED` and refuses a listener that does not run as the current user
-  (`ErrForeignPeer`). On other unix systems the private directory is the only peer
-  guard. On Windows, `Serve` and `Ask` return an error matching
+  (`ErrForeignPeer`). On other unix systems the private directory is the only
+  peer guard. On Windows, `Serve` and `Ask` return an error matching
   `errors.ErrUnsupported`, and the package still builds there.
 - **Everything is bounded.** A message is at most 64 KiB (a line of 65535 bytes
   is accepted, one of 65536 is refused), and a request not received within five
-  seconds is dropped. `Ask` refuses an oversized request with `ErrRequestTooLarge`
-  before it dials. At most `MaxConcurrentConnections` (16) connections are answered
-  at once. A connection that arrives while all of them are taken is closed at once
-  without an answer, and reported as `OpBusy` with `ErrBusy`: the hook reads it as
-  a denial, and it does not wait in the listen backlog. A request is answered
-  within ten minutes: the asker's context ends then, and also when the hook closes
-  its connection, so an asker that waits for a human stops when nobody is waiting
-  for it. A malformed, oversized or silent request closes its connection without
-  reaching the asker.
-- **The client keeps its write side open until the answer.** While the asker runs,
-  `Serve` watches the connection. A client that half-closes its write side after
-  its request, or that closes or resets the connection, counts as departed: it
-  cancels the asker's context without a report, and `Serve` writes no answer after
-  that context ends, so a client that half-closed receives nothing. The asker then
-  returns a denial, which the hook reads as a refusal. `Ask` keeps its write side
-  open while it waits, so the daemon sees the request until it is answered. Any
-  other read failure on that connection is reported as `OpRead`.
+  seconds is dropped. `Ask` refuses an oversized request with
+  `ErrRequestTooLarge` before it dials. At most `MaxConcurrentConnections` (16)
+  connections are answered at once. A connection that arrives while all of them
+  are taken is closed at once without an answer, and reported to the error
+  handler as `OpBusy` with `ErrBusy`. The hook never receives `ErrBusy`: it sees
+  its connection closed or reset, which `Ask` returns as a read or write error,
+  and it reads that as a denial. The connection does not wait in the listen
+  backlog. A request is answered within ten minutes: the asker's context ends
+  then, and also when the hook closes its connection, so an asker that waits
+  for a human stops when nobody is waiting for it. A malformed, oversized or
+  silent request closes its connection without reaching the asker.
+- **The client keeps its write side open until the answer.** While the asker
+  runs, `Serve` watches the connection. A client that half-closes its write side
+  after its request, or that closes or resets the connection, counts as
+  departed: it cancels the asker's context without a report, and `Serve` writes
+  no answer after that context ends, so a client that half-closed receives
+  nothing. The asker then returns a denial, which the hook reads as a refusal.
+  `Ask` keeps its write side open while it waits, so the daemon sees the request
+  until it is answered. Any other read failure on that connection is reported as
+  `OpRead`.
 - **No failure goes unseen, and none stalls the server.** `Serve` requires
   `WithErrorHandler`, and it reports every connection failure, every refused
-  connection and every failed accept to it as a `*ConnectionError` carrying an `Op`
-  (`OpAccept`, `OpRead`, `OpAnswer`, `OpClose` or `OpBusy`). `Serve` calls the
-  handler from one goroutine of its own, fed by a queue of 32 failures, so a slow
-  handler never delays the accept loop or a connection. A failure that finds the
-  queue full is counted, and the handler then receives a `*ReportsDroppedError`
-  with that count once the queue has room, matching `ErrReportsDropped`: a drop is
-  never silent. `Serve` returns only after the handler has returned for every queued
-  failure. The handler must return quickly. It must not panic either: `Serve` does
-  not recover from a panic in the handler, by choice, because a panic is a bug that
-  has to be seen.
-- **An unsendable answer is never sent.** An answer whose decision is unknown does
-  not marshal: `json.Marshal` returns `ErrInvalidDecision`, `Serve` reports it as
-  `OpAnswer` and closes the connection without writing. The hook reads that as a
-  refusal, never as a malformed answer. `ApprovalDecision` marshals and unmarshals
-  through the same check.
+  connection and every failed accept to it as a `*ConnectionError` carrying an
+  `Op` (`OpAccept`, `OpRead`, `OpAnswer`, `OpClose` or `OpBusy`). `Serve` calls
+  the handler from one goroutine of its own, fed by a queue of 32 failures, so a
+  slow handler never delays the accept loop or a connection. A failure that
+  finds the queue full is counted, and the handler then receives a
+  `*ReportsDroppedError` with that count once the queue has room, matching
+  `ErrReportsDropped`: a drop is never silent. `Serve` returns only after the
+  handler has returned for every queued failure. The handler must return
+  quickly. It must not panic either: `Serve` does not recover from a panic in
+  the handler, by choice, because a panic is a bug that has to be seen.
+- **An unsendable answer is never sent.** An answer whose decision is unknown
+  does not marshal: `json.Marshal` returns `ErrInvalidDecision`, `Serve` reports
+  it as `OpAnswer` and closes the connection without writing. The hook reads
+  that as a refusal, never as a malformed answer. `ApprovalDecision` marshals
+  and unmarshals through the same check.
 - **Decisions are parsed at the boundary.** `ParseApprovalDecision` accepts only
   `allow` and `deny`, and `ApprovalDecision` marshals and unmarshals through the
-  same check. `Ask` refuses an answer with another decision, a missing one included,
-  with `ErrInvalidDecision`. `Allowed()` still denies anything else.
+  same check. `Ask` refuses a decoded answer whose decision is unknown or
+  missing with `ErrInvalidDecision`. An answer line that is not one JSON object
+  decoding as an approval answer, or that exceeds 64 KiB, matches
+  `ErrUnreadableAnswer`, and neither error repeats the text received. A
+  connection closed or reset before the answer is a read or write error that
+  matches neither sentinel. `Allowed()` still denies anything else.
 - **Failure is a denial.** `Ask` returns an error for every way the daemon may
-  not be reached: an open directory, an absent socket, a foreign peer, an oversized
-  request, a deadline, an unreadable answer, an unknown decision, a mismatched ID.
-  The caller turns every error into a denial. An asker that cannot reach the daemon
-  returns a denial too, never an allowance. `Ask` waits as long as its context
-  allows, so the caller sets the deadline. Its close error is reported once, and a
-  deadline is never mistaken for a failure to close.
+  not be reached: an open directory, an absent socket, a foreign peer, an
+  oversized request, a deadline, an unreadable answer, an unknown decision, a
+  mismatched ID, a request with no ID. The caller turns every error into a
+  denial. An asker that cannot reach the daemon returns a denial too, never an
+  allowance. `Ask` waits as long as its context allows, so the caller sets the
+  deadline. Its close error is reported once, and a deadline is never mistaken
+  for a failure to close.
 
 ## Helpers
 

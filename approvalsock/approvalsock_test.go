@@ -364,12 +364,82 @@ func TestAskRejectsAnswerWithAnotherID(t *testing.T) {
 	}
 }
 
+func TestAskRejectsAnswerWithoutID(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, `{"Decision":"allow"}`+"\n")
+	answer, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "14"})
+	if !errors.Is(err, approvalsock.ErrAnswerMismatch) {
+		t.Fatalf("Ask = %+v, error %v; want ErrAnswerMismatch for an answer without ID", answer, err)
+	}
+}
+
 func TestAskRejectsUnreadableAnswer(t *testing.T) {
 	t.Parallel()
 	path := fakeServer(t, "not json\n")
 	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "7"})
+	if !errors.Is(err, approvalsock.ErrUnreadableAnswer) {
+		t.Fatalf("Ask error = %v, want approvalsock.ErrUnreadableAnswer", err)
+	}
+}
+
+func TestAskNamesAnEmptyAnswerAsNotAnObject(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, "\n")
+	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "16"})
+	if !errors.Is(err, approvalsock.ErrUnreadableAnswer) {
+		t.Fatalf("Ask error = %v, want approvalsock.ErrUnreadableAnswer", err)
+	}
+	if msg := err.Error(); !strings.Contains(msg, "not a JSON object") || strings.Contains(msg, "not an approval answer") {
+		t.Fatalf("Ask error %q, want the empty line reported as not a JSON object", msg)
+	}
+}
+
+func TestAskRefusesARequestWithoutID(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, `{"Decision":"allow"}`+"\n")
+	answer, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{})
+	if !errors.Is(err, approvalsock.ErrMissingRequestID) {
+		t.Fatalf("Ask = %+v, error %v; want ErrMissingRequestID for a request without ID", answer, err)
+	}
+	if answer.Allowed() {
+		t.Fatal("Ask returned an allowance for a request without ID")
+	}
+}
+
+func TestAskClassifiesUnreadableAnswerShapes(t *testing.T) {
+	t.Parallel()
+	for name, reply := range map[string]string{
+		"truncated":  `{"ID":"12","Decision":"al` + "\n",
+		"wrong type": `{"ID":12,"Decision":"allow"}` + "\n",
+		"null":       "null\n",
+		"oversized":  `{"ID":"12","Decision":"allow","Refusal":"` + strings.Repeat("r", 64<<10) + `"}` + "\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			path := fakeServer(t, reply)
+			_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "12"})
+			if !errors.Is(err, approvalsock.ErrUnreadableAnswer) {
+				t.Fatalf("Ask error = %v, want approvalsock.ErrUnreadableAnswer", err)
+			}
+			if errors.Is(err, contracts.ErrInvalidDecision) {
+				t.Fatalf("Ask error = %v, an unreadable answer must not match ErrInvalidDecision", err)
+			}
+			if errors.Is(err, approvalsock.ErrRequestTooLarge) {
+				t.Fatalf("Ask error = %v, an unreadable answer must not match ErrRequestTooLarge", err)
+			}
+		})
+	}
+}
+
+func TestAskReportsAnAnswerClosedWithoutSentinel(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, "")
+	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "13"})
 	if err == nil {
-		t.Fatal("Ask accepted an answer that is not JSON")
+		t.Fatal("Ask accepted a connection closed without an answer")
+	}
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("Ask error = %v, want io.ErrUnexpectedEOF for a connection closed without an answer", err)
 	}
 }
 
@@ -440,7 +510,7 @@ func answerOnce(listener net.Listener, reply string) error {
 	if _, err := bufio.NewReader(connection).ReadBytes('\n'); err != nil {
 		return err
 	}
-	if _, err := connection.Write([]byte(reply)); err != nil {
+	if _, err := connection.Write([]byte(reply)); err != nil && !errors.Is(err, syscall.EPIPE) && !errors.Is(err, syscall.ECONNRESET) {
 		return err
 	}
 	return connection.Close()

@@ -10,6 +10,7 @@ package approvalsock
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -58,16 +59,23 @@ var (
 	// ErrDirectoryChanged is returned by Serve when the directory of the socket was
 	// replaced while the socket was being created.
 	ErrDirectoryChanged = errors.New("approval socket directory changed while the socket was created")
+	// ErrMissingRequestID is returned by Ask when the request has an empty ID, so no
+	// answer could be matched to it. Nothing is sent.
+	ErrMissingRequestID = errors.New("approval request has no ID")
 	// ErrRequestTooLarge is returned when a message exceeds 64 KiB.
 	ErrRequestTooLarge = errors.New("approval message exceeds its size bound")
 	// ErrAnswerMismatch is returned by Ask when the answer carries another ID than
 	// the request it answers.
 	ErrAnswerMismatch = errors.New("approval answer does not match its request")
+	// ErrUnreadableAnswer is returned by Ask when the answer line is not one JSON
+	// object that decodes as an approval answer, or when it exceeds 64 KiB.
+	ErrUnreadableAnswer = errors.New("approval answer is unreadable")
 	// ErrForeignPeer is returned by Ask when the process listening on the socket does
 	// not run as the current user.
 	ErrForeignPeer = errors.New("approval socket is answered by another user")
-	// ErrBusy is the cause of a connection refused because MaxConcurrentConnections
-	// are already being answered.
+	// ErrBusy is the cause Serve reports for a connection refused because
+	// MaxConcurrentConnections are already being answered. Ask never returns it: the
+	// client sees its connection closed or reset without an answer.
 	ErrBusy = errors.New("approval socket is answering the maximum number of connections")
 	// ErrReportsDropped is the cause of a ReportsDroppedError.
 	ErrReportsDropped = errors.New("approval connection errors were dropped while the error handler was busy")
@@ -190,21 +198,29 @@ func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts
 	return serveListener(ctx, listener, asker, settings.report)
 }
 
-// Ask sends req to the approval socket at path and waits for its answer. The wait
-// lasts as long as ctx allows, so the caller sets the deadline. Ask returns an
-// error when the directory of path is not private to the current user, when the
-// socket cannot be reached, when the process answering it runs as another user, or
-// when ctx ends first. Ask keeps its write side open while it waits: a half-closed
-// connection ends the wait without an answer. The peer check runs on Linux only:
-// on other platforms Ask relies on the private directory alone, and on Windows Ask
-// returns an error matching errors.ErrUnsupported. A request whose line exceeds 64
-// KiB matches ErrRequestTooLarge and is not sent. An answer that is not one JSON
-// line, or whose decision is unknown, matches ErrInvalidDecision. An answer whose
-// refusal is a code this version does not know is returned as it is, and it is never
-// an allowance: Allowed reports false for any refusal. An answer whose ID is not req.ID
-// matches ErrAnswerMismatch. Every error means the daemon was not reached, and the
+// Ask sends req to the approval socket at path and waits for its answer. The
+// wait lasts as long as ctx allows, so the caller sets the deadline. Ask returns
+// an error when the directory of path is not private to the current user, when
+// the socket cannot be reached, when the process answering it runs as another
+// user, or when ctx ends first. Ask keeps its write side open while it waits: a
+// half-closed connection ends the wait without an answer. The peer check runs on
+// Linux only: on other platforms Ask relies on the private directory alone, and
+// on Windows Ask returns an error matching errors.ErrUnsupported. A request whose
+// line exceeds 64 KiB matches ErrRequestTooLarge and is not sent. An answer that
+// is not one JSON object decoding as an approval answer, or that exceeds 64 KiB,
+// matches ErrUnreadableAnswer and never ErrRequestTooLarge. A decoded answer whose
+// decision is unknown or missing matches ErrInvalidDecision. A connection closed
+// or reset before an answer is a read or write error that matches neither
+// sentinel. An answer whose refusal is a code this version does not know is
+// returned as it is, and it is never an allowance: Allowed reports false for
+// any refusal. An answer whose ID is not req.ID, or is absent, matches
+// ErrAnswerMismatch. A request whose ID is empty matches ErrMissingRequestID
+// and is not sent. Every error means the daemon was not reached, and the
 // caller must treat it as a denial.
 func Ask(ctx context.Context, path string, req contracts.ApprovalRequest) (contracts.ApprovalAnswer, error) {
+	if req.ID == "" {
+		return contracts.ApprovalAnswer{}, ErrMissingRequestID
+	}
 	if _, err := checkPrivateDirectory(filepath.Dir(path)); err != nil {
 		return contracts.ApprovalAnswer{}, err
 	}
@@ -362,13 +378,16 @@ func roundTrip(connection net.Conn, line []byte, requestID string) (contracts.Ap
 	if err := writeLine(connection, line); err != nil {
 		return contracts.ApprovalAnswer{}, err
 	}
-	answerLine, err := readLine(connection)
+	answerLine, err := readAnswerLine(connection)
 	if err != nil {
+		return contracts.ApprovalAnswer{}, err
+	}
+	if err := requireObject(answerLine); err != nil {
 		return contracts.ApprovalAnswer{}, err
 	}
 	var answer contracts.ApprovalAnswer
 	if err := json.Unmarshal(answerLine, &answer); err != nil {
-		return contracts.ApprovalAnswer{}, fmt.Errorf("decode approval answer: %w", err)
+		return contracts.ApprovalAnswer{}, decodeAnswerError(err)
 	}
 	if _, err := contracts.ParseApprovalDecision(string(answer.Decision)); err != nil {
 		return contracts.ApprovalAnswer{}, fmt.Errorf("read approval answer: %w", err)
@@ -377,6 +396,28 @@ func roundTrip(connection net.Conn, line []byte, requestID string) (contracts.Ap
 		return contracts.ApprovalAnswer{}, ErrAnswerMismatch
 	}
 	return answer, nil
+}
+
+func readAnswerLine(connection net.Conn) ([]byte, error) {
+	answerLine, err := readLine(connection)
+	if errors.Is(err, ErrRequestTooLarge) {
+		return nil, fmt.Errorf("%w: the answer exceeds %d bytes", ErrUnreadableAnswer, maxMessageBytes)
+	}
+	return answerLine, err
+}
+
+func requireObject(answerLine []byte) error {
+	if !bytes.HasPrefix(bytes.TrimSpace(answerLine), []byte("{")) {
+		return fmt.Errorf("%w: the answer is not a JSON object", ErrUnreadableAnswer)
+	}
+	return nil
+}
+
+func decodeAnswerError(err error) error {
+	if errors.Is(err, contracts.ErrInvalidDecision) {
+		return fmt.Errorf("read approval answer: %w", err)
+	}
+	return fmt.Errorf("%w: the answer is not an approval answer", ErrUnreadableAnswer)
 }
 
 func interrupted(ctx context.Context, err error) error {
