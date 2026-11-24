@@ -21,6 +21,8 @@ type repositoryListing struct {
 	lax      bool
 	endless  bool
 	blocks   bool
+	stall    <-chan struct{}
+	pace     time.Duration
 	limitErr error
 	pageErr  error
 }
@@ -31,6 +33,9 @@ func (l repositoryListing) Repositories(ctx context.Context, page contracts.Page
 			return contracts.Page[contracts.ForgeRepo]{}, l.refusedLimit(err)
 		}
 	}
+	if l.stall != nil {
+		<-l.stall
+	}
 	if l.blocks {
 		<-ctx.Done()
 		return contracts.Page[contracts.ForgeRepo]{}, ctx.Err()
@@ -38,6 +43,7 @@ func (l repositoryListing) Repositories(ctx context.Context, page contracts.Page
 	if l.pageErr != nil {
 		return contracts.Page[contracts.ForgeRepo]{}, l.pageErr
 	}
+	time.Sleep(l.pace)
 	if l.endless {
 		return contracts.Page[contracts.ForgeRepo]{Next: "more"}, nil
 	}
@@ -176,7 +182,7 @@ func TestCheckListsRepositoriesCatchesAListingThatNeverEnds(t *testing.T) {
 	}
 }
 
-func TestCheckListsRepositoriesReportsAPageThatIgnoresItsDeadline(t *testing.T) {
+func TestCheckListsRepositoriesReportsAPageThatRespectsItsContextPastItsDeadline(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		rec := &recorder{}
 		checkListsRepositories(rec, repositoryListing{blocks: true}, listedHostRef(t), 20*time.Millisecond, time.Minute)
@@ -202,10 +208,63 @@ func TestCheckListsRepositoriesReportsAWalkPastItsBudget(t *testing.T) {
 	})
 }
 
-func TestCheckListsRepositoriesGivesTheWalkTwoMinutes(t *testing.T) {
-	if listingTimeout != 2*time.Minute {
-		t.Fatalf("listingTimeout = %v, want the documented two minutes", listingTimeout)
-	}
+type recordingTB struct {
+	*testing.T
+
+	failures []string
+}
+
+func (r *recordingTB) Errorf(format string, args ...any) {
+	r.failures = append(r.failures, fmt.Sprintf(format, args...))
+}
+
+func (r *recordingTB) Fatalf(format string, args ...any) {
+	r.Errorf(format, args...)
+}
+
+func TestExportedListingCheckFailsAPageThatRespectsItsContextAtTenSeconds(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tb := &recordingTB{T: t}
+		start := time.Now()
+		CheckListsRepositories(tb, repositoryListing{blocks: true}, listedHostRef(t))
+		if elapsed := time.Since(start); elapsed != 10*time.Second {
+			t.Fatalf("blocking page failed after %v, want exactly the 10s page deadline", elapsed)
+		}
+		if len(tb.failures) != 1 {
+			t.Fatalf("blocking page reported %d failures, want 1: %q", len(tb.failures), tb.failures)
+		}
+	})
+}
+
+func TestExportedListingCheckFailsAWalkPastTwoMinutes(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		tb := &recordingTB{T: t}
+		start := time.Now()
+		listing := repositoryListing{endless: true, pace: 9500 * time.Millisecond}
+		CheckListsRepositories(tb, listing, listedHostRef(t))
+		if elapsed := time.Since(start); elapsed != 2*time.Minute {
+			t.Fatalf("walk failed after %v, want exactly the two-minute budget", elapsed)
+		}
+		if len(tb.failures) != 1 || !strings.Contains(tb.failures[0], "did not finish within 2m0s") {
+			t.Fatalf("walk past its budget reported %q, want one failure naming the 2m0s budget", tb.failures)
+		}
+		time.Sleep(listing.pace)
+	})
+}
+
+func TestCheckListsRepositoriesReportsAPageThatIgnoresItsContext(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		stall := make(chan struct{})
+		defer close(stall)
+		rec := &recorder{}
+		checkListsRepositories(rec, repositoryListing{stall: stall}, listedHostRef(t), 20*time.Millisecond, time.Minute)
+		if len(rec.failures) != 1 {
+			t.Fatalf("page that ignores its context reported %d failures, want 1: %q", len(rec.failures), rec.failures)
+		}
+		if !strings.Contains(rec.failures[0], "within 20ms") {
+			t.Fatalf("failure %q does not name the page deadline of 20ms", rec.failures[0])
+		}
+	})
 }
 
 type fakeForge struct {
