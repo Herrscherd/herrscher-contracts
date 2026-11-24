@@ -223,7 +223,7 @@
   {
     "id": "health.repo_access_unreadable",
     "description": "The permission on a repository could not be read, with the technical reason",
-    "other": "could not read the access to {{.Repo}}: {{.Reason}}"
+    "other": "could not read the permission on {{.Repo}}: {{.Reason}}"
   },
   {
     "id": "account.fallback",

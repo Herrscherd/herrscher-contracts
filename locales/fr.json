@@ -223,7 +223,7 @@
   {
     "id": "health.repo_access_unreadable",
     "description": "La permission sur un dépôt n'a pas pu être lue, avec la raison technique",
-    "other": "impossible de lire l'accès à {{.Repo}} : {{.Reason}}"
+    "other": "impossible de lire la permission sur {{.Repo}} : {{.Reason}}"
   },
   {
     "id": "account.fallback",

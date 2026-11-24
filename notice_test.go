@@ -566,8 +566,8 @@ func TestRenderNoticeInEachLanguage(t *testing.T) {
 		},
 		{
 			Notice{Code: CodeHealthRepoAccessUnreadable, Args: []Arg{Text("Repo", "acme/widgets"), Text("Reason", "timeout")}},
-			"could not read the access to acme/widgets: timeout",
-			"impossible de lire l'accès à acme/widgets : timeout",
+			"could not read the permission on acme/widgets: timeout",
+			"impossible de lire la permission sur acme/widgets : timeout",
 		},
 		{
 			Notice{Code: CodeUnknownApprovalMode, Args: []Arg{Text("Mode", "yolo")}},
