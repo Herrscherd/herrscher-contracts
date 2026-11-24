@@ -382,6 +382,30 @@ func TestAskRejectsUnreadableAnswer(t *testing.T) {
 	}
 }
 
+func TestAskNamesAnEmptyAnswerAsNotAnObject(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, "\n")
+	_, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{ID: "16"})
+	if !errors.Is(err, approvalsock.ErrUnreadableAnswer) {
+		t.Fatalf("Ask error = %v, want approvalsock.ErrUnreadableAnswer", err)
+	}
+	if msg := err.Error(); !strings.Contains(msg, "not a JSON object") || strings.Contains(msg, "not an approval answer") {
+		t.Fatalf("Ask error %q, want the empty line reported as not a JSON object", msg)
+	}
+}
+
+func TestAskRefusesARequestWithoutID(t *testing.T) {
+	t.Parallel()
+	path := fakeServer(t, `{"Decision":"allow"}`+"\n")
+	answer, err := approvalsock.Ask(t.Context(), path, contracts.ApprovalRequest{})
+	if !errors.Is(err, approvalsock.ErrMissingRequestID) {
+		t.Fatalf("Ask = %+v, error %v; want ErrMissingRequestID for a request without ID", answer, err)
+	}
+	if answer.Allowed() {
+		t.Fatal("Ask returned an allowance for a request without ID")
+	}
+}
+
 func TestAskClassifiesUnreadableAnswerShapes(t *testing.T) {
 	t.Parallel()
 	for name, reply := range map[string]string{

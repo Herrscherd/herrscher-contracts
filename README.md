@@ -91,7 +91,7 @@ it is absent.
 | `MergeEnv`, `ParseEnvSetting`, `EncodeEnvSetting` | `spawnenv.go` | encode and decode the per-session environment the host injects at spawn, and the `Env*` key constants both sides must use |
 | `WithPrincipal`, `PrincipalFrom` | `principal.go` | who is asking, carried on the context |
 | `ApprovalRequest`, `ApprovalAnswer`, `ApprovalDecision`, `ParseApprovalDecision`, `ErrInvalidDecision`, `ApprovalRefusal`, `ParseApprovalRefusal`, `ErrInvalidRefusal`, `ApprovalAsker`, `WithApprovalAsker`, `ApprovalAskerFrom` | `approval.go`, `approval_context.go` | a tool approval asked during a turn and its verdict, and the asker a backend carries on the context |
-| `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `ErrUnreadableAnswer`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
+| `Serve`, `WithErrorHandler`, `Ask`, `ConnectionError`, `ErrUnreadableAnswer`, `ErrMissingRequestID`, `MaxConcurrentConnections`, `EnvApprovalSocket` | `approvalsock/` | the local Unix socket that carries one approval from the hook to the backend and back, its reported failures, and the environment variable that names its path |
 | `CompactTrigger`, `CompactRequest`, `CompactResult` | `compaction.go` | why a compaction runs (`manual` or `automatic`), and what a stage receives and reports. The host reads only `Note` as text, so producers set `Note` (English) and `Notice` (the code) until the host reads the code |
 | `StageTrigger`, `ValidateStageTriggerPercent`, `ErrStageTriggerPercentOutOfRange` | `compaction.go` | the threshold from which a custom stage asks to run, never later than the host's, and the check the host runs on it |
 | `CompactStage`, `RunCompactStack`, `CompactStageBackend` | `compact_stack.go` | a compaction stack run in order, and the reserved name of the session's backend stage |
@@ -749,11 +749,11 @@ The model is deliberately closed:
 - **Failure is a denial.** `Ask` returns an error for every way the daemon may
   not be reached: an open directory, an absent socket, a foreign peer, an
   oversized request, a deadline, an unreadable answer, an unknown decision, a
-  mismatched ID. The caller turns every error into a denial. An asker that
-  cannot reach the daemon returns a denial too, never an allowance. `Ask` waits
-  as long as its context allows, so the caller sets the deadline. Its close
-  error is reported once, and a deadline is never mistaken for a failure to
-  close.
+  mismatched ID, a request with no ID. The caller turns every error into a
+  denial. An asker that cannot reach the daemon returns a denial too, never an
+  allowance. `Ask` waits as long as its context allows, so the caller sets the
+  deadline. Its close error is reported once, and a deadline is never mistaken
+  for a failure to close.
 
 ## Helpers
 

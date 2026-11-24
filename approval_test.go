@@ -426,3 +426,13 @@ func TestRefusedAnswerRefusesEmptyAndUnknownCodes(t *testing.T) {
 		}
 	}
 }
+
+func TestApprovalAnswerTextTagsMatchWireFields(t *testing.T) {
+	got := jsonKeys(t, approvalAnswerText{})
+	want := approvalAnswerWireFields()
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Fatalf("json keys of approvalAnswerText = %v, approvalAnswerWireFields() = %v", got, want)
+	}
+}

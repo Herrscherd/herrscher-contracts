@@ -59,6 +59,9 @@ var (
 	// ErrDirectoryChanged is returned by Serve when the directory of the socket was
 	// replaced while the socket was being created.
 	ErrDirectoryChanged = errors.New("approval socket directory changed while the socket was created")
+	// ErrMissingRequestID is returned by Ask when the request has an empty ID, so no
+	// answer could be matched to it. Nothing is sent.
+	ErrMissingRequestID = errors.New("approval request has no ID")
 	// ErrRequestTooLarge is returned when a message exceeds 64 KiB.
 	ErrRequestTooLarge = errors.New("approval message exceeds its size bound")
 	// ErrAnswerMismatch is returned by Ask when the answer carries another ID than
@@ -210,10 +213,14 @@ func Serve(ctx context.Context, path string, asker contracts.ApprovalAsker, opts
 // or reset before an answer is a read error that matches neither sentinel. An
 // answer whose refusal is a code this version does not know is returned as it
 // is, and it is never an allowance: Allowed reports false for any refusal. An
-// answer whose ID is not req.ID, or is absent, matches ErrAnswerMismatch. Every
+// answer whose ID is not req.ID, or is absent, matches ErrAnswerMismatch. A request
+// whose ID is empty matches ErrMissingRequestID and is not sent. Every
 // error means the daemon was not reached, and the caller must treat it as a
 // denial.
 func Ask(ctx context.Context, path string, req contracts.ApprovalRequest) (contracts.ApprovalAnswer, error) {
+	if req.ID == "" {
+		return contracts.ApprovalAnswer{}, ErrMissingRequestID
+	}
 	if _, err := checkPrivateDirectory(filepath.Dir(path)); err != nil {
 		return contracts.ApprovalAnswer{}, err
 	}
