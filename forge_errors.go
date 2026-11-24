@@ -30,6 +30,9 @@ var (
 	ErrInvalidForgeHost = errors.New("not a forge host")
 	// ErrInvalidRepoRef reports text that names no repository a forge can hold.
 	ErrInvalidRepoRef = errors.New("not a forge repository reference")
+	// ErrInvalidBranchName reports text that git does not accept as a branch
+	// name.
+	ErrInvalidBranchName = errors.New("not a git branch name")
 	// ErrInvalidCommitSHA reports text that is not 40 or 64 lowercase hex
 	// digits.
 	ErrInvalidCommitSHA = errors.New("not a commit SHA: 40 or 64 lowercase hex digits")

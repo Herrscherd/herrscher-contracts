@@ -1,6 +1,11 @@
 package contracts
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
+
+const maxBranchNameBytes = 255
 
 // MaxJobLogBytes is the largest log tail [Forge.JobLog] returns, in bytes.
 const MaxJobLogBytes = 1 << 20
@@ -105,6 +110,57 @@ func ValidateLogLimit(maxBytes int) error {
 		return fmt.Errorf("%d: %w", maxBytes, ErrInvalidLogLimit)
 	}
 	return nil
+}
+
+// BranchName is the name of a git branch, such as the one a repository builds
+// from by default. Its field is unexported, so a value is built only by
+// [ParseBranchName]; the zero value names no branch, which is what a forge that
+// gives none reports.
+type BranchName struct {
+	name string
+}
+
+// ParseBranchName checks text against the rules of git check-ref-format for a
+// branch name: 1 to 255 bytes, not "@" alone, not starting with "-", not
+// containing ".." or "@{", no component that is empty or starts with "." or
+// ends with ".lock", no name ending with ".", and no control byte, space, "~",
+// "^", ":", "?", "*", "[" or "\". It returns an error matching
+// [ErrInvalidBranchName] otherwise; the error does not repeat the text.
+func ParseBranchName(text string) (BranchName, error) {
+	if !validBranchName(text) {
+		return BranchName{}, ErrInvalidBranchName
+	}
+	return BranchName{name: text}, nil
+}
+
+// String is the branch name, empty for the zero value.
+func (b BranchName) String() string { return b.name }
+
+// IsZero reports whether b names no branch, the state of a forge that gives
+// none.
+func (b BranchName) IsZero() bool { return b.name == "" }
+
+func validBranchName(text string) bool {
+	if text == "" || len(text) > maxBranchNameBytes || text == "@" || strings.HasPrefix(text, "-") || strings.HasSuffix(text, ".") {
+		return false
+	}
+	if strings.Contains(text, "..") || strings.Contains(text, "@{") || !allBytes(text, isBranchNameByte) {
+		return false
+	}
+	for _, component := range strings.Split(text, "/") {
+		if !validBranchComponent(component) {
+			return false
+		}
+	}
+	return true
+}
+
+func validBranchComponent(component string) bool {
+	return component != "" && component[0] != '.' && !strings.HasSuffix(component, ".lock")
+}
+
+func isBranchNameByte(character byte) bool {
+	return character >= 0x20 && character != 0x7f && strings.IndexByte(" ~^:?*[\\", character) < 0
 }
 
 func checkRepoNumber(repo ForgeRepoRef, number int64) error {

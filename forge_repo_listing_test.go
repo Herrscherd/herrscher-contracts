@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
@@ -29,13 +30,14 @@ func listingRepo(t *testing.T, text string) ForgeRepoRef {
 func TestNewForgeRepoKeepsWhatItIsGiven(t *testing.T) {
 	host := listingHost(t)
 	repo := listingRepo(t, "github.example.com/octo/hello")
+	branch := listingBranch(t, "trunk")
 	listed, err := NewForgeRepo(host, ForgeRepoFields{
 		Repo:          repo,
 		CloneURL:      "https://github.example.com/octo/hello.git",
 		Description:   "greets",
 		Private:       true,
 		Archived:      true,
-		DefaultBranch: "trunk",
+		DefaultBranch: branch,
 	})
 	if err != nil {
 		t.Fatalf("NewForgeRepo() error = %v, want none", err)
@@ -55,20 +57,29 @@ func TestNewForgeRepoKeepsWhatItIsGiven(t *testing.T) {
 	if !listed.Archived() {
 		t.Errorf("Archived() = false, want true")
 	}
-	if listed.DefaultBranch() != "trunk" {
-		t.Errorf("DefaultBranch() = %q, want %q", listed.DefaultBranch(), "trunk")
+	if listed.DefaultBranch() != branch {
+		t.Errorf("DefaultBranch() = %q, want %q", listed.DefaultBranch(), branch)
 	}
 }
 
-func TestNewForgeRepoKeepsAnEmptyDefaultBranchWhenTheForgeGivesNone(t *testing.T) {
+func listingBranch(t *testing.T, text string) BranchName {
+	t.Helper()
+	branch, err := ParseBranchName(text)
+	if err != nil {
+		t.Fatalf("ParseBranchName(%q) error = %v", text, err)
+	}
+	return branch
+}
+
+func TestNewForgeRepoKeepsTheZeroBranchWhenTheForgeGivesNone(t *testing.T) {
 	host := listingHost(t)
 	repo := listingRepo(t, "github.example.com/octo/hello")
 	listed, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: "https://github.example.com/octo/hello"})
 	if err != nil {
 		t.Fatalf("NewForgeRepo() error = %v, want none", err)
 	}
-	if listed.DefaultBranch() != "" || listed.Archived() {
-		t.Errorf("DefaultBranch() = %q, Archived() = %v, want empty and false", listed.DefaultBranch(), listed.Archived())
+	if !listed.DefaultBranch().IsZero() || listed.Archived() {
+		t.Errorf("DefaultBranch() = %q, Archived() = %v, want the zero branch and false", listed.DefaultBranch(), listed.Archived())
 	}
 }
 
@@ -114,13 +125,29 @@ func TestNewForgeRepoRefusesACloneURLThatIsNotTheRepositoryOnTheHost(t *testing.
 	}
 }
 
-func TestNewForgeRepoRefusesACloneURLLongerThan2048Bytes(t *testing.T) {
+func TestNewForgeRepoRefusesAnOversizedCloneURL(t *testing.T) {
 	host := listingHost(t)
 	repo := listingRepo(t, "github.example.com/octo/hello")
 	url := "https://github.example.com/octo/hello" + strings.Repeat("x", 2048)
 	_, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: url})
 	if !errors.Is(err, ErrInvalidCloneURL) {
 		t.Errorf("NewForgeRepo(clone of %d bytes) error = %v, want ErrInvalidCloneURL", len(url), err)
+	}
+}
+
+func TestNewForgeRepoReplacesInvalidUTF8InADescription(t *testing.T) {
+	host := listingHost(t)
+	repo := listingRepo(t, "github.example.com/octo/hello")
+	description := strings.Repeat("a", 1022) + "\xe2\x82" + "a"
+	listed, err := NewForgeRepo(host, ForgeRepoFields{Repo: repo, CloneURL: "https://github.example.com/octo/hello", Description: description})
+	if err != nil {
+		t.Fatalf("NewForgeRepo() error = %v, want none", err)
+	}
+	if !utf8.ValidString(listed.Description()) || len(listed.Description()) > 1024 {
+		t.Errorf("Description() = %q, want valid UTF-8 of at most 1024 bytes", listed.Description())
+	}
+	if want := strings.Repeat("a", 1022); listed.Description() != want {
+		t.Errorf("Description() has %d bytes, want the %d bytes before the invalid sequence", len(listed.Description()), len(want))
 	}
 }
 

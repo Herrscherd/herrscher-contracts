@@ -2,8 +2,87 @@ package contracts
 
 import (
 	"errors"
+	"strings"
 	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
 )
+
+func TestParseBranchNameAcceptsValidNames(t *testing.T) {
+	for _, text := range []string{
+		"main",
+		"release/1.2",
+		"feature/x-y",
+		"a",
+		"v1.2.3",
+		"feature/no.lockfile",
+		strings.Repeat("b", maxBranchNameBytes),
+	} {
+		branch, err := ParseBranchName(text)
+		if err != nil {
+			t.Errorf("ParseBranchName(%q) error = %v, want none", text, err)
+			continue
+		}
+		if branch.String() != text || branch.IsZero() {
+			t.Errorf("ParseBranchName(%q) = %q, IsZero() = %v, want the name back", text, branch.String(), branch.IsZero())
+		}
+	}
+}
+
+func TestParseBranchNameRefusesHostileNames(t *testing.T) {
+	for _, text := range []string{
+		"",
+		"@",
+		"--upload-pack=touch /tmp/x",
+		"-",
+		"-x",
+		"/main",
+		"main/",
+		"release//1",
+		"main.",
+		"main.lock",
+		"feature.lock/x",
+		"a..b",
+		"a@{b",
+		".hidden",
+		"a/.b",
+		"a/",
+		"a b",
+		"a\tb",
+		"a\nb",
+		"a\x00b",
+		"a\x1fb",
+		"a\x7fb",
+		"a~1",
+		"a^",
+		"a:b",
+		"a?",
+		"a*",
+		"a[b",
+		`a\b`,
+		strings.Repeat("b", maxBranchNameBytes+1),
+	} {
+		branch, err := ParseBranchName(text)
+		if !errors.Is(err, ErrInvalidBranchName) {
+			t.Errorf("ParseBranchName(%q) error = %v, want ErrInvalidBranchName", text, err)
+		}
+		if !branch.IsZero() {
+			t.Errorf("ParseBranchName(%q) = %q, want the zero branch on error", text, branch.String())
+		}
+	}
+}
+
+func TestParseBranchNameRefusalRepeatsNoPartOfTheText(t *testing.T) {
+	_, err := ParseBranchName("--" + receivedProbe + " /x")
+	echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidBranchName, receivedProbe)
+}
+
+func TestBranchNameZeroValueNamesNoBranch(t *testing.T) {
+	var zero BranchName
+	if !zero.IsZero() || zero.String() != "" {
+		t.Fatalf("zero BranchName = %q, IsZero() = %v, want empty and true", zero.String(), zero.IsZero())
+	}
+}
 
 func TestNewRefsRefuseANonPositiveNumberOrNoRepo(t *testing.T) {
 	repo := mustOctoHelloRepo(t)

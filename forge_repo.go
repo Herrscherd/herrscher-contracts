@@ -10,7 +10,6 @@ const (
 	maxRepoNameBytes    = 100
 	minRepoSegments     = 2
 	gitSuffix           = ".git"
-	maxCloneURLBytes    = 2048
 	maxDescriptionBytes = 1024
 )
 
@@ -116,30 +115,32 @@ type ForgeRepo struct {
 	description   string
 	private       bool
 	archived      bool
-	defaultBranch string
+	defaultBranch BranchName
 }
 
 // ForgeRepoFields is what a forge says about one listed repository, the input
-// [NewForgeRepo] checks. DefaultBranch is empty when the forge does not give
-// one.
+// [NewForgeRepo] checks. DefaultBranch is the zero [BranchName] when the forge
+// does not give one.
 type ForgeRepoFields struct {
 	Repo          ForgeRepoRef
 	CloneURL      string
 	Description   string
 	Private       bool
 	Archived      bool
-	DefaultBranch string
+	DefaultBranch BranchName
 }
 
 // NewForgeRepo describes the repository fields.Repo as listed on host. It
 // returns an error matching [ErrInvalidForgeHost] for the zero host,
 // [ErrInvalidRepoRef] for the zero repository, and [ErrForgeWrongHost] when the
 // repository is not on host, as [RequireRepoHost] reports them. It returns an
-// error matching [ErrInvalidCloneURL] when CloneURL is longer than 2048 bytes or
-// is not an https URL that names the repository itself on host, with or without
-// a ".git" suffix; the error does not repeat the URL. A Description longer than
-// 1024 bytes is cut to at most 1024 bytes on a UTF-8 rune boundary, without an
-// error. A plugin skips a repository this refuses instead of failing the page.
+// error matching [ErrInvalidCloneURL] when CloneURL is not an https URL that
+// names the repository itself on host, with or without a ".git" suffix, or when
+// [ParseRepoRef] refuses it, which it does for any text longer than 512 bytes;
+// the error does not repeat the URL. A Description longer than 1024 bytes is
+// cut to at most 1024 bytes on a UTF-8 rune boundary, without an error, and
+// invalid UTF-8 in it is replaced with U+FFFD before the cut. A plugin skips a
+// repository this refuses instead of failing the page.
 // A forge served under a base path, such as host/ghe, is not supported: its
 // clone URL names the repository under that path, which [ForgeHost] cannot hold.
 func NewForgeRepo(host ForgeHost, fields ForgeRepoFields) (ForgeRepo, error) {
@@ -176,12 +177,12 @@ func (r ForgeRepo) Private() bool { return r.private }
 // only.
 func (r ForgeRepo) Archived() bool { return r.archived }
 
-// DefaultBranch is the name of the branch the repository builds from by
-// default, empty when the forge does not give one.
-func (r ForgeRepo) DefaultBranch() string { return r.defaultBranch }
+// DefaultBranch is the branch the repository builds from by default, the zero
+// [BranchName] when the forge does not give one.
+func (r ForgeRepo) DefaultBranch() BranchName { return r.defaultBranch }
 
 func clonesRepo(repo ForgeRepoRef, cloneURL string) bool {
-	if len(cloneURL) > maxCloneURLBytes || !strings.HasPrefix(cloneURL, "https://") {
+	if !strings.HasPrefix(cloneURL, "https://") {
 		return false
 	}
 	cloned, err := ParseRepoRef(cloneURL)
@@ -189,6 +190,7 @@ func clonesRepo(repo ForgeRepoRef, cloneURL string) bool {
 }
 
 func truncateDescription(text string) string {
+	text = strings.ToValidUTF8(text, "\uFFFD")
 	if len(text) <= maxDescriptionBytes {
 		return text
 	}
