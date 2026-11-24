@@ -21,10 +21,8 @@ func TestAskReportsAnAnswerResetWithoutSentinel(t *testing.T) {
 	if err == nil {
 		t.Fatal("Ask accepted a connection reset without an answer")
 	}
-	for _, sentinel := range []error{approvalsock.ErrUnreadableAnswer, approvalsock.ErrAnswerMismatch, contracts.ErrInvalidDecision} {
-		if errors.Is(err, sentinel) {
-			t.Fatalf("Ask error = %v, a reset connection must match none of the answer sentinels (%v)", err, sentinel)
-		}
+	if !errors.Is(err, syscall.ECONNRESET) && !errors.Is(err, syscall.EPIPE) {
+		t.Fatalf("Ask error = %v, want syscall.ECONNRESET or syscall.EPIPE for a connection reset without an answer", err)
 	}
 }
 

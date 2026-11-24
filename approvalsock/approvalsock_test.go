@@ -438,8 +438,8 @@ func TestAskReportsAnAnswerClosedWithoutSentinel(t *testing.T) {
 	if err == nil {
 		t.Fatal("Ask accepted a connection closed without an answer")
 	}
-	if errors.Is(err, approvalsock.ErrUnreadableAnswer) || errors.Is(err, contracts.ErrInvalidDecision) {
-		t.Fatalf("Ask error = %v, a closed connection matches neither ErrUnreadableAnswer nor ErrInvalidDecision", err)
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("Ask error = %v, want io.ErrUnexpectedEOF for a connection closed without an answer", err)
 	}
 }
 
