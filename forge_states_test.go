@@ -45,6 +45,7 @@ func TestClosedTypeStringsNameEachValue(t *testing.T) {
 		{"checks pending", ChecksPending, "pending"},
 		{"checks passed", ChecksPassed, "passed"},
 		{"checks failed", ChecksFailed, "failed"},
+		{"checks action required", ChecksActionRequired, "action_required"},
 		{"event review submitted", PullRequestReviewSubmitted, "review_submitted"},
 		{"event new commit", PullRequestNewCommit, "new_commit"},
 		{"event state changed", PullRequestStateChanged, "state_changed"},
@@ -211,7 +212,7 @@ func TestParseChecksStateReadsEveryStateBack(t *testing.T) {
 }
 
 func TestParseChecksStateRefusesUnknownText(t *testing.T) {
-	for _, text := range []string{"", "Passed", "success", "ChecksState(0)"} {
+	for _, text := range []string{"", "Passed", "success", "action-required", "ChecksState(0)"} {
 		got, err := ParseChecksState(text)
 		if !errors.Is(err, ErrUnknownChecksState) {
 			t.Errorf("ParseChecksState(%q) error = %v, want ErrUnknownChecksState", text, err)

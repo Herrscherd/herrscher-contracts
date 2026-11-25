@@ -134,8 +134,8 @@ type PullRequest struct {
 }
 
 // ReviewID is the opaque identifier of a review the forge reports, compared for
-// equality only, as with [Revision]. The zero ReviewID means no review is
-// reported.
+// equality only, as with [Revision]. The zero ReviewID means no review is reported,
+// or that the forge reports no reviews, and a host cannot tell the two apart.
 type ReviewID string
 
 // PullRequestFeed is the optional event stream of a forge, which a plugin

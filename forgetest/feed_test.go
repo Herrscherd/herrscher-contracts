@@ -93,8 +93,7 @@ func TestCheckPullRequestFeedFailsAChannelOpenAfterCancel(t *testing.T) {
 }
 
 func TestCheckPullRequestFeedPassesAnErrorSignalBeforeClose(t *testing.T) {
-	rec := checkScripted(func(ctx context.Context, signals chan<- contracts.PullRequestSignal) {
-		<-ctx.Done()
+	rec := checkScripted(func(_ context.Context, signals chan<- contracts.PullRequestSignal) {
 		signals <- contracts.PullRequestSignal{Err: fmt.Errorf("stream dropped: %w", contracts.ErrFeedRefused)}
 	})
 	expectFailures(t, rec, 0)

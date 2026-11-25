@@ -186,7 +186,8 @@ func pullRequestEventKinds() []PullRequestEventKind {
 
 // ChecksState is the summary of the checks on a pull request's head commit. It is
 // a closed set whose zero value, [ChecksUnknown], is the state while the forge has
-// not reported the checks. A failed check outranks a pending one.
+// not reported the checks. A failed check outranks an action-required one, which
+// outranks a pending one.
 type ChecksState int
 
 const (
@@ -195,12 +196,15 @@ const (
 	// ChecksNone is a pull request whose head commit has no check.
 	ChecksNone
 	// ChecksPending is a pull request with a check that has not completed and no
-	// failed check.
+	// failed or action-required check.
 	ChecksPending
 	// ChecksPassed is a pull request whose checks all completed successfully.
 	ChecksPassed
 	// ChecksFailed is a pull request with a completed check that failed.
 	ChecksFailed
+	// ChecksActionRequired is a pull request with a check that waits for a person
+	// to act, and no failed check.
+	ChecksActionRequired
 )
 
 // String renders the state as its short name. A value that names no state prints
@@ -217,6 +221,8 @@ func (s ChecksState) String() string {
 		return "passed"
 	case ChecksFailed:
 		return failedName
+	case ChecksActionRequired:
+		return "action_required"
 	}
 	return fmt.Sprintf("ChecksState(%d)", int(s))
 }
@@ -238,21 +244,23 @@ func ParseChecksState(text string) (ChecksState, error) {
 }
 
 func checksStates() []ChecksState {
-	return []ChecksState{ChecksUnknown, ChecksNone, ChecksPending, ChecksPassed, ChecksFailed}
+	return []ChecksState{ChecksUnknown, ChecksNone, ChecksPending, ChecksPassed, ChecksFailed, ChecksActionRequired}
 }
 
 // SummarizeChecks reads the checks of a pull request's head commit as one
 // [ChecksState]. A check that has not completed is pending. A completed check
 // takes the state of its conclusion:
 //   - success, neutral, skipped: passed;
-//   - failure, cancelled, timed_out, action_required: failed;
-//   - other, and any conclusion the table does not name, including
-//     [ConclusionNone] on a completed check: failed, so an unmapped outcome never
-//     reads as passed.
+//   - action_required: action required, a person must act before the check
+//     can finish;
+//   - failure, cancelled, timed_out, other, and any conclusion the table does
+//     not name, including [ConclusionNone] on a completed check: failed, so an
+//     unmapped outcome never reads as passed.
 //
-// A failed check outranks a pending one, and a pending check outranks passed.
-// With no check at all the state is [ChecksNone]. SummarizeChecks never returns
-// [ChecksUnknown]: that state stays the state of a forge that reported nothing.
+// A failed check outranks an action-required one, which outranks a pending one,
+// and a pending check outranks passed. With no check at all the state is
+// [ChecksNone]. SummarizeChecks never returns [ChecksUnknown]: that state stays
+// the state of a forge that reported nothing.
 func SummarizeChecks(checks []Check) ChecksState {
 	if len(checks) == 0 {
 		return ChecksNone
@@ -262,8 +270,12 @@ func SummarizeChecks(checks []Check) ChecksState {
 		switch checkState(check) {
 		case ChecksFailed:
 			return ChecksFailed
+		case ChecksActionRequired:
+			summary = ChecksActionRequired
 		case ChecksPending:
-			summary = ChecksPending
+			if summary != ChecksActionRequired {
+				summary = ChecksPending
+			}
 		case ChecksUnknown, ChecksNone, ChecksPassed:
 		}
 	}
@@ -278,7 +290,9 @@ func checkState(check Check) ChecksState {
 	switch conclusion {
 	case ConclusionSuccess, ConclusionNeutral, ConclusionSkipped:
 		return ChecksPassed
-	case ConclusionNone, ConclusionFailure, ConclusionCancelled, ConclusionTimedOut, ConclusionActionRequired, ConclusionOther:
+	case ConclusionActionRequired:
+		return ChecksActionRequired
+	case ConclusionNone, ConclusionFailure, ConclusionCancelled, ConclusionTimedOut, ConclusionOther:
 	}
 	return ChecksFailed
 }
