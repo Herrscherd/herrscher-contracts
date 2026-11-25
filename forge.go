@@ -38,8 +38,8 @@ type ForgeCredentials interface {
 // cannot map to its forge.
 //
 // [PullRequest] with a non-empty since returns [ErrForgeNotModified] when the
-// pull request has not changed since that [Revision]. Following the event
-// stream of a forge belongs to an optional interface that part A adds, so it
+// pull request has not changed since that [Revision]. The event stream of a
+// forge is the optional [PullRequestFeed] interface, so a plugin that gains it
 // does not change this one.
 type Forge interface {
 	Manifest() Manifest
@@ -110,19 +110,76 @@ type PullRequestDraft struct {
 
 // PullRequest is the state of a pull request as the forge reports it. Revision
 // names the version of this read, to pass back as since on the next one. Merge
-// is [MergeStateUnknown] while the forge computes it.
+// is [MergeStateUnknown] while the forge computes it. Checks summarizes the
+// checks of HeadSHA, and is [ChecksUnknown] when the forge did not report them.
+// LatestReview is the [ReviewID] of the last review submitted on the request.
+// It is empty while there is none, and also when the forge does not report
+// reviews, so a host must not read an empty LatestReview as the absence of a
+// review. A value different from the one of the last read means a review was
+// submitted since: compare it for equality only, as with Revision.
 type PullRequest struct {
-	Ref      PullRequestRef
-	Title    string
-	URL      string
-	Head     string
-	Base     string
-	HeadSHA  CommitSHA
-	State    PullRequestState
-	Draft    bool
-	Merge    MergeState
-	Author   ForgeActor
-	Revision Revision
+	Ref          PullRequestRef
+	Title        string
+	URL          string
+	Head         string
+	Base         string
+	HeadSHA      CommitSHA
+	State        PullRequestState
+	Draft        bool
+	Merge        MergeState
+	Checks       ChecksState
+	LatestReview ReviewID
+	Author       ForgeActor
+	Revision     Revision
+}
+
+// ReviewID is the opaque identifier of a review the forge reports, compared for
+// equality only, as with [Revision]. The zero ReviewID means no review is reported,
+// or that the forge reports no reviews, and a host cannot tell the two apart.
+type ReviewID string
+
+// PullRequestFeed is the optional event stream of a forge, which a plugin
+// implements when its forge grants one. A caller finds it with a type assertion
+// and reads [Forge.PullRequest] on a cadence otherwise.
+//
+// The feed exists in process only. The host compiles the plugin that serves a
+// forge into its own binary, and no wire transport carries the feed, so a
+// caller in another process reads [Forge.PullRequest] on a cadence instead.
+//
+// PullRequestEvents returns a channel of signals for one pull request. The
+// channel closes in one of two ways, and the signal before the close tells them
+// apart:
+//   - when ctx is done, with no signal after the cancellation;
+//   - when the stream fails while ctx is live, after a signal whose Err is set
+//     and whose Kind is zero. Err matches the cause, so a refusal mid-stream
+//     matches [ErrFeedRefused] with errors.Is. The caller then reads
+//     [Forge.PullRequest] on a cadence.
+//
+// A caller that receives a signal with Err stops reading the channel and cancels
+// the ctx it passed to PullRequestEvents.
+//
+// A refusal at open returns an error matching [ErrFeedRefused] and no channel.
+//
+// Sending never blocks past ctx: each send selects on ctx.Done(). A signal of a
+// kind the caller has not read yet is merged, not queued again, so the channel
+// holds at most one pending signal per [PullRequestEventKind], and the signal
+// with an error is never dropped. A caller that falls behind still learns of
+// every kind of change, and reads the pull request to see its current state.
+//
+// Two obligations belong to the plugin and are not verified by
+// forgetest.CheckPullRequestFeed: no signal is sent after the cancellation, and
+// no send blocks without a select on ctx.Done().
+type PullRequestFeed interface {
+	PullRequestEvents(ctx context.Context, ref PullRequestRef) (<-chan PullRequestSignal, error)
+}
+
+// PullRequestSignal is one event of a [PullRequestFeed]. It carries either the
+// Kind of a change of the pull request, or an Err when the stream failed. A
+// signal with Err set has a zero Kind, and it is the last signal before the
+// channel closes. A reader reads the pull request to see what changed.
+type PullRequestSignal struct {
+	Kind PullRequestEventKind
+	Err  error
 }
 
 // Check is one status of a commit: check runs and commit statuses are both

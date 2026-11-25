@@ -40,6 +40,17 @@ func TestClosedTypeStringsNameEachValue(t *testing.T) {
 		{"merge state blocked", MergeStateBlocked, "blocked"},
 		{"merge state behind", MergeStateBehind, "behind"},
 		{"merge state draft", MergeStateDraft, "draft"},
+		{"checks unknown", ChecksUnknown, "unknown"},
+		{"checks none", ChecksNone, "none"},
+		{"checks pending", ChecksPending, "pending"},
+		{"checks passed", ChecksPassed, "passed"},
+		{"checks failed", ChecksFailed, "failed"},
+		{"checks action required", ChecksActionRequired, "action_required"},
+		{"event review submitted", PullRequestReviewSubmitted, "review_submitted"},
+		{"event new commit", PullRequestNewCommit, "new_commit"},
+		{"event state changed", PullRequestStateChanged, "state_changed"},
+		{"event merge conflict", PullRequestMergeConflict, "merge_conflict"},
+		{"event checks changed", PullRequestChecksChanged, "checks_changed"},
 		{"association none", AssociationNone, "none"},
 		{"association owner", AssociationOwner, "owner"},
 		{"association member", AssociationMember, "member"},
@@ -74,6 +85,8 @@ func TestClosedTypeStringsPrintTheRawNumberOfAnUnknownValue(t *testing.T) {
 		{CheckConclusion(9), "CheckConclusion(9)"},
 		{MergeMethod(9), "MergeMethod(9)"},
 		{MergeState(9), "MergeState(9)"},
+		{ChecksState(9), "ChecksState(9)"},
+		{PullRequestEventKind(9), "PullRequestEventKind(9)"},
 		{AuthorAssociation(9), "AuthorAssociation(9)"},
 		{IssueState(9), "IssueState(9)"},
 		{RepoPermission(9), "RepoPermission(9)"},
@@ -186,5 +199,126 @@ func TestPullRequestStateRefusesToMarshalAnUnknownValue(t *testing.T) {
 		if _, err := state.MarshalText(); !errors.Is(err, ErrUnknownPullRequestState) {
 			t.Errorf("MarshalText(%d) error = %v, want ErrUnknownPullRequestState", int(state), err)
 		}
+	}
+}
+
+func TestParseChecksStateReadsEveryStateBack(t *testing.T) {
+	for _, want := range checksStates() {
+		got, err := ParseChecksState(want.String())
+		if err != nil || got != want {
+			t.Fatalf("ParseChecksState(%q) = %v, %v, want %v", want.String(), got, err, want)
+		}
+	}
+}
+
+func TestParseChecksStateReadsEveryDeclaredStateBack(t *testing.T) {
+	tests := []struct {
+		text string
+		want ChecksState
+	}{
+		{"unknown", ChecksUnknown},
+		{"none", ChecksNone},
+		{"pending", ChecksPending},
+		{"passed", ChecksPassed},
+		{"failed", ChecksFailed},
+		{"action_required", ChecksActionRequired},
+	}
+	if got, want := len(checksStates()), len(tests); got != want {
+		t.Fatalf("checksStates() lists %d states but this table names %d: add the new state to this table", got, want)
+	}
+	for _, tt := range tests {
+		got, err := ParseChecksState(tt.text)
+		if err != nil || got != tt.want {
+			t.Errorf("ParseChecksState(%q) = %v, %v, want %v", tt.text, got, err, tt.want)
+		}
+	}
+}
+
+func TestParsePullRequestStateReadsEveryDeclaredStateBack(t *testing.T) {
+	tests := []struct {
+		text string
+		want PullRequestState
+	}{
+		{"open", PullRequestOpen},
+		{"closed", PullRequestClosed},
+		{"merged", PullRequestMerged},
+	}
+	if got, want := len(PullRequestStates()), len(tests); got != want {
+		t.Fatalf("PullRequestStates() lists %d states but this table names %d: add the new state to this table", got, want)
+	}
+	for _, tt := range tests {
+		got, err := ParsePullRequestState(tt.text)
+		if err != nil || got != tt.want {
+			t.Errorf("ParsePullRequestState(%q) = %v, %v, want %v", tt.text, got, err, tt.want)
+		}
+	}
+}
+
+func TestParsePullRequestEventKindReadsEveryDeclaredKindBack(t *testing.T) {
+	tests := []struct {
+		text string
+		want PullRequestEventKind
+	}{
+		{"review_submitted", PullRequestReviewSubmitted},
+		{"new_commit", PullRequestNewCommit},
+		{"state_changed", PullRequestStateChanged},
+		{"merge_conflict", PullRequestMergeConflict},
+		{"checks_changed", PullRequestChecksChanged},
+	}
+	if got, want := len(pullRequestEventKinds()), len(tests); got != want {
+		t.Fatalf("pullRequestEventKinds() lists %d kinds but this table names %d: add the new kind to this table", got, want)
+	}
+	for _, tt := range tests {
+		got, err := ParsePullRequestEventKind(tt.text)
+		if err != nil || got != tt.want {
+			t.Errorf("ParsePullRequestEventKind(%q) = %v, %v, want %v", tt.text, got, err, tt.want)
+		}
+	}
+}
+
+func TestParseChecksStateRefusesUnknownText(t *testing.T) {
+	for _, text := range []string{"", "Passed", "success", "action-required", "ChecksState(0)"} {
+		got, err := ParseChecksState(text)
+		if !errors.Is(err, ErrUnknownChecksState) {
+			t.Errorf("ParseChecksState(%q) error = %v, want ErrUnknownChecksState", text, err)
+		}
+		if got != 0 {
+			t.Errorf("ParseChecksState(%q) = %v, want the zero value on error", text, got)
+		}
+	}
+}
+
+func TestZeroChecksStateIsUnknown(t *testing.T) {
+	var state ChecksState
+	if state != ChecksUnknown || state.String() != "unknown" {
+		t.Fatalf("zero ChecksState = %v, want ChecksUnknown", state)
+	}
+}
+
+func TestParsePullRequestEventKindReadsEveryKindBack(t *testing.T) {
+	for _, want := range pullRequestEventKinds() {
+		got, err := ParsePullRequestEventKind(want.String())
+		if err != nil || got != want {
+			t.Fatalf("ParsePullRequestEventKind(%q) = %v, %v, want %v", want.String(), got, err, want)
+		}
+	}
+}
+
+func TestParsePullRequestEventKindRefusesUnknownText(t *testing.T) {
+	for _, text := range []string{"", "Review_Submitted", "review", "PullRequestEventKind(0)"} {
+		got, err := ParsePullRequestEventKind(text)
+		if !errors.Is(err, ErrUnknownPullRequestEventKind) {
+			t.Errorf("ParsePullRequestEventKind(%q) error = %v, want ErrUnknownPullRequestEventKind", text, err)
+		}
+		if got != 0 {
+			t.Errorf("ParsePullRequestEventKind(%q) = %v, want the zero value on error", text, got)
+		}
+	}
+}
+
+func TestZeroPullRequestEventKindIsNoKind(t *testing.T) {
+	var kind PullRequestEventKind
+	if _, err := ParsePullRequestEventKind(kind.String()); !errors.Is(err, ErrUnknownPullRequestEventKind) {
+		t.Fatalf("zero PullRequestEventKind parses as a kind: error = %v", err)
 	}
 }
