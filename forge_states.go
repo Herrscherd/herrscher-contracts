@@ -241,6 +241,48 @@ func checksStates() []ChecksState {
 	return []ChecksState{ChecksUnknown, ChecksNone, ChecksPending, ChecksPassed, ChecksFailed}
 }
 
+// SummarizeChecks reads the checks of a pull request's head commit as one
+// [ChecksState]. A check that has not completed is pending. A completed check
+// takes the state of its conclusion:
+//   - success, neutral, skipped: passed;
+//   - failure, cancelled, timed_out, action_required: failed;
+//   - other, and any conclusion the table does not name, including
+//     [ConclusionNone] on a completed check: failed, so an unmapped outcome never
+//     reads as passed.
+//
+// A failed check outranks a pending one, and a pending check outranks passed.
+// With no check at all the state is [ChecksNone]. SummarizeChecks never returns
+// [ChecksUnknown]: that state stays the state of a forge that reported nothing.
+func SummarizeChecks(checks []Check) ChecksState {
+	if len(checks) == 0 {
+		return ChecksNone
+	}
+	summary := ChecksPassed
+	for _, check := range checks {
+		switch checkState(check) {
+		case ChecksFailed:
+			return ChecksFailed
+		case ChecksPending:
+			summary = ChecksPending
+		case ChecksUnknown, ChecksNone, ChecksPassed:
+		}
+	}
+	return summary
+}
+
+func checkState(check Check) ChecksState {
+	conclusion, concluded := check.Concluded()
+	if !concluded {
+		return ChecksPending
+	}
+	switch conclusion {
+	case ConclusionSuccess, ConclusionNeutral, ConclusionSkipped:
+		return ChecksPassed
+	case ConclusionNone, ConclusionFailure, ConclusionCancelled, ConclusionTimedOut, ConclusionActionRequired, ConclusionOther:
+	}
+	return ChecksFailed
+}
+
 func (s PullRequestState) isKnown() bool {
 	for _, state := range PullRequestStates() {
 		if state == s {

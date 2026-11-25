@@ -27,7 +27,8 @@ var (
 	// the revision the caller holds.
 	ErrForgeNotModified = errors.New("pull request not modified since the revision given")
 	// ErrFeedRefused reports that the forge refused the event feed of a pull
-	// request. The caller reads the request on a cadence instead.
+	// request, either at open or mid-stream as the Err of the last
+	// [PullRequestSignal]. The caller reads the request on a cadence instead.
 	ErrFeedRefused = errors.New("pull request event feed refused by the forge")
 	// ErrInvalidForgeHost reports text that names no forge host.
 	ErrInvalidForgeHost = errors.New("not a forge host")

@@ -112,39 +112,61 @@ type PullRequestDraft struct {
 // names the version of this read, to pass back as since on the next one. Merge
 // is [MergeStateUnknown] while the forge computes it. Checks summarizes the
 // checks of HeadSHA, and is [ChecksUnknown] when the forge did not report them.
-// ReviewCount counts the reviews submitted on the request, so a higher count
-// than the last read means a review was submitted since.
+// LatestReview is the opaque identifier of the last review submitted on the
+// request, and is empty while there is none. A value different from the one of
+// the last read means a review was submitted since: compare it for equality
+// only, as with Revision.
 type PullRequest struct {
-	Ref         PullRequestRef
-	Title       string
-	URL         string
-	Head        string
-	Base        string
-	HeadSHA     CommitSHA
-	State       PullRequestState
-	Draft       bool
-	Merge       MergeState
-	Checks      ChecksState
-	ReviewCount int
-	Author      ForgeActor
-	Revision    Revision
+	Ref          PullRequestRef
+	Title        string
+	URL          string
+	Head         string
+	Base         string
+	HeadSHA      CommitSHA
+	State        PullRequestState
+	Draft        bool
+	Merge        MergeState
+	Checks       ChecksState
+	LatestReview string
+	Author       ForgeActor
+	Revision     Revision
 }
 
 // PullRequestFeed is the optional event stream of a forge, which a plugin
 // implements when its forge grants one. A caller finds it with a type assertion
-// and reads [Forge.PullRequest] on a cadence otherwise. PullRequestEvents
-// returns a channel that receives a signal for each change of the pull request,
-// and that is closed when ctx is done. A forge that refuses the feed returns an
-// error matching [ErrFeedRefused].
+// and reads [Forge.PullRequest] on a cadence otherwise.
+//
+// The feed exists in process only. The host compiles the plugin that serves a
+// forge into its own binary, and no wire transport carries the feed, so a
+// caller in another process reads [Forge.PullRequest] on a cadence instead.
+//
+// PullRequestEvents returns a channel of signals for one pull request. The
+// channel closes in one of two ways, and the signal before the close tells them
+// apart:
+//   - when ctx is done, with no signal after the cancellation;
+//   - when the stream fails while ctx is live, after a signal whose Err is set
+//     and whose Kind is zero. Err matches the cause, so a refusal mid-stream
+//     matches [ErrFeedRefused] with errors.Is. The caller then reads
+//     [Forge.PullRequest] on a cadence.
+//
+// A refusal at open returns an error matching [ErrFeedRefused] and no channel.
+//
+// Sending never blocks past ctx: each send selects on ctx.Done(). A signal of a
+// kind the caller has not read yet is merged, not queued again, so the channel
+// holds at most one pending signal per [PullRequestEventKind], and the signal
+// with an error is never dropped. A caller that falls behind still learns of
+// every kind of change, and reads the pull request to see its current state.
 type PullRequestFeed interface {
 	PullRequestEvents(ctx context.Context, ref PullRequestRef) (<-chan PullRequestSignal, error)
 }
 
-// PullRequestSignal is one change of a pull request that a [PullRequestFeed]
-// reports. It names the kind of change and nothing more: a reader reads the
-// pull request to see what changed.
+// PullRequestSignal is one event of a [PullRequestFeed]. It carries either the
+// Kind of a change of the pull request, or an Err when the stream failed. A
+// signal with Err set has a zero Kind, and it is the last signal before the
+// channel closes. A reader reads the pull request to see what changed.
 type PullRequestSignal struct {
 	Kind PullRequestEventKind
+	Err  error
 }
 
 // Check is one status of a commit: check runs and commit statuses are both
