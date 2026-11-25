@@ -422,12 +422,11 @@ totals stand alone.
 `Event.Injected` sizes every block the host composes into the turn's context
 (`memory`, `skills`, `delegation`, `capabilities`, `identity`), each an
 `InjectedPart` with `0` for a block left empty, carried on the terminal reply
-(`done`) like `Models`. A reply with the list measured its turn, a reply
-without it did not. The sizes
-are estimates the host makes from the text it wrote, not counts reported by the
-vendor. A reader keeps a part it does not know under its wire name, so a host
-that injects a new block never makes a reader refuse the event. A wrong JSON
-type in `injected` is refused like in any other field.
+(`done`) like `Models`. A reply with the list measured its turn, a reply without
+it did not. The sizes are estimates the host makes from the text it wrote, not
+counts reported by the vendor. A reader keeps a part it does not know under its
+wire name, so a host that injects a new block never makes a reader refuse the
+event. A wrong JSON type in `injected` is refused like in any other field.
 
 From v0.39.0 on, `Event.Outcome` (`TurnOutcome`) says how a turn ended when it
 did not complete:
