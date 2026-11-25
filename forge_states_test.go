@@ -211,6 +211,62 @@ func TestParseChecksStateReadsEveryStateBack(t *testing.T) {
 	}
 }
 
+func TestParseChecksStateReadsEveryDeclaredStateBack(t *testing.T) {
+	tests := []struct {
+		text string
+		want ChecksState
+	}{
+		{"unknown", ChecksUnknown},
+		{"none", ChecksNone},
+		{"pending", ChecksPending},
+		{"passed", ChecksPassed},
+		{"failed", ChecksFailed},
+		{"action_required", ChecksActionRequired},
+	}
+	for _, tt := range tests {
+		got, err := ParseChecksState(tt.text)
+		if err != nil || got != tt.want {
+			t.Errorf("ParseChecksState(%q) = %v, %v, want %v", tt.text, got, err, tt.want)
+		}
+	}
+}
+
+func TestParsePullRequestStateReadsEveryDeclaredStateBack(t *testing.T) {
+	tests := []struct {
+		text string
+		want PullRequestState
+	}{
+		{"open", PullRequestOpen},
+		{"closed", PullRequestClosed},
+		{"merged", PullRequestMerged},
+	}
+	for _, tt := range tests {
+		got, err := ParsePullRequestState(tt.text)
+		if err != nil || got != tt.want {
+			t.Errorf("ParsePullRequestState(%q) = %v, %v, want %v", tt.text, got, err, tt.want)
+		}
+	}
+}
+
+func TestParsePullRequestEventKindReadsEveryDeclaredKindBack(t *testing.T) {
+	tests := []struct {
+		text string
+		want PullRequestEventKind
+	}{
+		{"review_submitted", PullRequestReviewSubmitted},
+		{"new_commit", PullRequestNewCommit},
+		{"state_changed", PullRequestStateChanged},
+		{"merge_conflict", PullRequestMergeConflict},
+		{"checks_changed", PullRequestChecksChanged},
+	}
+	for _, tt := range tests {
+		got, err := ParsePullRequestEventKind(tt.text)
+		if err != nil || got != tt.want {
+			t.Errorf("ParsePullRequestEventKind(%q) = %v, %v, want %v", tt.text, got, err, tt.want)
+		}
+	}
+}
+
 func TestParseChecksStateRefusesUnknownText(t *testing.T) {
 	for _, text := range []string{"", "Passed", "success", "action-required", "ChecksState(0)"} {
 		got, err := ParseChecksState(text)
