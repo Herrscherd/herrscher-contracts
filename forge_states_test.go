@@ -223,6 +223,9 @@ func TestParseChecksStateReadsEveryDeclaredStateBack(t *testing.T) {
 		{"failed", ChecksFailed},
 		{"action_required", ChecksActionRequired},
 	}
+	if got, want := len(checksStates()), len(tests); got != want {
+		t.Fatalf("checksStates() lists %d states but this table names %d: add the new state to this table", got, want)
+	}
 	for _, tt := range tests {
 		got, err := ParseChecksState(tt.text)
 		if err != nil || got != tt.want {
@@ -239,6 +242,9 @@ func TestParsePullRequestStateReadsEveryDeclaredStateBack(t *testing.T) {
 		{"open", PullRequestOpen},
 		{"closed", PullRequestClosed},
 		{"merged", PullRequestMerged},
+	}
+	if got, want := len(PullRequestStates()), len(tests); got != want {
+		t.Fatalf("PullRequestStates() lists %d states but this table names %d: add the new state to this table", got, want)
 	}
 	for _, tt := range tests {
 		got, err := ParsePullRequestState(tt.text)
@@ -258,6 +264,9 @@ func TestParsePullRequestEventKindReadsEveryDeclaredKindBack(t *testing.T) {
 		{"state_changed", PullRequestStateChanged},
 		{"merge_conflict", PullRequestMergeConflict},
 		{"checks_changed", PullRequestChecksChanged},
+	}
+	if got, want := len(pullRequestEventKinds()), len(tests); got != want {
+		t.Fatalf("pullRequestEventKinds() lists %d kinds but this table names %d: add the new kind to this table", got, want)
 	}
 	for _, tt := range tests {
 		got, err := ParsePullRequestEventKind(tt.text)
