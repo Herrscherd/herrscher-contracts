@@ -3,6 +3,8 @@ package contracts
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
@@ -189,13 +191,21 @@ type SessionInfo struct {
 	Language i18n.Language `json:"Language"`
 	// PullRequest is the pull request the session opened. Its zero value means the
 	// session has none, and an older daemon sends none.
-	PullRequest SessionPullRequest `json:"PullRequest"`
+	PullRequest SessionPullRequest `json:"PullRequest,omitzero"`
 }
 
+// ErrInvalidSessionPullRequest is returned when a [SessionPullRequest] is neither
+// entirely zero nor a pull request with a positive Number and a known State. It is
+// returned on both encode and decode. Match it with errors.Is.
+var ErrInvalidSessionPullRequest = errors.New("invalid session pull request")
+
 // SessionPullRequest is the pull request a session opened, as the host last read
-// it from the forge. Number 0 means the session has no pull request, so the zero
-// value is that case and marshals as null. A set pull request needs a State that
-// [PullRequestState.MarshalText] accepts. JSON decoding does not validate Number.
+// it from the forge. The zero value means the session has no pull request, and it
+// is omitted from the wire. Any other value needs a Number above zero and a State
+// that [PullRequestState.MarshalText] accepts; otherwise both marshaling and
+// unmarshaling fail with an error matching [ErrInvalidSessionPullRequest]. An
+// unknown State therefore fails the JSON encoding of the whole [SessionInfo] list
+// rather than dropping the state, so a host must only set known states.
 type SessionPullRequest struct {
 	Number int              `json:"Number"`
 	State  PullRequestState `json:"State"`
@@ -203,14 +213,43 @@ type SessionPullRequest struct {
 	URL    string           `json:"URL"`
 }
 
-// MarshalJSON writes null for a session with no pull request, and the struct
-// otherwise.
+// MarshalJSON writes the pull request as an object, and refuses a value that
+// [SessionPullRequest] does not accept.
 func (p SessionPullRequest) MarshalJSON() ([]byte, error) {
-	if p.Number == 0 {
-		return []byte("null"), nil
+	if err := p.validate(); err != nil {
+		return nil, err
 	}
 	type wire SessionPullRequest
 	return json.Marshal(wire(p))
+}
+
+// UnmarshalJSON reads a pull request object, and refuses one that
+// [SessionPullRequest] does not accept.
+func (p *SessionPullRequest) UnmarshalJSON(data []byte) error {
+	type wire SessionPullRequest
+	var decoded wire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	candidate := SessionPullRequest(decoded)
+	if err := candidate.validate(); err != nil {
+		return err
+	}
+	*p = candidate
+	return nil
+}
+
+func (p SessionPullRequest) validate() error {
+	if p == (SessionPullRequest{}) {
+		return nil
+	}
+	if p.Number <= 0 {
+		return fmt.Errorf("%w: number %d", ErrInvalidSessionPullRequest, p.Number)
+	}
+	if !p.State.isKnown() {
+		return fmt.Errorf("%w: %w: %d", ErrInvalidSessionPullRequest, ErrUnknownPullRequestState, int(p.State))
+	}
+	return nil
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's

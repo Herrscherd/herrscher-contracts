@@ -115,8 +115,8 @@ func TestSessionInfoRoundTripsWithoutAPullRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
-	if !strings.Contains(string(encoded), `"PullRequest":null`) {
-		t.Fatalf("wire JSON = %s, want PullRequest null", encoded)
+	if strings.Contains(string(encoded), "PullRequest") {
+		t.Fatalf("wire JSON = %s, want no PullRequest key", encoded)
 	}
 	var back SessionInfo
 	if err := json.Unmarshal(encoded, &back); err != nil {
@@ -124,6 +124,44 @@ func TestSessionInfoRoundTripsWithoutAPullRequest(t *testing.T) {
 	}
 	if back.PullRequest != (SessionPullRequest{}) {
 		t.Fatalf("PullRequest = %+v, want the zero value", back.PullRequest)
+	}
+}
+
+func TestDecodeRefusesAPullRequestWithoutAState(t *testing.T) {
+	var info SessionInfo
+	err := json.Unmarshal([]byte(`{"PullRequest":{"Number":7}}`), &info)
+	if !errors.Is(err, ErrInvalidSessionPullRequest) || !errors.Is(err, ErrUnknownPullRequestState) {
+		t.Fatalf("json.Unmarshal() error = %v, want ErrInvalidSessionPullRequest and ErrUnknownPullRequestState", err)
+	}
+}
+
+func TestDecodeRefusesANonPositiveNumberWithAState(t *testing.T) {
+	for _, payload := range []string{
+		`{"PullRequest":{"Number":-3,"State":"open"}}`,
+		`{"PullRequest":{"Number":0,"State":"open"}}`,
+	} {
+		var info SessionInfo
+		if err := json.Unmarshal([]byte(payload), &info); !errors.Is(err, ErrInvalidSessionPullRequest) {
+			t.Errorf("json.Unmarshal(%s) error = %v, want ErrInvalidSessionPullRequest", payload, err)
+		}
+	}
+}
+
+func TestEncodeRefusesANumberZeroWithFields(t *testing.T) {
+	for _, pr := range []SessionPullRequest{
+		{State: PullRequestOpen},
+		{URL: "https://example.invalid/pull/0"},
+	} {
+		if _, err := json.Marshal(pr); !errors.Is(err, ErrInvalidSessionPullRequest) {
+			t.Errorf("json.Marshal(%+v) error = %v, want ErrInvalidSessionPullRequest", pr, err)
+		}
+	}
+}
+
+func TestEncodeRefusesANegativeNumber(t *testing.T) {
+	_, err := json.Marshal(SessionPullRequest{Number: -3, State: PullRequestOpen})
+	if !errors.Is(err, ErrInvalidSessionPullRequest) {
+		t.Fatalf("json.Marshal() error = %v, want ErrInvalidSessionPullRequest", err)
 	}
 }
 
@@ -147,7 +185,7 @@ func TestSessionInfoRefusesAnUnknownPullRequestState(t *testing.T) {
 
 func TestSessionPullRequestRefusesToMarshalAStateless(t *testing.T) {
 	_, err := json.Marshal(SessionPullRequest{Number: 7, URL: "https://example.invalid/pull/7"})
-	if !errors.Is(err, ErrUnknownPullRequestState) {
-		t.Fatalf("json.Marshal() error = %v, want ErrUnknownPullRequestState", err)
+	if !errors.Is(err, ErrInvalidSessionPullRequest) || !errors.Is(err, ErrUnknownPullRequestState) {
+		t.Fatalf("json.Marshal() error = %v, want ErrInvalidSessionPullRequest and ErrUnknownPullRequestState", err)
 	}
 }
