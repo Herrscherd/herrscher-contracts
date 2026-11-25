@@ -1,6 +1,9 @@
 package contracts
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 const (
 	noneName    = "none"
@@ -74,6 +77,56 @@ func (s PullRequestState) String() string {
 		return "merged"
 	}
 	return fmt.Sprintf("PullRequestState(%d)", int(s))
+}
+
+// PullRequestStates lists every state, in declaration order.
+func PullRequestStates() []PullRequestState {
+	return []PullRequestState{PullRequestOpen, PullRequestClosed, PullRequestMerged}
+}
+
+// ErrUnknownPullRequestState is returned for text, or a value, that names no pull
+// request state. Match it with errors.Is.
+var ErrUnknownPullRequestState = errors.New("unknown pull request state")
+
+// ParsePullRequestState reads a state from the text form [PullRequestState.String]
+// writes. Any other text, the empty string included, returns an error matching
+// [ErrUnknownPullRequestState].
+func ParsePullRequestState(text string) (PullRequestState, error) {
+	for _, state := range PullRequestStates() {
+		if state.String() == text {
+			return state, nil
+		}
+	}
+	return 0, ErrUnknownPullRequestState
+}
+
+// MarshalText writes the text form of the state. A value that names no state
+// returns an error matching [ErrUnknownPullRequestState], so it never reaches the
+// wire.
+func (s PullRequestState) MarshalText() ([]byte, error) {
+	if !s.isKnown() {
+		return nil, fmt.Errorf("%w: %d", ErrUnknownPullRequestState, int(s))
+	}
+	return []byte(s.String()), nil
+}
+
+// UnmarshalText reads the text form of a state, as [ParsePullRequestState] does.
+func (s *PullRequestState) UnmarshalText(text []byte) error {
+	parsed, err := ParsePullRequestState(string(text))
+	if err != nil {
+		return err
+	}
+	*s = parsed
+	return nil
+}
+
+func (s PullRequestState) isKnown() bool {
+	for _, state := range PullRequestStates() {
+		if state == s {
+			return true
+		}
+	}
+	return false
 }
 
 // CheckStatus is how far a check has run. It is a closed set whose zero value

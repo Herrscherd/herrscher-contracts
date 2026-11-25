@@ -2,6 +2,9 @@ package contracts
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
@@ -186,6 +189,79 @@ type SessionInfo struct {
 	// Language is the language of the session. Zero means unknown: the reader falls
 	// back to the operator's default language.
 	Language i18n.Language `json:"Language"`
+	// PullRequest is the pull request the session opened. Its zero value means the
+	// session has none, and an older daemon sends none.
+	PullRequest SessionPullRequest `json:"PullRequest,omitzero"`
+}
+
+// ErrInvalidSessionPullRequest is returned when a [SessionPullRequest] is neither
+// entirely zero nor a pull request with a positive Number and a known State. It is
+// returned on both encode and decode. Match it with errors.Is.
+var ErrInvalidSessionPullRequest = errors.New("invalid session pull request")
+
+// SessionPullRequest is the pull request a session opened, as the host last read
+// it from the forge. The zero value means the session has no pull request: inside
+// a [SessionInfo] its key is omitted from the wire, and on its own it encodes as
+// null. Any other value needs a Number above zero and a State that
+// [PullRequestState.MarshalText] accepts; otherwise both marshaling and
+// unmarshaling fail with an error matching [ErrInvalidSessionPullRequest]; a field
+// of the wrong JSON type gives the encoding/json error instead. The
+// producer must only fill valid values: an unknown State fails the JSON encoding
+// of the whole [SessionInfo] list rather than dropping the state, and the host
+// guarantees it never sets one.
+type SessionPullRequest struct {
+	Number int              `json:"Number"`
+	State  PullRequestState `json:"State"`
+	Draft  bool             `json:"Draft"`
+	URL    string           `json:"URL"`
+}
+
+// MarshalJSON writes the pull request as an object. The zero value writes null,
+// the value UnmarshalJSON reads back as the zero value, and any other value that
+// [SessionPullRequest] does not accept is refused.
+func (p SessionPullRequest) MarshalJSON() ([]byte, error) {
+	if p == (SessionPullRequest{}) {
+		return []byte("null"), nil
+	}
+	if err := p.validate(); err != nil {
+		return nil, err
+	}
+	type wire SessionPullRequest
+	return json.Marshal(wire(p))
+}
+
+// UnmarshalJSON reads a pull request object, and refuses one that
+// [SessionPullRequest] does not accept. A State that names no pull request state
+// fails with an error matching both [ErrInvalidSessionPullRequest] and
+// [ErrUnknownPullRequestState].
+func (p *SessionPullRequest) UnmarshalJSON(data []byte) error {
+	type wire SessionPullRequest
+	var decoded wire
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		if errors.Is(err, ErrUnknownPullRequestState) {
+			return fmt.Errorf("%w: %w", ErrInvalidSessionPullRequest, err)
+		}
+		return err
+	}
+	candidate := SessionPullRequest(decoded)
+	if err := candidate.validate(); err != nil {
+		return err
+	}
+	*p = candidate
+	return nil
+}
+
+func (p SessionPullRequest) validate() error {
+	if p == (SessionPullRequest{}) {
+		return nil
+	}
+	if p.Number <= 0 {
+		return fmt.Errorf("%w: number %d", ErrInvalidSessionPullRequest, p.Number)
+	}
+	if !p.State.isKnown() {
+		return fmt.Errorf("%w: %w: %d", ErrInvalidSessionPullRequest, ErrUnknownPullRequestState, int(p.State))
+	}
+	return nil
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's

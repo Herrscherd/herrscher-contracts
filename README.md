@@ -265,6 +265,23 @@ stage then runs only on a manual compaction. The host checks the value with
 resolved for the session's vendor. Zero means the host did not resolve it, as an
 older daemon does, and a frontend falls back to its own size.
 
+`SessionInfo.PullRequest` is the pull request the session opened: its `Number`,
+`State` (a `PullRequestState`, which marshals to `"open"`, `"closed"` or
+`"merged"`), `Draft` and `URL`. A session with no pull request has the zero value,
+which is omitted from the wire (`omitzero`), so a message from a daemon older than
+this field decodes to no pull request. Encoded on its own, the zero value is `null`,
+and decoding `null` gives the zero value back. Any other value must have a `Number`
+above zero and a known `State`, and the same rule applies when encoding and when
+decoding: a value that breaks it fails with `ErrInvalidSessionPullRequest`. A field
+of the wrong JSON type, such as a numeric `State` or a quoted `Number`, is not a
+break of that rule: decoding returns the `encoding/json` error as is. Decoding
+an unknown `State` matches both `ErrInvalidSessionPullRequest` and
+`ErrUnknownPullRequestState`, and encoding one matches the same pair. Encoding
+refuses an unknown state, so `json.Marshal` fails for the whole `SessionInfo` list
+(fail closed) rather than send a pull request without its state. The producer must
+only fill valid values, the states listed above with a positive `Number`: the host
+guarantees it never fills an invalid one.
+
 ## Model routing
 
 A backend declares the models it knows how to run in `Manifest.Models`
