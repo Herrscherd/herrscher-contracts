@@ -419,9 +419,11 @@ each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
 
-`Event.Injected` sizes each block the host wrote into the turn's context
+`Event.Injected` sizes every block the host composes into the turn's context
 (`memory`, `skills`, `delegation`, `capabilities`, `identity`), each an
-`InjectedPart`, carried on the terminal reply (`done`) like `Models`. The sizes
+`InjectedPart` with `0` for a block left empty, carried on the terminal reply
+(`done`) like `Models`. A reply with the list measured its turn, a reply
+without it did not. The sizes
 are estimates the host makes from the text it wrote, not counts reported by the
 vendor. A reader keeps a part it does not know under its wire name, so a host
 that injects a new block never makes a reader refuse the event. A wrong JSON
