@@ -424,7 +424,8 @@ totals stand alone.
 `InjectedPart`, carried on the terminal reply (`done`) like `Models`. The sizes
 are estimates the host makes from the text it wrote, not counts reported by the
 vendor. A reader keeps a part it does not know under its wire name, so a host
-that injects a new block never makes an older reader refuse the event.
+that injects a new block never makes a reader refuse the event. A wrong JSON
+type in `injected` is refused like in any other field.
 
 From v0.39.0 on, `Event.Outcome` (`TurnOutcome`) says how a turn ended when it
 did not complete:
