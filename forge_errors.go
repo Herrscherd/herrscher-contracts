@@ -26,6 +26,9 @@ var (
 	// ErrForgeNotModified reports that the pull request has not changed since
 	// the revision the caller holds.
 	ErrForgeNotModified = errors.New("pull request not modified since the revision given")
+	// ErrFeedRefused reports that the forge refused the event feed of a pull
+	// request. The caller reads the request on a cadence instead.
+	ErrFeedRefused = errors.New("pull request event feed refused by the forge")
 	// ErrInvalidForgeHost reports text that names no forge host.
 	ErrInvalidForgeHost = errors.New("not a forge host")
 	// ErrInvalidRepoRef reports text that names no repository a forge can hold.

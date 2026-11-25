@@ -8,6 +8,7 @@ import (
 const (
 	noneName    = "none"
 	unknownName = "unknown"
+	failedName  = "failed"
 )
 
 // TokenSource says where a forge token came from. It is a closed set whose zero
@@ -118,6 +119,126 @@ func (s *PullRequestState) UnmarshalText(text []byte) error {
 	}
 	*s = parsed
 	return nil
+}
+
+// PullRequestEventKind is the kind of change a [PullRequestSignal] reports. It is
+// a closed set whose zero value is not a kind.
+type PullRequestEventKind int
+
+const (
+	// PullRequestReviewSubmitted is a review submitted on the pull request.
+	PullRequestReviewSubmitted PullRequestEventKind = iota + 1
+	// PullRequestNewCommit is a commit pushed to the branch of the pull request.
+	PullRequestNewCommit
+	// PullRequestStateChanged is a pull request opened, closed, reopened or merged.
+	PullRequestStateChanged
+	// PullRequestMergeConflict is a pull request whose branch came to conflict
+	// with its base.
+	PullRequestMergeConflict
+	// PullRequestChecksChanged is a check of the pull request that started or
+	// completed.
+	PullRequestChecksChanged
+)
+
+// String renders the kind as its short name. A value that names no kind prints
+// its raw number.
+func (k PullRequestEventKind) String() string {
+	switch k {
+	case PullRequestReviewSubmitted:
+		return "review_submitted"
+	case PullRequestNewCommit:
+		return "new_commit"
+	case PullRequestStateChanged:
+		return "state_changed"
+	case PullRequestMergeConflict:
+		return "merge_conflict"
+	case PullRequestChecksChanged:
+		return "checks_changed"
+	}
+	return fmt.Sprintf("PullRequestEventKind(%d)", int(k))
+}
+
+// ErrUnknownPullRequestEventKind is returned for text that names no pull request
+// event kind. Match it with errors.Is.
+var ErrUnknownPullRequestEventKind = errors.New("unknown pull request event kind")
+
+// ParsePullRequestEventKind reads a kind from the text form
+// [PullRequestEventKind.String] writes. Any other text, the empty string included,
+// returns an error matching [ErrUnknownPullRequestEventKind].
+func ParsePullRequestEventKind(text string) (PullRequestEventKind, error) {
+	for _, kind := range pullRequestEventKinds() {
+		if kind.String() == text {
+			return kind, nil
+		}
+	}
+	return 0, ErrUnknownPullRequestEventKind
+}
+
+func pullRequestEventKinds() []PullRequestEventKind {
+	return []PullRequestEventKind{
+		PullRequestReviewSubmitted,
+		PullRequestNewCommit,
+		PullRequestStateChanged,
+		PullRequestMergeConflict,
+		PullRequestChecksChanged,
+	}
+}
+
+// ChecksState is the summary of the checks on a pull request's head commit. It is
+// a closed set whose zero value, [ChecksUnknown], is the state while the forge has
+// not reported the checks. A failed check outranks a pending one.
+type ChecksState int
+
+const (
+	// ChecksUnknown is a pull request whose checks the forge has not reported.
+	ChecksUnknown ChecksState = iota
+	// ChecksNone is a pull request whose head commit has no check.
+	ChecksNone
+	// ChecksPending is a pull request with a check that has not completed and no
+	// failed check.
+	ChecksPending
+	// ChecksPassed is a pull request whose checks all completed successfully.
+	ChecksPassed
+	// ChecksFailed is a pull request with a completed check that failed.
+	ChecksFailed
+)
+
+// String renders the state as its short name. A value that names no state prints
+// its raw number.
+func (s ChecksState) String() string {
+	switch s {
+	case ChecksUnknown:
+		return unknownName
+	case ChecksNone:
+		return noneName
+	case ChecksPending:
+		return "pending"
+	case ChecksPassed:
+		return "passed"
+	case ChecksFailed:
+		return failedName
+	}
+	return fmt.Sprintf("ChecksState(%d)", int(s))
+}
+
+// ErrUnknownChecksState is returned for text that names no checks state. Match it
+// with errors.Is.
+var ErrUnknownChecksState = errors.New("unknown checks state")
+
+// ParseChecksState reads a state from the text form [ChecksState.String] writes.
+// Any other text, the empty string included, returns an error matching
+// [ErrUnknownChecksState].
+func ParseChecksState(text string) (ChecksState, error) {
+	for _, state := range checksStates() {
+		if state.String() == text {
+			return state, nil
+		}
+	}
+	return 0, ErrUnknownChecksState
+}
+
+func checksStates() []ChecksState {
+	return []ChecksState{ChecksUnknown, ChecksNone, ChecksPending, ChecksPassed, ChecksFailed}
 }
 
 func (s PullRequestState) isKnown() bool {

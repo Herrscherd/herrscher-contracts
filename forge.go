@@ -38,8 +38,8 @@ type ForgeCredentials interface {
 // cannot map to its forge.
 //
 // [PullRequest] with a non-empty since returns [ErrForgeNotModified] when the
-// pull request has not changed since that [Revision]. Following the event
-// stream of a forge belongs to an optional interface that part A adds, so it
+// pull request has not changed since that [Revision]. The event stream of a
+// forge is the optional [PullRequestFeed] interface, so a plugin that gains it
 // does not change this one.
 type Forge interface {
 	Manifest() Manifest
@@ -110,19 +110,41 @@ type PullRequestDraft struct {
 
 // PullRequest is the state of a pull request as the forge reports it. Revision
 // names the version of this read, to pass back as since on the next one. Merge
-// is [MergeStateUnknown] while the forge computes it.
+// is [MergeStateUnknown] while the forge computes it. Checks summarizes the
+// checks of HeadSHA, and is [ChecksUnknown] when the forge did not report them.
+// ReviewCount counts the reviews submitted on the request, so a higher count
+// than the last read means a review was submitted since.
 type PullRequest struct {
-	Ref      PullRequestRef
-	Title    string
-	URL      string
-	Head     string
-	Base     string
-	HeadSHA  CommitSHA
-	State    PullRequestState
-	Draft    bool
-	Merge    MergeState
-	Author   ForgeActor
-	Revision Revision
+	Ref         PullRequestRef
+	Title       string
+	URL         string
+	Head        string
+	Base        string
+	HeadSHA     CommitSHA
+	State       PullRequestState
+	Draft       bool
+	Merge       MergeState
+	Checks      ChecksState
+	ReviewCount int
+	Author      ForgeActor
+	Revision    Revision
+}
+
+// PullRequestFeed is the optional event stream of a forge, which a plugin
+// implements when its forge grants one. A caller finds it with a type assertion
+// and reads [Forge.PullRequest] on a cadence otherwise. PullRequestEvents
+// returns a channel that receives a signal for each change of the pull request,
+// and that is closed when ctx is done. A forge that refuses the feed returns an
+// error matching [ErrFeedRefused].
+type PullRequestFeed interface {
+	PullRequestEvents(ctx context.Context, ref PullRequestRef) (<-chan PullRequestSignal, error)
+}
+
+// PullRequestSignal is one change of a pull request that a [PullRequestFeed]
+// reports. It names the kind of change and nothing more: a reader reads the
+// pull request to see what changed.
+type PullRequestSignal struct {
+	Kind PullRequestEventKind
 }
 
 // Check is one status of a commit: check runs and commit statuses are both
