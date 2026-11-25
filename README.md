@@ -272,7 +272,9 @@ which is omitted from the wire (`omitzero`), so a message from a daemon older th
 this field decodes to no pull request. Encoded on its own, the zero value is `null`,
 and decoding `null` gives the zero value back. Any other value must have a `Number`
 above zero and a known `State`, and the same rule applies when encoding and when
-decoding: a value that breaks it fails with `ErrInvalidSessionPullRequest`. Decoding
+decoding: a value that breaks it fails with `ErrInvalidSessionPullRequest`. A field
+of the wrong JSON type, such as a numeric `State` or a quoted `Number`, is not a
+break of that rule: decoding returns the `encoding/json` error as is. Decoding
 an unknown `State` matches both `ErrInvalidSessionPullRequest` and
 `ErrUnknownPullRequestState`, and encoding one matches the same pair. Encoding
 refuses an unknown state, so `json.Marshal` fails for the whole `SessionInfo` list

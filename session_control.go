@@ -204,7 +204,8 @@ var ErrInvalidSessionPullRequest = errors.New("invalid session pull request")
 // a [SessionInfo] its key is omitted from the wire, and on its own it encodes as
 // null. Any other value needs a Number above zero and a State that
 // [PullRequestState.MarshalText] accepts; otherwise both marshaling and
-// unmarshaling fail with an error matching [ErrInvalidSessionPullRequest]. The
+// unmarshaling fail with an error matching [ErrInvalidSessionPullRequest]; a field
+// of the wrong JSON type gives the encoding/json error instead. The
 // producer must only fill valid values: an unknown State fails the JSON encoding
 // of the whole [SessionInfo] list rather than dropping the state, and the host
 // guarantees it never sets one.
