@@ -265,6 +265,13 @@ stage then runs only on a manual compaction. The host checks the value with
 resolved for the session's vendor. Zero means the host did not resolve it, as an
 older daemon does, and a frontend falls back to its own size.
 
+`SessionInfo.PullRequest` is the pull request the session opened: its `Number`,
+`State` (a `PullRequestState`, which marshals to `"open"`, `"closed"` or
+`"merged"`), `Draft` and `URL`. A session with no pull request has the zero value,
+which marshals as `null`, so a message from a daemon older than this field decodes
+to no pull request. A `PullRequestState` that names no state fails to marshal and
+to unmarshal with `ErrUnknownPullRequestState`.
+
 ## Model routing
 
 A backend declares the models it knows how to run in `Manifest.Models`

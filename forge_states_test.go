@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -156,5 +157,34 @@ func TestZeroMergeStateAndIssueStateAreTheUnmarkedValues(t *testing.T) {
 	var permission RepoPermission
 	if permission != PermissionNone || permission.String() != "none" {
 		t.Fatalf("zero RepoPermission = %v, want PermissionNone", permission)
+	}
+}
+
+func TestParsePullRequestStateReadsEveryStateBack(t *testing.T) {
+	for _, want := range PullRequestStates() {
+		got, err := ParsePullRequestState(want.String())
+		if err != nil || got != want {
+			t.Fatalf("ParsePullRequestState(%q) = %v, %v, want %v", want.String(), got, err, want)
+		}
+	}
+}
+
+func TestParsePullRequestStateRefusesUnknownText(t *testing.T) {
+	for _, text := range []string{"", "Open", "draft", "PullRequestState(0)"} {
+		got, err := ParsePullRequestState(text)
+		if !errors.Is(err, ErrUnknownPullRequestState) {
+			t.Errorf("ParsePullRequestState(%q) error = %v, want ErrUnknownPullRequestState", text, err)
+		}
+		if got != 0 {
+			t.Errorf("ParsePullRequestState(%q) = %v, want the zero value on error", text, got)
+		}
+	}
+}
+
+func TestPullRequestStateRefusesToMarshalAnUnknownValue(t *testing.T) {
+	for _, state := range []PullRequestState{0, 9} {
+		if _, err := state.MarshalText(); !errors.Is(err, ErrUnknownPullRequestState) {
+			t.Errorf("MarshalText(%d) error = %v, want ErrUnknownPullRequestState", int(state), err)
+		}
 	}
 }

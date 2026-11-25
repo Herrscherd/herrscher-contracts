@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/Herrscherd/herrscher-contracts/i18n"
 )
@@ -186,6 +187,30 @@ type SessionInfo struct {
 	// Language is the language of the session. Zero means unknown: the reader falls
 	// back to the operator's default language.
 	Language i18n.Language `json:"Language"`
+	// PullRequest is the pull request the session opened. Its zero value means the
+	// session has none, and an older daemon sends none.
+	PullRequest SessionPullRequest `json:"PullRequest"`
+}
+
+// SessionPullRequest is the pull request a session opened, as the host last read
+// it from the forge. Number 0 means the session has no pull request, so the zero
+// value is that case and marshals as null. A set pull request needs a State that
+// [PullRequestState.MarshalText] accepts. JSON decoding does not validate Number.
+type SessionPullRequest struct {
+	Number int              `json:"Number"`
+	State  PullRequestState `json:"State"`
+	Draft  bool             `json:"Draft"`
+	URL    string           `json:"URL"`
+}
+
+// MarshalJSON writes null for a session with no pull request, and the struct
+// otherwise.
+func (p SessionPullRequest) MarshalJSON() ([]byte, error) {
+	if p.Number == 0 {
+		return []byte("null"), nil
+	}
+	type wire SessionPullRequest
+	return json.Marshal(wire(p))
 }
 
 // SessionControlReceiver is the opt-in seam by which a gateway receives the hub's

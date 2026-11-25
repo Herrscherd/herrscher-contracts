@@ -29,7 +29,7 @@ func TestSessionInfoJSONKeepsGoFieldNames(t *testing.T) {
 		ContextWindow:      400000,
 		Language:           i18n.French,
 	}
-	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92,"ContextWindow":400000,"Language":2}`
+	const wantJSON = `{"Name":"lead","Incarnation":"inc-1","ChannelID":"chan-9","Type":"terminal","Gateways":["discord","terminal"],"Vendor":"claude","Model":"claude-opus-5","Effort":"high","Project":"herrscher","Dir":"/w/lead","Archived":true,"Resumable":true,"LastTs":"2026-11-03T10:00:00Z","ContextTokens":4200,"AutoCompactPercent":92,"ContextWindow":400000,"Language":2,"PullRequest":null}`
 	assertJSONRoundTrip(t, want, wantJSON, func(raw []byte) (any, error) {
 		var got SessionInfo
 		err := json.Unmarshal(raw, &got)
