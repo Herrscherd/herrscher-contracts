@@ -9,14 +9,19 @@ import (
 	contracts "github.com/Herrscherd/herrscher-contracts"
 )
 
-// CheckPullRequestFeed opens the event feed of ref on feed and fails the test
-// unless its channel closes once ctx is cancelled, and no send blocks past that
-// cancellation. A feed that refuses at open must return an error matching
-// [contracts.ErrFeedRefused], which passes the check. Each signal received after
-// the feed opens must be a valid kind, or carry an Err with a zero Kind, and an
-// Err must be the last signal before the close. The check cannot make a feed
-// fail mid-stream, so a plugin proves that path with its own fake. A channel
-// still open ten seconds after the cancellation fails the check.
+// CheckPullRequestFeed opens the event feed of ref, cancels it, and fails the
+// test unless the channel closes within ten seconds of the cancellation. A feed
+// that refuses at open with an error matching [contracts.ErrFeedRefused] passes.
+// Each signal received after the feed opens must name a valid kind or carry an
+// Err with a zero Kind, and an Err must be the last signal before the close.
+// A valid signal sent after the cancellation is accepted, since the check cannot
+// tell it from one sent just before the cancellation. A feed that keeps the
+// channel open past the deadline fails, but one that sends a bounded number of
+// signals after the cancellation and then closes passes. The check cannot make a
+// feed fail mid-stream, so a plugin proves that path with its own fake.
+// [contracts.PullRequestFeed] obliges a plugin to send nothing after the
+// cancellation and never to block a send past ctx; the check does not prove
+// either.
 func CheckPullRequestFeed(tb testing.TB, feed contracts.PullRequestFeed, ref contracts.PullRequestRef) {
 	tb.Helper()
 	checkPullRequestFeed(tb, feed, ref, callTimeout)

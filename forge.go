@@ -112,10 +112,11 @@ type PullRequestDraft struct {
 // names the version of this read, to pass back as since on the next one. Merge
 // is [MergeStateUnknown] while the forge computes it. Checks summarizes the
 // checks of HeadSHA, and is [ChecksUnknown] when the forge did not report them.
-// LatestReview is the opaque identifier of the last review submitted on the
-// request, and is empty while there is none. A value different from the one of
-// the last read means a review was submitted since: compare it for equality
-// only, as with Revision.
+// LatestReview is the [ReviewID] of the last review submitted on the request.
+// It is empty while there is none, and also when the forge does not report
+// reviews, so a host must not read an empty LatestReview as the absence of a
+// review. A value different from the one of the last read means a review was
+// submitted since: compare it for equality only, as with Revision.
 type PullRequest struct {
 	Ref          PullRequestRef
 	Title        string
@@ -127,10 +128,15 @@ type PullRequest struct {
 	Draft        bool
 	Merge        MergeState
 	Checks       ChecksState
-	LatestReview string
+	LatestReview ReviewID
 	Author       ForgeActor
 	Revision     Revision
 }
+
+// ReviewID is the opaque identifier of a review the forge reports, compared for
+// equality only, as with [Revision]. The zero ReviewID means no review is
+// reported.
+type ReviewID string
 
 // PullRequestFeed is the optional event stream of a forge, which a plugin
 // implements when its forge grants one. A caller finds it with a type assertion
@@ -149,6 +155,9 @@ type PullRequest struct {
 //     matches [ErrFeedRefused] with errors.Is. The caller then reads
 //     [Forge.PullRequest] on a cadence.
 //
+// A caller that receives a signal with Err stops reading the channel and cancels
+// the ctx it passed to PullRequestEvents.
+//
 // A refusal at open returns an error matching [ErrFeedRefused] and no channel.
 //
 // Sending never blocks past ctx: each send selects on ctx.Done(). A signal of a
@@ -156,6 +165,10 @@ type PullRequest struct {
 // holds at most one pending signal per [PullRequestEventKind], and the signal
 // with an error is never dropped. A caller that falls behind still learns of
 // every kind of change, and reads the pull request to see its current state.
+//
+// Two obligations belong to the plugin and are not verified by
+// forgetest.CheckPullRequestFeed: no signal is sent after the cancellation, and
+// no send blocks without a select on ctx.Done().
 type PullRequestFeed interface {
 	PullRequestEvents(ctx context.Context, ref PullRequestRef) (<-chan PullRequestSignal, error)
 }
