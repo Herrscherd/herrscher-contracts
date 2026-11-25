@@ -103,6 +103,7 @@ it is absent.
 | `ErrInvalidApproval` | `approval.go` | the refusal of an `ApprovalRequest` or `ApprovalAnswer` field of the wrong JSON type, named by its wire name, and of an `ApprovalAnswer` whose `Decision` names no decision |
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
+| `ContextPart`, `ContextMemory`, `ContextSkills`, `ContextDelegation`, `ContextCapabilities`, `ContextIdentity`, `InjectedPart` | `context_part.go` | the blocks the host writes into the context of every turn and the estimated size of each, carried by `Event.Injected` on the terminal reply |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
 | `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome`, `ErrNegativeCompactCount` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`), and the check `CompactStats.Validate` runs on its outcome and counts |
 | `ForgeToken`, `NewForgeToken`, `ErrEmptyForgeToken`, `TokenSource` (`TokenSourceSaved`, `TokenSourceApp`, `TokenSourceEnv`, `TokenSourceCLI`), `ErrUnknownTokenSource` | `forge_token.go`, `forge_states.go` | a credential for one forge host. Its secret is unexported; `fmt` and `String` print `[redacted]`, and JSON writes only the login and the source, or `null` for the zero token. `TokenSource` says where it came from and renders as `unknown` when it names no source; an empty secret is refused |
@@ -417,6 +418,13 @@ It never spends a turn to read them: a vendor that exposes none returns `ErrLimi
 each a `ModelUsage`, so a ledger can tell the main model from the one that ran
 the subagents. They are empty when the backend gives no breakdown, and the
 totals stand alone.
+
+`Event.Injected` sizes each block the host wrote into the turn's context
+(`memory`, `skills`, `delegation`, `capabilities`, `identity`), each an
+`InjectedPart`, carried on the terminal reply (`done`) like `Models`. The sizes
+are estimates the host makes from the text it wrote, not counts reported by the
+vendor. A reader keeps a part it does not know under its wire name, so a host
+that injects a new block never makes an older reader refuse the event.
 
 From v0.39.0 on, `Event.Outcome` (`TurnOutcome`) says how a turn ended when it
 did not complete:

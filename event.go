@@ -71,6 +71,11 @@ type Event struct {
 	// (Done) like Cost. Empty when the backend gives no breakdown: the totals
 	// above then stand alone.
 	Models []ModelUsage `json:"models,omitempty"`
+	// Injected sizes each block the host wrote into the turn's context, such as
+	// memory or the skills menu, carried on the terminal reply (Done) like
+	// Models. The sizes are estimates made by the host. Empty when the host
+	// injected nothing or did not measure it.
+	Injected []InjectedPart `json:"injected,omitempty"`
 	// Resume carries the backend's opaque resume token, piggybacked on the
 	// terminal reply{done} so the daemon can persist it for cross-restart
 	// --resume. Empty when the backend is not ResumeAware or has no id yet.
@@ -133,7 +138,7 @@ func DecodeEvent(data []byte) (Event, error) {
 func eventWireFields() []string {
 	return []string{
 		"t", "who", "text", "value", "done", "outcome", "cost", "tokens", "tokens_in",
-		"cache_read", "cache_create", "models", "resume", "project",
+		"cache_read", "cache_create", "models", "injected", "resume", "project",
 		"attachments", "session_incarnation", "turn_id", "agent",
 		"coordination", "todos", "subagent", "tool_call",
 	}
