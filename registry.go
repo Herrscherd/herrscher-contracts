@@ -118,8 +118,8 @@ func (r *Registry) Register(p Plugin) { r.plugins = append(r.plugins, p) }
 // PreferBackend moves the backend plugins whose Manifest Kind is kind ahead of
 // the others, keeping the registration order within each group. Go initialises
 // the plugin packages in the order of their import paths, so a host calls
-// PreferBackend once at startup, before any other reader of the registry, to
-// name the backend that a lookup taking the first registered one resolves to.
+// PreferBackend once at startup, before any lookup that takes the first
+// registered backend, to name the backend that lookup resolves to.
 // A plugin of another category is never moved, and an unknown or empty kind
 // changes nothing. It reorders a copy, so a slice an earlier Plugins call
 // returned keeps its order.
