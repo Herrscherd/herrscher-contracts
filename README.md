@@ -382,7 +382,8 @@ silently, by running natively on the user's own login.
 A profile is a second login the user owns for one vendor (a personal and a work
 account, say), each kept in its own directory. The host points the vendor CLI at
 that directory with one variable, given by `ProfileHomeEnv`: `CLAUDE_CONFIG_DIR`
-for claude, `CODEX_HOME` for codex, `GROK_HOME` for grok. `ProfileEnv` builds that single entry.
+for claude, `CODEX_HOME` for codex, `GROK_HOME` for grok. `ProfileEnv` builds
+that single entry.
 
 Cursor has no profile. Its CLI offers no variable that relocates its login on
 every platform, so `ProfileHomeEnv` refuses it with `ErrNoProfileHome`.
