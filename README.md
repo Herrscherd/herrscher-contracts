@@ -104,6 +104,7 @@ it is absent.
 | `HealthState`, `WorstHealth`, `ProbeAccess`, `ProbeReport`, `HealthProber` | `health.go` | the outcome of a health check (`ok`, `degraded`, `down`, `off`), the account it checks, and the plugin level function that runs it |
 | `LimitWindow`, `Limit`, `LimitReader`, `ErrLimitsUnavailable`, `ModelUsage` | `limits.go` | the vendor usage limits of an account (`five-hour`, `weekly`, `monthly`), the plugin level function that reads them, and the usage of one model within a turn |
 | `ContextPart`, `ContextMemory`, `ContextSkills`, `ContextDelegation`, `ContextCapabilities`, `ContextIdentity`, `InjectedPart` | `context_part.go` | the blocks the host writes into the context of every turn and the estimated size of each, carried by `Event.Injected` on the terminal reply |
+| `ModelReadable` | `attachment_readable.go` | whether the host hands an inbound `Attachment` to a model (an image, a text file, a PDF, JSON, XML, TOML or YAML), read from its type or, without one, its extension. A gateway that stages files itself checks it before downloading |
 | `OutboundFile`, `ValidateOutboundFile`, `ErrInvalidOutboundFile` | `backend.go` | a file a backend rendered to disk (`Path` inside the turn's `Prompt.Outbox`, `Name`, `ContentType`), and the check the host runs before a gateway gets it |
 | `CompactStats`, `CompactOutcome`, `CompactOutcomes`, `ParseCompactOutcome`, `ErrUnknownCompactOutcome`, `ErrNegativeCompactCount` | `compact_stats.go` | what a compaction stage measured for `herrscher usage`, its outcome (`done`, `short`, `failed`, `dry_run`, `skipped`), and the check `CompactStats.Validate` runs on its outcome and counts |
 | `ForgeToken`, `NewForgeToken`, `ErrEmptyForgeToken`, `TokenSource` (`TokenSourceSaved`, `TokenSourceApp`, `TokenSourceEnv`, `TokenSourceCLI`), `ErrUnknownTokenSource` | `forge_token.go`, `forge_states.go` | a credential for one forge host. Its secret is unexported; `fmt` and `String` print `[redacted]`, and JSON writes only the login and the source, or `null` for the zero token. `TokenSource` says where it came from and renders as `unknown` when it names no source; an empty secret is refused |
@@ -142,6 +143,10 @@ descriptive only and never affects discovery.
 `Manifest.AttachmentHosts []string` names the hosts a gateway's attachment URLs
 may point at. The host pins its downloads to that allowlist, so a gateway that
 declares none has none downloaded.
+
+`ModelReadable(Attachment)` is the one rule for which inbound files reach a
+model. The host drops any other file, so a gateway that downloads files itself
+asks it first and tells the author when a file is refused.
 
 ### Skills are orthogonal to the category
 
