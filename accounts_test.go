@@ -53,6 +53,7 @@ func TestProfileHomeEnvPerVendor(t *testing.T) {
 	}{
 		{vendor: VendorClaude, want: "CLAUDE_CONFIG_DIR"},
 		{vendor: VendorCodex, want: "CODEX_HOME"},
+		{vendor: VendorGrok, want: "GROK_HOME"},
 		{vendor: VendorCursor, wantErr: true},
 		{vendor: "", wantErr: true},
 	}

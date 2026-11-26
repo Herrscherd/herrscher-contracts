@@ -7,6 +7,7 @@ const (
 	VendorClaude = "claude"
 	VendorCodex  = "codex"
 	VendorCursor = "cursor"
+	VendorGrok   = "grok"
 )
 
 const (
@@ -14,6 +15,8 @@ const (
 	EnvClaudeConfigDir = "CLAUDE_CONFIG_DIR"
 	// EnvCodexHome points the codex CLI at the directory holding its login and config.toml.
 	EnvCodexHome = "CODEX_HOME"
+	// EnvGrokHome points the grok CLI at the directory holding its login, config.toml and sessions.
+	EnvGrokHome = "GROK_HOME"
 )
 
 // NativeProfile names the implicit profile: the login already present on the machine.
@@ -68,6 +71,8 @@ func ProfileHomeEnv(vendor string) (string, error) {
 		return EnvClaudeConfigDir, nil
 	case VendorCodex:
 		return EnvCodexHome, nil
+	case VendorGrok:
+		return EnvGrokHome, nil
 	}
 	return "", ErrNoProfileHome
 }
