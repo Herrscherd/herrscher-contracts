@@ -52,6 +52,10 @@ var (
 	ErrInvalidRef = errors.New("reference names no repository, number or thread")
 	// ErrEmptyForgeToken reports a token built from an empty secret.
 	ErrEmptyForgeToken = errors.New("forge token secret is empty")
+	// ErrEmptyIssueTitle reports an issue draft with no title.
+	ErrEmptyIssueTitle = errors.New("an issue needs a title")
+	// ErrEmptyComment reports a comment with no text.
+	ErrEmptyComment = errors.New("a comment needs a text")
 	// ErrUnknownTokenSource reports a token source that names no source.
 	ErrUnknownTokenSource = errors.New("unknown forge token source")
 )

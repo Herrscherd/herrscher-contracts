@@ -332,6 +332,31 @@ func (f fakeForge) Issues(context.Context, contracts.ForgeRepoRef, contracts.Iss
 	return contracts.Page[contracts.Issue]{}, f.refusal()
 }
 
+type writingForge struct {
+	fakeForge
+}
+
+func (f writingForge) OpenIssue(context.Context, contracts.IssueDraft) (contracts.Issue, error) {
+	return contracts.Issue{}, f.refusal()
+}
+
+func (f writingForge) CommentOnIssue(context.Context, contracts.IssueRef, string) error {
+	return f.refusal()
+}
+
+func TestCheckRefusesForeignHostAlsoChecksTheIssueWritesOfAForgeThatHasThem(t *testing.T) {
+	rec := &recorder{}
+	checkRefusesForeignHost(rec, writingForge{}, foreignRepo(t), callTimeout)
+	if len(rec.failures) != 12 {
+		t.Fatalf("forgetful writing forge reported %d failures, want the ten reads and the two writes: %q", len(rec.failures), rec.failures)
+	}
+	guarded := &recorder{}
+	checkRefusesForeignHost(guarded, writingForge{fakeForge{refuses: true}}, foreignRepo(t), callTimeout)
+	if len(guarded.failures) != 0 {
+		t.Fatalf("guarded writing forge reported failures: %q", guarded.failures)
+	}
+}
+
 type recorder struct {
 	failures []string
 }

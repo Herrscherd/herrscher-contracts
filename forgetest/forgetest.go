@@ -210,7 +210,7 @@ const callTimeout = 10 * time.Second
 const foreignCommit = "0000000000000000000000000000000000000000"
 
 func foreignCalls(forge contracts.Forge, foreign contracts.ForgeRepoRef, refs foreignRefs) []foreignCall {
-	return []foreignCall{
+	calls := []foreignCall{
 		{"RepoAccess", func(ctx context.Context) error {
 			_, err := forge.RepoAccess(ctx, foreign)
 			return err
@@ -250,4 +250,17 @@ func foreignCalls(forge contracts.Forge, foreign contracts.ForgeRepoRef, refs fo
 			return err
 		}},
 	}
+	writer, writes := forge.(contracts.IssueWriter)
+	if !writes {
+		return calls
+	}
+	return append(calls,
+		foreignCall{"OpenIssue", func(ctx context.Context) error {
+			_, err := writer.OpenIssue(ctx, contracts.IssueDraft{Repo: foreign, Title: "t"})
+			return err
+		}},
+		foreignCall{"CommentOnIssue", func(ctx context.Context) error {
+			return writer.CommentOnIssue(ctx, refs.issue, "comment")
+		}},
+	)
 }
