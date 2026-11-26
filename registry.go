@@ -115,28 +115,34 @@ type Registry struct{ plugins []Plugin }
 // Register adds p to the registry, after the plugins registered before it.
 func (r *Registry) Register(p Plugin) { r.plugins = append(r.plugins, p) }
 
-// Prefer moves the plugins whose Manifest Kind is kind ahead of the others,
-// keeping the registration order within each group. Go initialises the plugin
-// packages in the order of their import paths, so a host calls Prefer once at
-// startup to name the backend that a lookup taking the first registered one
-// resolves to. An unknown or empty kind changes nothing.
-func (r *Registry) Prefer(kind string) {
+// PreferBackend moves the backend plugins whose Manifest Kind is kind ahead of
+// the others, keeping the registration order within each group. Go initialises
+// the plugin packages in the order of their import paths, so a host calls
+// PreferBackend once at startup, before any other reader of the registry, to
+// name the backend that a lookup taking the first registered one resolves to.
+// A plugin of another category is never moved, and an unknown or empty kind
+// changes nothing. It reorders a copy, so a slice an earlier Plugins call
+// returned keeps its order.
+func (r *Registry) PreferBackend(kind string) {
 	if kind == "" {
 		return
 	}
-	slices.SortStableFunc(r.plugins, func(left, right Plugin) int {
+	reordered := slices.Clone(r.plugins)
+	slices.SortStableFunc(reordered, func(left, right Plugin) int {
 		return preferenceRank(left, kind) - preferenceRank(right, kind)
 	})
+	r.plugins = reordered
 }
 
 func preferenceRank(plugin Plugin, kind string) int {
-	if plugin.Manifest.Kind == kind {
+	if plugin.Manifest.Category == CategoryBackend && plugin.Manifest.Kind == kind {
 		return 0
 	}
 	return 1
 }
 
-// Plugins returns every registered plugin, in registration order.
+// Plugins returns every registered plugin, in registration order as reordered
+// by PreferBackend.
 func (r *Registry) Plugins() []Plugin { return r.plugins }
 
 func (r *Registry) byCategory(category Category) []Plugin {
