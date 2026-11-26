@@ -13,6 +13,8 @@ type Cmd struct {
 	Params []Param
 	Help   string
 	Run    func(ctx context.Context, in Input) (Result, error)
+	// ReadOnly declares that the command changes nothing, which the host trusts to leave it out of the journal of what a session changed.
+	ReadOnly bool
 }
 
 // Param is one declared input. Help is the catalog key of its help text. Required
@@ -77,6 +79,9 @@ func (b *Builder) ValueParam(name, helpKey string, required bool) *Builder {
 	})
 	return b
 }
+
+// Reads declares the command read only and returns the builder for chaining.
+func (b *Builder) Reads() *Builder { b.c.ReadOnly = true; return b }
 
 // Do sets the handler and returns the finished Cmd.
 func (b *Builder) Do(fn func(ctx context.Context, in Input) (Result, error)) Cmd {
