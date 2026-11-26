@@ -149,7 +149,10 @@ type ReviewID string
 // PullRequestEvents returns a channel of signals for one pull request. The
 // channel closes in one of two ways, and the signal before the close tells them
 // apart:
-//   - when ctx is done, with no signal after the cancellation;
+//   - when ctx is done. The plugin sends no new signal once it has observed
+//     the cancellation, but a signal may still arrive if the cancellation lands
+//     between its context check and its send, so the caller treats the close,
+//     not the last signal, as the end of the feed;
 //   - when the stream fails while ctx is live, after a signal whose Err is set
 //     and whose Kind is zero. Err matches the cause, so a refusal mid-stream
 //     matches [ErrFeedRefused] with errors.Is. The caller then reads
@@ -167,8 +170,8 @@ type ReviewID string
 // every kind of change, and reads the pull request to see its current state.
 //
 // Two obligations belong to the plugin and are not verified by
-// forgetest.CheckPullRequestFeed: no signal is sent after the cancellation, and
-// no send blocks without a select on ctx.Done().
+// forgetest.CheckPullRequestFeed: no new signal is sent once the cancellation
+// has been observed, and no send blocks without a select on ctx.Done().
 type PullRequestFeed interface {
 	PullRequestEvents(ctx context.Context, ref PullRequestRef) (<-chan PullRequestSignal, error)
 }
