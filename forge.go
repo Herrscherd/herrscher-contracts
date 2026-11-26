@@ -173,6 +173,27 @@ type PullRequestFeed interface {
 	PullRequestEvents(ctx context.Context, ref PullRequestRef) (<-chan PullRequestSignal, error)
 }
 
+// IssueWriter is the optional interface of a forge that opens issues and
+// comments on them, which a plugin implements beside [Forge]. A caller finds it
+// with a type assertion. Like the methods of [Forge], each method returns
+// [ErrForgeWrongHost] for a repository on another host, and forgetest's
+// CheckRefusesForeignHost proves it when the forge implements the interface.
+// OpenIssue refuses a draft with an empty title with [ErrEmptyIssueTitle], and
+// CommentOnIssue an empty body with [ErrEmptyComment], before calling the forge.
+type IssueWriter interface {
+	OpenIssue(ctx context.Context, draft IssueDraft) (Issue, error)
+	CommentOnIssue(ctx context.Context, ref IssueRef, body string) error
+}
+
+// IssueDraft is what a plugin needs to open an issue: the repository, the text,
+// and the labels to put on it.
+type IssueDraft struct {
+	Repo   ForgeRepoRef
+	Title  string
+	Body   string
+	Labels []string
+}
+
 // PullRequestSignal is one event of a [PullRequestFeed]. It carries either the
 // Kind of a change of the pull request, or an Err when the stream failed. A
 // signal with Err set has a zero Kind, and it is the last signal before the

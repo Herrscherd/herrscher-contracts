@@ -13,6 +13,8 @@ const (
 	ContextDelegation   ContextPart = "delegation"
 	ContextCapabilities ContextPart = "capabilities"
 	ContextIdentity     ContextPart = "identity"
+	// ContextSelfTools is the declarations of the herrscher MCP server a session gets, which the vendor sends with every turn.
+	ContextSelfTools ContextPart = "self_tools"
 )
 
 // InjectedPart is the estimated size of one block the host injected into a

@@ -332,6 +332,49 @@ func (f fakeForge) Issues(context.Context, contracts.ForgeRepoRef, contracts.Iss
 	return contracts.Page[contracts.Issue]{}, f.refusal()
 }
 
+type writingForge struct {
+	fakeForge
+
+	checksText bool
+}
+
+func (f writingForge) OpenIssue(_ context.Context, draft contracts.IssueDraft) (contracts.Issue, error) {
+	if f.checksText && strings.TrimSpace(draft.Title) == "" {
+		return contracts.Issue{}, contracts.ErrEmptyIssueTitle
+	}
+	return contracts.Issue{}, f.refusal()
+}
+
+func (f writingForge) CommentOnIssue(_ context.Context, _ contracts.IssueRef, body string) error {
+	if f.checksText && strings.TrimSpace(body) == "" {
+		return contracts.ErrEmptyComment
+	}
+	return f.refusal()
+}
+
+func TestCheckIssueWriterRefusesEmptyTextTellsACheckingForgeFromACarelessOne(t *testing.T) {
+	repo := foreignRepo(t)
+	careless := &recorder{}
+	checkIssueWriterRefusesEmptyText(careless, writingForge{}, repo, callTimeout)
+	if len(careless.failures) != 2 {
+		t.Fatalf("careless writer reported %d failures, want both writes: %q", len(careless.failures), careless.failures)
+	}
+	CheckIssueWriterRefusesEmptyText(t, writingForge{checksText: true}, repo)
+}
+
+func TestCheckRefusesForeignHostAlsoChecksTheIssueWritesOfAForgeThatHasThem(t *testing.T) {
+	rec := &recorder{}
+	checkRefusesForeignHost(rec, writingForge{}, foreignRepo(t), callTimeout)
+	if len(rec.failures) != 12 {
+		t.Fatalf("forgetful writing forge reported %d failures, want the ten reads and the two writes: %q", len(rec.failures), rec.failures)
+	}
+	guarded := &recorder{}
+	checkRefusesForeignHost(guarded, writingForge{fakeForge: fakeForge{refuses: true}}, foreignRepo(t), callTimeout)
+	if len(guarded.failures) != 0 {
+		t.Fatalf("guarded writing forge reported failures: %q", guarded.failures)
+	}
+}
+
 type recorder struct {
 	failures []string
 }

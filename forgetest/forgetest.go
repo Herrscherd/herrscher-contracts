@@ -210,7 +210,7 @@ const callTimeout = 10 * time.Second
 const foreignCommit = "0000000000000000000000000000000000000000"
 
 func foreignCalls(forge contracts.Forge, foreign contracts.ForgeRepoRef, refs foreignRefs) []foreignCall {
-	return []foreignCall{
+	calls := []foreignCall{
 		{"RepoAccess", func(ctx context.Context) error {
 			_, err := forge.RepoAccess(ctx, foreign)
 			return err
@@ -249,5 +249,56 @@ func foreignCalls(forge contracts.Forge, foreign contracts.ForgeRepoRef, refs fo
 			_, err := forge.Issues(ctx, foreign, contracts.IssueQuery{}, contracts.PageRequest{})
 			return err
 		}},
+	}
+	writer, writes := forge.(contracts.IssueWriter)
+	if !writes {
+		return calls
+	}
+	return append(calls,
+		foreignCall{"OpenIssue", func(ctx context.Context) error {
+			_, err := writer.OpenIssue(ctx, contracts.IssueDraft{Repo: foreign, Title: "t"})
+			return err
+		}},
+		foreignCall{"CommentOnIssue", func(ctx context.Context) error {
+			return writer.CommentOnIssue(ctx, refs.issue, "comment")
+		}},
+	)
+}
+
+// CheckIssueWriterRefusesEmptyText calls the writes of writer with an empty
+// title and an empty comment on repo, a repository on the host it serves, and
+// fails the test unless they return [contracts.ErrEmptyIssueTitle] and
+// [contracts.ErrEmptyComment]. The forge plugin's own test proves that no
+// request left, since only it sees its transport.
+func CheckIssueWriterRefusesEmptyText(tb testing.TB, writer contracts.IssueWriter, repo contracts.ForgeRepoRef) {
+	tb.Helper()
+	checkIssueWriterRefusesEmptyText(tb, writer, repo, callTimeout)
+}
+
+func checkIssueWriterRefusesEmptyText(report reporter, writer contracts.IssueWriter, repo contracts.ForgeRepoRef, timeout time.Duration) {
+	report.Helper()
+	issue, err := contracts.NewIssueRef(repo, 1)
+	if err != nil {
+		report.Errorf("forgetest: repository %v: %v", repo, err)
+		return
+	}
+	calls := []struct {
+		name string
+		want error
+		run  func(ctx context.Context) error
+	}{
+		{"OpenIssue", contracts.ErrEmptyIssueTitle, func(ctx context.Context) error {
+			_, openErr := writer.OpenIssue(ctx, contracts.IssueDraft{Repo: repo, Title: " "})
+			return openErr
+		}},
+		{"CommentOnIssue", contracts.ErrEmptyComment, func(ctx context.Context) error {
+			return writer.CommentOnIssue(ctx, issue, "")
+		}},
+	}
+	for _, call := range calls {
+		callErr := runWithDeadline(foreignCall{name: call.name, run: call.run}, timeout)
+		if !errors.Is(callErr, call.want) {
+			report.Errorf("%s with an empty text: error = %v, want %v", call.name, callErr, call.want)
+		}
 	}
 }
