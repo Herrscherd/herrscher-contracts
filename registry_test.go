@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"slices"
 	"testing"
 	"testing/fstest"
 )
@@ -182,5 +183,33 @@ func TestForgeFactoryReceivesTheHostCredentials(t *testing.T) {
 	}
 	if received != creds {
 		t.Fatalf("factory received %v, want the host credentials it was given", received)
+	}
+}
+
+func TestPreferPutsTheNamedBackendFirstAndKeepsTheRestInOrder(t *testing.T) {
+	var reg Registry
+	for _, kind := range []string{"antigravity", "claude", "codex", "cursor"} {
+		reg.Register(Plugin{Manifest: Manifest{Kind: kind, Category: CategoryBackend}})
+	}
+	reg.Register(Plugin{Manifest: Manifest{Kind: "terminal", Category: CategoryGateway}})
+	reg.Prefer("claude")
+	var kinds []string
+	for _, plugin := range reg.Plugins() {
+		kinds = append(kinds, plugin.Manifest.Kind)
+	}
+	if want := []string{"claude", "antigravity", "codex", "cursor", "terminal"}; !slices.Equal(kinds, want) {
+		t.Fatalf("order = %v, want %v", kinds, want)
+	}
+}
+
+func TestPreferAnUnknownOrEmptyKindKeepsTheOrder(t *testing.T) {
+	for _, kind := range []string{"", "gemini"} {
+		var reg Registry
+		reg.Register(Plugin{Manifest: Manifest{Kind: "b", Category: CategoryBackend}})
+		reg.Register(Plugin{Manifest: Manifest{Kind: "a", Category: CategoryBackend}})
+		reg.Prefer(kind)
+		if first := reg.Backends()[0].Manifest.Kind; first != "b" {
+			t.Fatalf("Prefer(%q) moved %q first", kind, first)
+		}
 	}
 }

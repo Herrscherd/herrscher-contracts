@@ -3,6 +3,7 @@ package contracts
 import (
 	"context"
 	"io/fs"
+	"slices"
 )
 
 // PluginConfig is the neutral settings bag a factory receives at startup. The
@@ -113,6 +114,27 @@ type Registry struct{ plugins []Plugin }
 
 // Register adds p to the registry, after the plugins registered before it.
 func (r *Registry) Register(p Plugin) { r.plugins = append(r.plugins, p) }
+
+// Prefer moves the plugins whose Manifest Kind is kind ahead of the others,
+// keeping the registration order within each group. Go initialises the plugin
+// packages in the order of their import paths, so a host calls Prefer once at
+// startup to name the backend that a lookup taking the first registered one
+// resolves to. An unknown or empty kind changes nothing.
+func (r *Registry) Prefer(kind string) {
+	if kind == "" {
+		return
+	}
+	slices.SortStableFunc(r.plugins, func(left, right Plugin) int {
+		return preferenceRank(left, kind) - preferenceRank(right, kind)
+	})
+}
+
+func preferenceRank(plugin Plugin, kind string) int {
+	if plugin.Manifest.Kind == kind {
+		return 0
+	}
+	return 1
+}
 
 // Plugins returns every registered plugin, in registration order.
 func (r *Registry) Plugins() []Plugin { return r.plugins }
