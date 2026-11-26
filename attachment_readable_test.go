@@ -17,6 +17,9 @@ func TestModelReadableFollowsTheTypeThenTheExtension(t *testing.T) {
 		{"extension without a type", Attachment{Filename: "Plan.MD"}, true},
 		{"unknown extension without a type", Attachment{Filename: "bundle.tar.gz"}, false},
 		{"nothing", Attachment{}, false},
+		{"blank type with a readable name", Attachment{ContentType: " ", Filename: "a.png"}, false},
+		{"parameters only with a readable name", Attachment{ContentType: ";charset=utf-8", Filename: "a.txt"}, false},
+		{"padded type wins over the name", Attachment{ContentType: " application/zip ", Filename: "a.png"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
