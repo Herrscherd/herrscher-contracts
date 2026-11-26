@@ -19,9 +19,9 @@ import (
 // channel open past the deadline fails, but one that sends a bounded number of
 // signals after the cancellation and then closes passes. The check cannot make a
 // feed fail mid-stream, so a plugin proves that path with its own fake.
-// [contracts.PullRequestFeed] obliges a plugin to send nothing after the
-// cancellation and never to block a send past ctx; the check does not prove
-// either.
+// [contracts.PullRequestFeed] obliges a plugin to send no new signal once it
+// has observed the cancellation and never to block a send past ctx; the check
+// does not prove either.
 func CheckPullRequestFeed(tb testing.TB, feed contracts.PullRequestFeed, ref contracts.PullRequestRef) {
 	tb.Helper()
 	checkPullRequestFeed(tb, feed, ref, callTimeout)
