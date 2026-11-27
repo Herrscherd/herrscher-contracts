@@ -23,9 +23,9 @@ var (
 	// ErrForgeWrongHost reports a reference to a repository on another forge
 	// host than the one the plugin serves.
 	ErrForgeWrongHost = errors.New("repository is on another forge host")
-	// ErrForgeNotModified reports that the pull request has not changed since
-	// the revision the caller holds.
-	ErrForgeNotModified = errors.New("pull request not modified since the revision given")
+	// ErrForgeNotModified reports that the pull request or the issue listing has
+	// not changed since the revision the caller holds.
+	ErrForgeNotModified = errors.New("not modified since the revision given")
 	// ErrFeedRefused reports that the forge refused the event feed of a pull
 	// request, either at open or mid-stream as the Err of the last
 	// [PullRequestSignal]. The caller reads the request on a cadence instead.
@@ -56,6 +56,11 @@ var (
 	ErrEmptyIssueTitle = errors.New("an issue needs a title")
 	// ErrEmptyComment reports a comment with no text.
 	ErrEmptyComment = errors.New("a comment needs a text")
+	// ErrInvalidForgeLogin reports text that names no forge login.
+	ErrInvalidForgeLogin = errors.New("not a forge login")
+	// ErrInvalidIssueQuery reports an issue query whose state, sort or direction
+	// is outside its closed set.
+	ErrInvalidIssueQuery = errors.New("issue query has a value outside its closed set")
 	// ErrUnknownTokenSource reports a token source that names no source.
 	ErrUnknownTokenSource = errors.New("unknown forge token source")
 )

@@ -454,3 +454,23 @@ func TestCheckRefusesForeignHostLetsALateCallFinish(t *testing.T) {
 		}
 	})
 }
+
+type listingForge struct {
+	fakeForge
+}
+
+func (f listingForge) IssuesSince(context.Context, contracts.ForgeRepoRef, contracts.IssueQuery, contracts.PageRequest, contracts.Revision) (contracts.IssueListing, error) {
+	return contracts.IssueListing{}, f.refusal()
+}
+
+func TestCheckRefusesForeignHostAlsoChecksTheConditionalListingOfAForgeThatHasIt(t *testing.T) {
+	rec := &recorder{}
+	checkRefusesForeignHost(rec, listingForge{}, foreignRepo(t), callTimeout)
+	if len(rec.failures) != 11 {
+		t.Fatalf("forgetful listing forge reported %d failures, want the ten reads and IssuesSince: %q", len(rec.failures), rec.failures)
+	}
+	if !strings.Contains(rec.failures[10], "IssuesSince") {
+		t.Fatalf("last failure %q does not name IssuesSince", rec.failures[10])
+	}
+	CheckRefusesForeignHost(t, listingForge{fakeForge: fakeForge{refuses: true}}, foreignRepo(t))
+}

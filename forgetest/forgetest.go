@@ -35,7 +35,8 @@ type foreignCall struct {
 }
 
 // CheckRefusesForeignHost calls every method of forge that takes a repository,
-// a pull request, a job, a thread or an issue, each with a reference on the
+// a pull request, a job, a thread or an issue, and the listing of a
+// ConditionalIssues when forge implements it, each with a reference on the
 // foreign host, and fails the test for each call that does not return an error
 // matching [contracts.ErrForgeWrongHost]. foreign must name a repository on a
 // host other than the one forge serves. Each call gets ten seconds: a call
@@ -249,6 +250,12 @@ func foreignCalls(forge contracts.Forge, foreign contracts.ForgeRepoRef, refs fo
 			_, err := forge.Issues(ctx, foreign, contracts.IssueQuery{}, contracts.PageRequest{})
 			return err
 		}},
+	}
+	if lister, lists := forge.(contracts.ConditionalIssues); lists {
+		calls = append(calls, foreignCall{"IssuesSince", func(ctx context.Context) error {
+			_, err := lister.IssuesSince(ctx, foreign, contracts.IssueQuery{}, contracts.PageRequest{}, "")
+			return err
+		}})
 	}
 	writer, writes := forge.(contracts.IssueWriter)
 	if !writes {

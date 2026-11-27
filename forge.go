@@ -249,23 +249,34 @@ type ReviewComment struct {
 
 // Issue is the state of an issue as the forge reports it. State is
 // [IssueStateUnknown] when the forge did not report one, and consumers treat it
-// as not open.
+// as not open. Author carries the association of the account toward the
+// repository. CreatedAt and UpdatedAt are the times the forge reports, and the
+// zero time where it reports none.
 type Issue struct {
-	Ref    IssueRef
-	Title  string
-	Body   string
-	URL    string
-	Author ForgeActor
-	Labels []string
-	State  IssueState
+	Ref       IssueRef
+	Title     string
+	Body      string
+	URL       string
+	Author    ForgeActor
+	Labels    []string
+	State     IssueState
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // IssueQuery selects the issues of a listing: the labels every issue must
-// carry, and the state to list. The zero State lists open issues, the safe
-// default of a listing; [IssueQuery.Listed] returns the state that is read.
+// carry, the login an issue must mention, the time from which an issue must
+// have been updated, the state to list and the order. The zero value applies no
+// filter and lists open issues in the forge's own order, the safe default of a
+// listing. [IssueQuery.Listed] returns the state that is read, and
+// [IssueQuery.Validate] refuses a value outside the closed sets.
 type IssueQuery struct {
-	Labels []string
-	State  IssueState
+	Labels       []string
+	Mentioned    ForgeLogin
+	UpdatedSince time.Time
+	State        IssueState
+	Sort         IssueSort
+	Direction    SortDirection
 }
 
 // Listed is the state a listing reads: [IssueOpen] when State is the zero
@@ -275,4 +286,24 @@ func (q IssueQuery) Listed() IssueState {
 		return IssueOpen
 	}
 	return q.State
+}
+
+// IssueListing is one page of an issue listing read with a revision. Revision
+// names the version of this read, to pass back as since on the next read of the
+// same query and page. Compare revisions only for equality, as with [Revision].
+type IssueListing struct {
+	Page     Page[Issue]
+	Revision Revision
+}
+
+// ConditionalIssues is the optional interface of a forge that reports the
+// revision of an issue listing, which a plugin implements beside [Forge]. A
+// caller finds it with a type assertion and reads [Forge.Issues] otherwise.
+// IssuesSince with a non-empty since returns [ErrForgeNotModified] when the
+// listing has not changed since that [Revision], and with an empty one reads the
+// listing as Issues does. It returns [ErrForgeWrongHost] for a repository on
+// another host, [ErrInvalidIssueQuery] for a query outside the closed sets, and
+// [ErrInvalidPageLimit] for a limit outside its range.
+type ConditionalIssues interface {
+	IssuesSince(ctx context.Context, repo ForgeRepoRef, query IssueQuery, page PageRequest, since Revision) (IssueListing, error)
 }
