@@ -89,7 +89,8 @@ var ErrInvalidBotToken = errors.New("invalid bot token")
 // BotToken is the secret a gateway signs in with as one bot. The secret is
 // unexported and reached only through [BotToken.Secret]. Every formatting verb
 // prints [redacted], and the JSON form writes "[redacted]", or null for the zero
-// value. The zero value holds no token. Build one with [NewBotToken].
+// value. The JSON form is written, never read back: a token cannot be decoded
+// from JSON. The zero value holds no token. Build one with [NewBotToken].
 type BotToken struct {
 	secret *string
 }
@@ -153,9 +154,9 @@ type AgentVoice struct {
 // receives through [SessionControlReceiver], found by a type assertion.
 // AgentVoices lists the agents of the daemon with how each speaks on the gateway
 // of that Manifest Kind. The implementer sorts the list by agent name and tests
-// it, makes the method safe for concurrent calls, and returns a fresh copy,
-// Channels included, that the caller may keep and change. A gateway reads it
-// again when it needs a fresh rule, since an agent's rule can change while the
+// that order, makes the method safe for concurrent calls, and returns a fresh
+// copy, Channels included, that the caller may keep and change. A gateway calls
+// it again when it needs a fresh rule, since an agent's rule can change while the
 // daemon runs; the tokens are those of the daemon's startup.
 type AgentDirectory interface {
 	AgentVoices(gateway string) []AgentVoice

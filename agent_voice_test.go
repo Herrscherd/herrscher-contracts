@@ -94,7 +94,7 @@ func TestZeroBotTokenHoldsNothing(t *testing.T) {
 }
 
 func TestNewBotTokenRefusesAMalformedSecretWithoutEcho(t *testing.T) {
-	for _, secret := range []string{botTestSecret + "\n", " " + botTestSecret, "123:AA\x00bot", "\ufeff" + botTestSecret, botTestSecret + "\u200b", "123:AA\u00a0bot", "123:AA\u2028bot", "123:AA\xffbot", "123:AA x9"} {
+	for _, secret := range []string{botTestSecret + "\n", " " + botTestSecret, "123:AA\x00bot", "\ufeff" + botTestSecret, botTestSecret + "\u200b", "123:AA\u00a0bot", "123:AA\u2028bot", "123:AA\xffbot", "123:AA x9", "123:AA\u3000x9", "123:AA\x7fx9"} {
 		_, err := NewBotToken(secret)
 		echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidBotToken, secret)
 	}
