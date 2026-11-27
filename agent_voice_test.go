@@ -1,0 +1,128 @@
+package contracts
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"testing"
+
+	"github.com/Herrscherd/herrscher-contracts/echotest"
+)
+
+const botTestSecret = "123456:AAbot-s3cr3t"
+
+func TestReplyRuleRoundTripsThroughText(t *testing.T) {
+	for _, rule := range ReplyRules() {
+		text, err := rule.MarshalText()
+		if err != nil {
+			t.Fatalf("%v.MarshalText() error = %v", rule, err)
+		}
+		var back ReplyRule
+		if err := back.UnmarshalText(text); err != nil || back != rule {
+			t.Fatalf("UnmarshalText(%q) = %v, %v, want %v", text, back, err, rule)
+		}
+	}
+}
+
+func TestReplyRuleZeroValueIsOnMention(t *testing.T) {
+	var rule ReplyRule
+	if rule != ReplyOnMention || rule.String() != "mention" {
+		t.Fatalf("zero ReplyRule = %v, want mention", rule)
+	}
+}
+
+func TestParseReplyRuleRefusesUnknownTextWithoutEcho(t *testing.T) {
+	for _, text := range []string{"", "Mention", "always-on"} {
+		_, err := ParseReplyRule(text)
+		if text == "" {
+			echotest.RequireBareSentinel(t, err, ErrUnknownReplyRule)
+			continue
+		}
+		echotest.RequireRefusalWithoutEcho(t, err, ErrUnknownReplyRule, text)
+	}
+}
+
+func TestReplyRuleRefusesAnUnknownValueOnTheWire(t *testing.T) {
+	if _, err := json.Marshal(ReplyRule(9)); !errors.Is(err, ErrUnknownReplyRule) {
+		t.Fatalf("json.Marshal(ReplyRule(9)) error = %v, want ErrUnknownReplyRule", err)
+	}
+	if got := ReplyRule(9).String(); got != "9" {
+		t.Fatalf("ReplyRule(9).String() = %q, want 9", got)
+	}
+}
+
+func TestNewBotTokenRefusesAnEmptySecret(t *testing.T) {
+	_, err := NewBotToken("")
+	echotest.RequireBareSentinel(t, err, ErrEmptyBotToken)
+}
+
+func TestBotTokenNeverPrintsItsSecret(t *testing.T) {
+	token, err := NewBotToken(botTestSecret)
+	if err != nil {
+		t.Fatalf("NewBotToken() error = %v", err)
+	}
+	voice := AgentVoice{Agent: "rin", Token: token}
+	for _, format := range []string{"%v", "%+v", "%#v", "%s", "%q", "%x"} {
+		for _, value := range []any{token, voice, &voice} {
+			if got := fmt.Sprintf(format, value); strings.Contains(got, botTestSecret) {
+				t.Errorf("fmt.Sprintf(%q) = %q, leaks the secret", format, got)
+			}
+		}
+	}
+	data, err := json.Marshal(voice)
+	if err != nil {
+		t.Fatalf("json.Marshal(voice) error = %v", err)
+	}
+	if strings.Contains(string(data), botTestSecret) {
+		t.Fatalf("json.Marshal(voice) = %s, leaks the secret", data)
+	}
+	if token.Secret() != botTestSecret || !token.Valid() {
+		t.Fatalf("Secret() = %q, Valid() = %v", token.Secret(), token.Valid())
+	}
+}
+
+func TestZeroBotTokenHoldsNothing(t *testing.T) {
+	var token BotToken
+	data, err := json.Marshal(token)
+	if err != nil || string(data) != "null" {
+		t.Fatalf("json.Marshal(zero) = %s, %v, want null", data, err)
+	}
+	if token.Valid() || token.Secret() != "" {
+		t.Fatalf("zero token Valid() = %v, Secret() = %q", token.Valid(), token.Secret())
+	}
+}
+
+func TestNewBotTokenRefusesAMalformedSecretWithoutEcho(t *testing.T) {
+	for _, secret := range []string{botTestSecret + "\n", " " + botTestSecret, "123:AA\x00bot", "\ufeff" + botTestSecret, botTestSecret + "\u200b", "123:AA\u00a0bot", "123:AA\u2028bot", "123:AA\xffbot", "123:AA x9", "123:AA\u3000x9", "123:AA\x7fx9"} {
+		_, err := NewBotToken(secret)
+		echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidBotToken, secret)
+	}
+}
+
+func TestAgentVoiceWritesItsRuleAndChannels(t *testing.T) {
+	voice := AgentVoice{Agent: "rin", Reply: ReplyInChannels, Channels: []string{"42"}}
+	data, err := json.Marshal(voice)
+	if err != nil {
+		t.Fatalf("json.Marshal(voice) error = %v", err)
+	}
+	want := `{"Agent":"rin","Token":null,"Reply":"channels","Channels":["42"]}`
+	if string(data) != want {
+		t.Fatalf("json.Marshal(voice) = %s, want %s", data, want)
+	}
+}
+
+func TestAgentVoiceRefusesAnUnknownRuleOnTheWire(t *testing.T) {
+	if _, err := json.Marshal(AgentVoice{Agent: "rin", Reply: ReplyRule(9)}); !errors.Is(err, ErrUnknownReplyRule) {
+		t.Fatalf("json.Marshal(voice) error = %v, want ErrUnknownReplyRule", err)
+	}
+}
+
+func TestNewBotTokenAcceptsDiscordAndTelegramTokens(t *testing.T) {
+	for _, secret := range []string{botTestSecret, "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw", "MTIzNDU2Nzg5MDEyMzQ1Njc4.GhIjKl.abc-DEF_ghi123xyz"} {
+		token, err := NewBotToken(secret)
+		if err != nil || token.Secret() != secret {
+			t.Errorf("NewBotToken() = %v, %v, want the secret back", token, err)
+		}
+	}
+}
