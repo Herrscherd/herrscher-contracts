@@ -92,3 +92,28 @@ func TestZeroBotTokenHoldsNothing(t *testing.T) {
 		t.Fatalf("zero token Valid() = %v, Secret() = %q", token.Valid(), token.Secret())
 	}
 }
+
+func TestNewBotTokenRefusesAMalformedSecretWithoutEcho(t *testing.T) {
+	for _, secret := range []string{botTestSecret + "\n", " " + botTestSecret, "123:AA\x00bot"} {
+		_, err := NewBotToken(secret)
+		echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidBotToken, secret)
+	}
+}
+
+func TestAgentVoiceWritesItsRuleAndChannels(t *testing.T) {
+	voice := AgentVoice{Agent: "rin", Reply: ReplyInChannels, Channels: []string{"42"}}
+	data, err := json.Marshal(voice)
+	if err != nil {
+		t.Fatalf("json.Marshal(voice) error = %v", err)
+	}
+	want := `{"Agent":"rin","Token":null,"Reply":"channels","Channels":["42"]}`
+	if string(data) != want {
+		t.Fatalf("json.Marshal(voice) = %s, want %s", data, want)
+	}
+}
+
+func TestAgentVoiceRefusesAnUnknownRuleOnTheWire(t *testing.T) {
+	if _, err := json.Marshal(AgentVoice{Agent: "rin", Reply: ReplyRule(9)}); !errors.Is(err, ErrUnknownReplyRule) {
+		t.Fatalf("json.Marshal(voice) error = %v, want ErrUnknownReplyRule", err)
+	}
+}

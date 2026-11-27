@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
+	"unicode"
 )
 
 // ReplyRule says when an agent answers on a chat platform. The zero value is
@@ -64,7 +66,8 @@ func (r ReplyRule) MarshalText() ([]byte, error) {
 	return []byte(r.String()), nil
 }
 
-// UnmarshalText reads the text form of a rule, as [ParseReplyRule] does.
+// UnmarshalText reads the text form of a rule, as [ParseReplyRule] does. It
+// returns an error matching [ErrUnknownReplyRule] for any other text.
 func (r *ReplyRule) UnmarshalText(text []byte) error {
 	parsed, err := ParseReplyRule(string(text))
 	if err != nil {
@@ -79,6 +82,11 @@ const redactedBotToken = "[redacted]"
 // ErrEmptyBotToken is returned by [NewBotToken] for an empty secret.
 var ErrEmptyBotToken = errors.New("empty bot token")
 
+// ErrInvalidBotToken is returned by [NewBotToken] for a secret that holds a
+// control character or starts or ends with a space, as a line read with its
+// line break would. The error does not repeat the secret.
+var ErrInvalidBotToken = errors.New("invalid bot token")
+
 // BotToken is the secret a gateway signs in with as one bot. The secret is
 // unexported and reached only through [BotToken.Secret]. Every formatting verb
 // prints [redacted], and the JSON form writes "[redacted]", or null for the zero
@@ -88,10 +96,14 @@ type BotToken struct {
 }
 
 // NewBotToken builds a token. It returns [ErrEmptyBotToken] when secret is
-// empty.
+// empty, and [ErrInvalidBotToken] when it holds a control character or a
+// leading or trailing space.
 func NewBotToken(secret string) (BotToken, error) {
 	if secret == "" {
 		return BotToken{}, ErrEmptyBotToken
+	}
+	if strings.TrimSpace(secret) != secret || strings.ContainsFunc(secret, unicode.IsControl) {
+		return BotToken{}, ErrInvalidBotToken
 	}
 	return BotToken{secret: &secret}, nil
 }
@@ -139,9 +151,11 @@ type AgentVoice struct {
 // AgentDirectory is the optional capability of the [SessionControl] a gateway
 // receives through [SessionControlReceiver], found by a type assertion.
 // AgentVoices lists the agents of the daemon with how each speaks on the gateway
-// of that Manifest Kind, sorted by agent name. A gateway reads it again when it
-// needs a fresh rule, since an agent's rule can change while the daemon runs;
-// the tokens are those of the daemon's startup.
+// of that Manifest Kind. The implementer sorts the list by agent name and tests
+// it, makes the method safe for concurrent calls, and returns a fresh copy,
+// Channels included, that the caller may keep and change. A gateway reads it
+// again when it needs a fresh rule, since an agent's rule can change while the
+// daemon runs; the tokens are those of the daemon's startup.
 type AgentDirectory interface {
 	AgentVoices(gateway string) []AgentVoice
 }
