@@ -40,7 +40,8 @@ type ForgeCredentials interface {
 // [PullRequest] with a non-empty since returns [ErrForgeNotModified] when the
 // pull request has not changed since that [Revision]. The event stream of a
 // forge is the optional [PullRequestFeed] interface, so a plugin that gains it
-// does not change this one.
+// does not change this one. The checks a branch requires are the optional
+// [RequiredChecksSource] for the same reason.
 type Forge interface {
 	Manifest() Manifest
 	Connection(ctx context.Context) (ForgeConnection, error)
@@ -211,7 +212,9 @@ type PullRequestSignal struct {
 // [CheckCompleted]; before that it is [ConclusionNone]. Consumers read the
 // conclusion through [Check.Concluded] rather than from the field. Job is set
 // only when the check comes from a CI job whose log [Forge.JobLog] can read,
-// and is nil otherwise.
+// and is nil otherwise. Required is true when the forge reports the check as
+// required to merge the branch. A forge that reports no required checks leaves
+// it false, so false does not prove that the check is optional.
 type Check struct {
 	Name       string
 	Commit     CommitSHA
@@ -219,6 +222,21 @@ type Check struct {
 	Conclusion CheckConclusion
 	URL        string
 	Job        *JobRef
+	Required   bool
+}
+
+// RequiredChecksSource is the optional rule set of a forge, which a plugin
+// implements when its forge reports the checks a branch requires to merge. A
+// caller finds it with a type assertion, as with [PullRequestFeed]. RequiredChecks
+// returns the names of the checks that the branch protection or the rulesets of
+// repo require on branch. An empty list means that no requirement is known, which
+// is also what a forge returns when the token cannot read those rules, so a host
+// cannot tell an unreadable rule set from an absent one. It returns
+// [ErrForgeWrongHost] for a repository on another host, as the methods of
+// [Forge] do. Pass the names to [SummarizeRequiredChecks] with the checks of a
+// commit.
+type RequiredChecksSource interface {
+	RequiredChecks(ctx context.Context, repo ForgeRepoRef, branch string) ([]string, error)
 }
 
 // Concluded returns the conclusion of a completed check and true. It returns

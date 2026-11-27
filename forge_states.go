@@ -282,6 +282,34 @@ func SummarizeChecks(checks []Check) ChecksState {
 	return summary
 }
 
+// SummarizeRequiredChecks reads the checks of a pull request's head commit as
+// [SummarizeChecks] does, and also takes a name in required that no check
+// carries as pending: a required check the forge has not created yet has not
+// passed. A failed or action-required check keeps its rank over pending, so
+// a missing required check never hides either. With no required name the
+// result is the one of [SummarizeChecks].
+func SummarizeRequiredChecks(checks []Check, required []string) ChecksState {
+	summary := SummarizeChecks(checks)
+	if summary == ChecksFailed || summary == ChecksActionRequired {
+		return summary
+	}
+	for _, name := range required {
+		if !carriesCheck(checks, name) {
+			return ChecksPending
+		}
+	}
+	return summary
+}
+
+func carriesCheck(checks []Check, name string) bool {
+	for _, check := range checks {
+		if check.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func checkState(check Check) ChecksState {
 	conclusion, concluded := check.Concluded()
 	if !concluded {

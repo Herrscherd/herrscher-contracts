@@ -78,3 +78,79 @@ func TestSummarizeChecksNeverReturnsUnknown(t *testing.T) {
 		t.Fatal("SummarizeChecks(nil) = unknown, want none")
 	}
 }
+
+func namedCompletedCheck(name string, conclusion CheckConclusion) Check {
+	check := completedCheck(conclusion)
+	check.Name = name
+	return check
+}
+
+func TestSummarizeRequiredChecksWithoutRequiredNamesIsSummarizeChecks(t *testing.T) {
+	tests := []struct {
+		name   string
+		checks []Check
+	}{
+		{"no check", nil},
+		{"passed", []Check{namedCompletedCheck("build", ConclusionSuccess)}},
+		{"pending", []Check{{Name: "build", Status: CheckQueued}}},
+		{"failed", []Check{namedCompletedCheck("build", ConclusionFailure)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, want := SummarizeRequiredChecks(tt.checks, nil), SummarizeChecks(tt.checks); got != want {
+				t.Fatalf("SummarizeRequiredChecks(checks, nil) = %v, want SummarizeChecks = %v", got, want)
+			}
+		})
+	}
+}
+
+func TestSummarizeRequiredChecksIsPendingWhileARequiredCheckIsMissing(t *testing.T) {
+	passed := namedCompletedCheck("build", ConclusionSuccess)
+	tests := []struct {
+		name     string
+		checks   []Check
+		required []string
+	}{
+		{"no check yet for a required name", nil, []string{"lint"}},
+		{"passed check does not stand for a missing required name", []Check{passed}, []string{"build", "lint"}},
+		{"a check with another name does not stand for a required one", []Check{passed}, []string{"lint"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SummarizeRequiredChecks(tt.checks, tt.required); got != ChecksPending {
+				t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, ChecksPending)
+			}
+		})
+	}
+}
+
+func TestSummarizeRequiredChecksPassesWhenEveryRequiredCheckPassed(t *testing.T) {
+	checks := []Check{
+		namedCompletedCheck("build", ConclusionSuccess),
+		namedCompletedCheck("lint", ConclusionSkipped),
+	}
+	if got := SummarizeRequiredChecks(checks, []string{"build", "lint"}); got != ChecksPassed {
+		t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, ChecksPassed)
+	}
+}
+
+func TestSummarizeRequiredChecksKeepsFailedAndActionRequiredOverAMissingCheck(t *testing.T) {
+	failed := namedCompletedCheck("build", ConclusionFailure)
+	actionRequired := namedCompletedCheck("deploy", ConclusionActionRequired)
+	tests := []struct {
+		name   string
+		checks []Check
+		want   ChecksState
+	}{
+		{"failed outranks a missing required check", []Check{failed}, ChecksFailed},
+		{"action required outranks a missing required check", []Check{actionRequired}, ChecksActionRequired},
+		{"failed outranks action required beside a missing one", []Check{actionRequired, failed}, ChecksFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SummarizeRequiredChecks(tt.checks, []string{"build", "lint"}); got != tt.want {
+				t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
