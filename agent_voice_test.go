@@ -94,7 +94,7 @@ func TestZeroBotTokenHoldsNothing(t *testing.T) {
 }
 
 func TestNewBotTokenRefusesAMalformedSecretWithoutEcho(t *testing.T) {
-	for _, secret := range []string{botTestSecret + "\n", " " + botTestSecret, "123:AA\x00bot", "\ufeff" + botTestSecret, botTestSecret + "\u200b"} {
+	for _, secret := range []string{botTestSecret + "\n", " " + botTestSecret, "123:AA\x00bot", "\ufeff" + botTestSecret, botTestSecret + "\u200b", "123:AA\u00a0bot", "123:AA\u2028bot", "123:AA\xffbot", "123:AA x9"} {
 		_, err := NewBotToken(secret)
 		echotest.RequireRefusalWithoutEcho(t, err, ErrInvalidBotToken, secret)
 	}
@@ -115,5 +115,14 @@ func TestAgentVoiceWritesItsRuleAndChannels(t *testing.T) {
 func TestAgentVoiceRefusesAnUnknownRuleOnTheWire(t *testing.T) {
 	if _, err := json.Marshal(AgentVoice{Agent: "rin", Reply: ReplyRule(9)}); !errors.Is(err, ErrUnknownReplyRule) {
 		t.Fatalf("json.Marshal(voice) error = %v, want ErrUnknownReplyRule", err)
+	}
+}
+
+func TestNewBotTokenAcceptsDiscordAndTelegramTokens(t *testing.T) {
+	for _, secret := range []string{botTestSecret, "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw", "MTIzNDU2Nzg5MDEyMzQ1Njc4.GhIjKl.abc-DEF_ghi123xyz"} {
+		token, err := NewBotToken(secret)
+		if err != nil || token.Secret() != secret {
+			t.Errorf("NewBotToken() = %v, %v, want the secret back", token, err)
+		}
 	}
 }

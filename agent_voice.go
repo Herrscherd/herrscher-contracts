@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"unicode"
 )
 
 // ReplyRule says when an agent answers on a chat platform. The zero value is
@@ -82,10 +81,9 @@ const redactedBotToken = "[redacted]"
 // ErrEmptyBotToken is returned by [NewBotToken] for an empty secret.
 var ErrEmptyBotToken = errors.New("empty bot token")
 
-// ErrInvalidBotToken is returned by [NewBotToken] for a secret that holds a
-// control or invisible format character, such as a byte order mark or a zero
-// width space, or that starts or ends with a space, as a line read with its
-// line break would. The error does not repeat the secret.
+// ErrInvalidBotToken is returned by [NewBotToken] for a secret that holds
+// anything but visible ASCII characters: a space, a line break, a byte order
+// mark, any other Unicode character or invalid UTF-8. The error does not repeat the secret.
 var ErrInvalidBotToken = errors.New("invalid bot token")
 
 // BotToken is the secret a gateway signs in with as one bot. The secret is
@@ -97,19 +95,19 @@ type BotToken struct {
 }
 
 // NewBotToken builds a token. It returns [ErrEmptyBotToken] when secret is
-// empty, and [ErrInvalidBotToken] when it holds a control or invisible format
-// character or a leading or trailing space.
+// empty, and [ErrInvalidBotToken] when it holds anything but visible ASCII
+// characters.
 func NewBotToken(secret string) (BotToken, error) {
 	if secret == "" {
 		return BotToken{}, ErrEmptyBotToken
 	}
-	if strings.TrimSpace(secret) != secret || strings.ContainsFunc(secret, isHiddenRune) {
+	if strings.ContainsFunc(secret, isNotVisibleASCII) {
 		return BotToken{}, ErrInvalidBotToken
 	}
 	return BotToken{secret: &secret}, nil
 }
 
-func isHiddenRune(r rune) bool { return unicode.In(r, unicode.Cc, unicode.Cf) }
+func isNotVisibleASCII(r rune) bool { return r <= ' ' || r > '~' }
 
 // Secret is the token itself, for the connection that sends it. Never log or
 // store its result. It is empty for the zero value.
