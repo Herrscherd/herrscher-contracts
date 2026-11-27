@@ -27,6 +27,7 @@ type foreignRefs struct {
 	issue  contracts.IssueRef
 	job    contracts.JobRef
 	thread contracts.ThreadRef
+	branch contracts.BranchName
 }
 
 type foreignCall struct {
@@ -203,7 +204,11 @@ func newForeignRefs(foreign contracts.ForgeRepoRef) (foreignRefs, error) {
 	if err != nil {
 		return foreignRefs{}, err
 	}
-	return foreignRefs{commit: commit, pull: pull, issue: issue, job: job, thread: thread}, nil
+	branch, err := contracts.ParseBranchName("main")
+	if err != nil {
+		return foreignRefs{}, err
+	}
+	return foreignRefs{commit: commit, pull: pull, issue: issue, job: job, thread: thread, branch: branch}, nil
 }
 
 const callTimeout = 10 * time.Second
@@ -264,7 +269,7 @@ func foreignCalls(forge contracts.Forge, foreign contracts.ForgeRepoRef, refs fo
 	}
 	if source, reads := forge.(contracts.RequiredChecksSource); reads {
 		calls = append(calls, foreignCall{"RequiredChecks", func(ctx context.Context) error {
-			_, err := source.RequiredChecks(ctx, foreign, "main")
+			_, err := source.RequiredChecks(ctx, foreign, refs.branch)
 			return err
 		}})
 	}

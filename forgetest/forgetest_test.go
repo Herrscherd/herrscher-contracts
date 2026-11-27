@@ -459,7 +459,7 @@ type requiredForge struct {
 	fakeForge
 }
 
-func (f requiredForge) RequiredChecks(context.Context, contracts.ForgeRepoRef, string) ([]string, error) {
+func (f requiredForge) RequiredChecks(context.Context, contracts.ForgeRepoRef, contracts.BranchName) ([]contracts.RequiredCheck, error) {
 	return nil, f.refusal()
 }
 

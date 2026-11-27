@@ -56,6 +56,9 @@ type Forge interface {
 	OpenPullRequest(ctx context.Context, draft PullRequestDraft) (PullRequest, error)
 	PullRequest(ctx context.Context, ref PullRequestRef, since Revision) (PullRequest, error)
 	MergePullRequest(ctx context.Context, ref PullRequestRef, method MergeMethod) error
+	// Checks returns every run of each check of the commit, one Check per run,
+	// with its AppID and Attempt set. SummarizeChecks reads the latest attempt of
+	// each name and app.
 	Checks(ctx context.Context, repo ForgeRepoRef, commit CommitSHA, page PageRequest) (Page[Check], error)
 	JobLog(ctx context.Context, job JobRef, maxBytes int) ([]byte, error)
 	ReviewThreads(ctx context.Context, ref PullRequestRef, page PageRequest) (Page[ReviewThread], error)
@@ -212,9 +215,10 @@ type PullRequestSignal struct {
 // [CheckCompleted]; before that it is [ConclusionNone]. Consumers read the
 // conclusion through [Check.Concluded] rather than from the field. Job is set
 // only when the check comes from a CI job whose log [Forge.JobLog] can read,
-// and is nil otherwise. Required is true when the forge reports the check as
-// required to merge the branch. A forge that reports no required checks leaves
-// it false, so false does not prove that the check is optional.
+// and is nil otherwise. AppID is the app or integration that reported the
+// check, zero when the forge reports none. Attempt orders the runs of a check
+// with the same name and app: a larger value is a later run, so a re-run
+// supersedes the run it repeats.
 type Check struct {
 	Name       string
 	Commit     CommitSHA
@@ -222,21 +226,32 @@ type Check struct {
 	Conclusion CheckConclusion
 	URL        string
 	Job        *JobRef
-	Required   bool
+	AppID      int64
+	Attempt    int64
+}
+
+// RequiredCheck is a check that a branch requires to merge: its Name, and the
+// AppID of the app or integration that must report it. A zero AppID accepts a
+// check from any source, as a rule that names no integration does.
+type RequiredCheck struct {
+	Name  string
+	AppID int64
 }
 
 // RequiredChecksSource is the optional rule set of a forge, which a plugin
 // implements when its forge reports the checks a branch requires to merge. A
-// caller finds it with a type assertion, as with [PullRequestFeed]. RequiredChecks
-// returns the names of the checks that the branch protection or the rulesets of
-// repo require on branch. An empty list means that no requirement is known, which
-// is also what a forge returns when the token cannot read those rules, so a host
-// cannot tell an unreadable rule set from an absent one. It returns
-// [ErrForgeWrongHost] for a repository on another host, as the methods of
-// [Forge] do. Pass the names to [SummarizeRequiredChecks] with the checks of a
-// commit.
+// caller finds it with a type assertion, as with [PullRequestFeed].
+//
+// RequiredChecks reads the rulesets of repo first, then its classic branch
+// protection, and returns the checks that either names on branch, merged. A rule
+// set that does not exist is an absence, and a nil list with a nil error means
+// that the absence of any requirement is proven. A read that is refused or fails
+// with any other error returns an error wrapping [ErrRequiredChecksUnknown], and
+// a caller must not read it as an empty list. It returns [ErrForgeWrongHost] for
+// a repository on another host, as the methods of [Forge] do. Pass the result to
+// [SummarizeRequiredChecks] with the checks of a commit.
 type RequiredChecksSource interface {
-	RequiredChecks(ctx context.Context, repo ForgeRepoRef, branch string) ([]string, error)
+	RequiredChecks(ctx context.Context, repo ForgeRepoRef, branch BranchName) ([]RequiredCheck, error)
 }
 
 // Concluded returns the conclusion of a completed check and true. It returns
