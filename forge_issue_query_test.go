@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseForgeLoginAcceptsALoginOfTheForgeAlphabet(t *testing.T) {
@@ -50,9 +51,9 @@ func TestZeroIssueQueryIsValidAndListsOpenIssues(t *testing.T) {
 }
 
 func TestIssueQueryValidateAcceptsEachClosedValue(t *testing.T) {
-	for state := IssueStateUnknown; state <= IssueClosed; state++ {
-		for sort := IssueSortDefault; sort <= IssueSortUpdated; sort++ {
-			for direction := SortDirectionDefault; direction <= SortDescending; direction++ {
+	for state := IssueStateUnknown; state < issueStateEnd; state++ {
+		for sort := IssueSortDefault; sort < issueSortEnd; sort++ {
+			for direction := SortDirectionDefault; direction < sortDirectionEnd; direction++ {
 				query := IssueQuery{State: state, Sort: sort, Direction: direction}
 				if err := query.Validate(); err != nil {
 					t.Fatalf("Validate(%v, %v, %v) = %v, want nil", state, sort, direction, err)
@@ -102,5 +103,104 @@ func TestIssueSortAndDirectionNameEachValue(t *testing.T) {
 		if test.got.String() != test.want {
 			t.Fatalf("%s: String() = %q, want %q", test.name, test.got.String(), test.want)
 		}
+	}
+}
+
+func TestEveryClosedValueOfAnIssueQueryIsNamed(t *testing.T) {
+	for state := IssueStateUnknown; state < issueStateEnd; state++ {
+		if strings.HasPrefix(state.String(), "IssueState(") {
+			t.Fatalf("IssueState %d has no name: %s", int(state), state.String())
+		}
+	}
+	for sort := IssueSortDefault; sort < issueSortEnd; sort++ {
+		if strings.HasPrefix(sort.String(), "IssueSort(") {
+			t.Fatalf("IssueSort %d has no name: %s", int(sort), sort.String())
+		}
+	}
+	for direction := SortDirectionDefault; direction < sortDirectionEnd; direction++ {
+		if strings.HasPrefix(direction.String(), "SortDirection(") {
+			t.Fatalf("SortDirection %d has no name: %s", int(direction), direction.String())
+		}
+	}
+}
+
+func TestIssueListingETagAcceptsOnlyTheReadThatProducedIt(t *testing.T) {
+	repo := mustRepo(t, "gitlab.example.com/octo/hello")
+	other := mustRepo(t, "gitlab.example.com/octo/world")
+	login := mustLogin(t, "octo")
+	since := time.Date(2026, time.November, 27, 9, 0, 0, 0, time.UTC)
+	query := IssueQuery{Labels: []string{"herrscher"}, Mentioned: login, UpdatedSince: since, Sort: IssueSortUpdated, Direction: SortAscending}
+	page := PageRequest{Cursor: "next", Limit: 20}
+	revision := IssueListingRevision(repo, query, page, "etag-1")
+
+	etag, ok := IssueListingETag(revision, repo, query, page)
+	if !ok || etag != "etag-1" {
+		t.Fatalf("IssueListingETag of its own read = %q, %v, want etag-1, true", etag, ok)
+	}
+	changed := []struct {
+		name  string
+		repo  ForgeRepoRef
+		query IssueQuery
+		page  PageRequest
+	}{
+		{"another repository", other, query, page},
+		{"another label", repo, IssueQuery{Labels: []string{"other"}, Mentioned: login, UpdatedSince: since, Sort: IssueSortUpdated, Direction: SortAscending}, page},
+		{"no mention", repo, IssueQuery{Labels: query.Labels, UpdatedSince: since, Sort: IssueSortUpdated, Direction: SortAscending}, page},
+		{"another instant", repo, IssueQuery{Labels: query.Labels, Mentioned: login, UpdatedSince: since.Add(time.Second), Sort: IssueSortUpdated, Direction: SortAscending}, page},
+		{"another state", repo, IssueQuery{Labels: query.Labels, Mentioned: login, UpdatedSince: since, State: IssueClosed, Sort: IssueSortUpdated, Direction: SortAscending}, page},
+		{"another sort", repo, IssueQuery{Labels: query.Labels, Mentioned: login, UpdatedSince: since, Sort: IssueSortCreated, Direction: SortAscending}, page},
+		{"another direction", repo, IssueQuery{Labels: query.Labels, Mentioned: login, UpdatedSince: since, Sort: IssueSortUpdated, Direction: SortDescending}, page},
+		{"another cursor", repo, query, PageRequest{Cursor: "other", Limit: 20}},
+		{"another limit", repo, query, PageRequest{Cursor: "next", Limit: 10}},
+	}
+	for _, change := range changed {
+		if _, ok := IssueListingETag(revision, change.repo, change.query, change.page); ok {
+			t.Fatalf("revision of one read accepted for %s, want refused", change.name)
+		}
+	}
+	if _, ok := IssueListingETag("", repo, query, page); ok {
+		t.Fatalf("empty revision accepted, want refused")
+	}
+	if _, ok := IssueListingETag(Revision("not-a-revision"), repo, query, page); ok {
+		t.Fatalf("revision without a binding accepted, want refused")
+	}
+}
+
+func TestIssueListingETagKeepsAnETagThatHasASeparator(t *testing.T) {
+	repo := mustRepo(t, "gitlab.example.com/octo/hello")
+	revision := IssueListingRevision(repo, IssueQuery{}, PageRequest{}, "W/\"a/b\"")
+	etag, ok := IssueListingETag(revision, repo, IssueQuery{}, PageRequest{})
+	if !ok || etag != "W/\"a/b\"" {
+		t.Fatalf("etag = %q, %v, want the etag back whole", etag, ok)
+	}
+}
+
+func mustRepo(t *testing.T, text string) ForgeRepoRef {
+	t.Helper()
+	repo, err := ParseRepoRef(text)
+	if err != nil {
+		t.Fatalf("ParseRepoRef(%q) error = %v", text, err)
+	}
+	return repo
+}
+
+func mustLogin(t *testing.T, text string) ForgeLogin {
+	t.Helper()
+	login, err := ParseForgeLogin(text)
+	if err != nil {
+		t.Fatalf("ParseForgeLogin(%q) error = %v", text, err)
+	}
+	return login
+}
+
+func TestAnIssueIsNotAPullRequestUnlessTheForgeMarksIt(t *testing.T) {
+	var issue Issue
+	if issue.IsPullRequest {
+		t.Fatal("zero Issue reports IsPullRequest, want an issue unless the forge marks it")
+	}
+	listed := Issue{Title: "pr", IsPullRequest: true}
+	listing := IssueListing{Page: Page[Issue]{Items: []Issue{issue, listed}}}
+	if got := listing.Page.Items[1].IsPullRequest; !got {
+		t.Fatal("marked pull request lost its IsPullRequest flag in the listing")
 	}
 }
