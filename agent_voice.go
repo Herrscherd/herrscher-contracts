@@ -83,7 +83,8 @@ const redactedBotToken = "[redacted]"
 var ErrEmptyBotToken = errors.New("empty bot token")
 
 // ErrInvalidBotToken is returned by [NewBotToken] for a secret that holds a
-// control character or starts or ends with a space, as a line read with its
+// control or invisible format character, such as a byte order mark or a zero
+// width space, or that starts or ends with a space, as a line read with its
 // line break would. The error does not repeat the secret.
 var ErrInvalidBotToken = errors.New("invalid bot token")
 
@@ -96,17 +97,19 @@ type BotToken struct {
 }
 
 // NewBotToken builds a token. It returns [ErrEmptyBotToken] when secret is
-// empty, and [ErrInvalidBotToken] when it holds a control character or a
-// leading or trailing space.
+// empty, and [ErrInvalidBotToken] when it holds a control or invisible format
+// character or a leading or trailing space.
 func NewBotToken(secret string) (BotToken, error) {
 	if secret == "" {
 		return BotToken{}, ErrEmptyBotToken
 	}
-	if strings.TrimSpace(secret) != secret || strings.ContainsFunc(secret, unicode.IsControl) {
+	if strings.TrimSpace(secret) != secret || strings.ContainsFunc(secret, isHiddenRune) {
 		return BotToken{}, ErrInvalidBotToken
 	}
 	return BotToken{secret: &secret}, nil
 }
+
+func isHiddenRune(r rune) bool { return unicode.In(r, unicode.Cc, unicode.Cf) }
 
 // Secret is the token itself, for the connection that sends it. Never log or
 // store its result. It is empty for the zero value.
