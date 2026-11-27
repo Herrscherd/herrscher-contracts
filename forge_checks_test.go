@@ -112,7 +112,7 @@ func TestSummarizeRequiredChecksIgnoresAFailedCheckThatIsNotRequired(t *testing.
 		namedCompletedCheck("build", ConclusionSuccess),
 		namedCompletedCheck("lint", ConclusionFailure),
 	}
-	got, err := SummarizeRequiredChecks(checks, []RequiredCheck{{Name: "build"}}, nil)
+	got, err := SummarizeRequiredChecks(checks, []RequiredCheck{requiredCheck(t, "build", 0)}, nil)
 	if err != nil || got != ChecksPassed {
 		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, ChecksPassed)
 	}
@@ -125,9 +125,9 @@ func TestSummarizeRequiredChecksIsPendingWhileARequiredCheckIsMissing(t *testing
 		checks   []Check
 		required []RequiredCheck
 	}{
-		{"no check yet for a required name", nil, []RequiredCheck{{Name: "lint"}}},
-		{"passed check does not stand for a missing required name", []Check{passed}, []RequiredCheck{{Name: "build"}, {Name: "lint"}}},
-		{"a check with another name does not stand for a required one", []Check{passed}, []RequiredCheck{{Name: "lint"}}},
+		{"no check yet for a required name", nil, []RequiredCheck{requiredCheck(t, "lint", 0)}},
+		{"passed check does not stand for a missing required name", []Check{passed}, []RequiredCheck{requiredCheck(t, "build", 0), requiredCheck(t, "lint", 0)}},
+		{"a check with another name does not stand for a required one", []Check{passed}, []RequiredCheck{requiredCheck(t, "lint", 0)}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestSummarizeRequiredChecksPassesWhenEveryRequiredCheckPassed(t *testing.T)
 		namedCompletedCheck("build", ConclusionSuccess),
 		namedCompletedCheck("lint", ConclusionSkipped),
 	}
-	got, err := SummarizeRequiredChecks(checks, []RequiredCheck{{Name: "build"}, {Name: "lint"}}, nil)
+	got, err := SummarizeRequiredChecks(checks, []RequiredCheck{requiredCheck(t, "build", 0), requiredCheck(t, "lint", 0)}, nil)
 	if err != nil || got != ChecksPassed {
 		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, ChecksPassed)
 	}
@@ -162,7 +162,7 @@ func TestSummarizeRequiredChecksKeepsFailedAndActionRequiredOverAMissingCheck(t 
 		{"action required outranks a missing required check", []Check{actionRequired}, ChecksActionRequired},
 		{"failed outranks action required beside a missing one", []Check{actionRequired, failed}, ChecksFailed},
 	}
-	required := []RequiredCheck{{Name: "build"}, {Name: "lint"}}
+	required := []RequiredCheck{requiredCheck(t, "build", 0), requiredCheck(t, "lint", 0)}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := SummarizeRequiredChecks(tt.checks, required, nil)
@@ -194,7 +194,7 @@ func TestSummarizeChecksReadsTheLatestAttemptOfARerun(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SummarizeRequiredChecks(tt.checks, []RequiredCheck{{Name: "build"}}, nil)
+			got, err := SummarizeRequiredChecks(tt.checks, []RequiredCheck{requiredCheck(t, "build", 0)}, nil)
 			if err != nil || got != tt.want {
 				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, tt.want)
 			}
@@ -213,7 +213,7 @@ func TestSummarizeChecksKeepsSameNamedChecksOfTwoAppsApart(t *testing.T) {
 }
 
 func TestSummarizeRequiredChecksRefusesARequiredCheckFromAnotherSource(t *testing.T) {
-	required := []RequiredCheck{{Name: "build", AppID: 1}}
+	required := []RequiredCheck{requiredCheck(t, "build", 1)}
 	tests := []struct {
 		name  string
 		appID int64
@@ -238,7 +238,7 @@ func TestSummarizeRequiredChecksRefusesARequiredCheckFromAnotherSource(t *testin
 func TestSummarizeRequiredChecksAcceptsAnySourceWhenTheRequirementNamesNone(t *testing.T) {
 	check := namedCompletedCheck("build", ConclusionSuccess)
 	check.AppID = 7
-	got, err := SummarizeRequiredChecks([]Check{check}, []RequiredCheck{{Name: "build"}}, nil)
+	got, err := SummarizeRequiredChecks([]Check{check}, []RequiredCheck{requiredCheck(t, "build", 0)}, nil)
 	if err != nil || got != ChecksPassed {
 		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, ChecksPassed)
 	}
@@ -249,19 +249,20 @@ func TestSummarizeRequiredChecksReadsAnUnknownRequirementAsPending(t *testing.T)
 	passed := namedCompletedCheck("build", ConclusionSuccess)
 	failed := namedCompletedCheck("build", ConclusionFailure)
 	tests := []struct {
-		name   string
-		checks []Check
-		want   ChecksState
+		name    string
+		checks  []Check
+		want    ChecksState
+		wantErr error
 	}{
-		{"no check reads as pending", nil, ChecksPending},
-		{"a passing check does not prove the requirements", []Check{passed}, ChecksPending},
-		{"a failed check still outranks the unknown requirements", []Check{failed}, ChecksFailed},
+		{"no check reads as pending with the cause", nil, ChecksPending, unknown},
+		{"a passing check does not prove the requirements", []Check{passed}, ChecksPending, unknown},
+		{"a failed check still outranks the unknown requirements", []Check{failed}, ChecksFailed, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := SummarizeRequiredChecks(tt.checks, nil, unknown)
-			if err != nil || got != tt.want {
-				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, tt.want)
+			if !errors.Is(err, tt.wantErr) || got != tt.want {
+				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v and %v", got, err, tt.want, tt.wantErr)
 			}
 		})
 	}
@@ -272,5 +273,71 @@ func TestSummarizeRequiredChecksReturnsAnotherReadErrorInsteadOfAState(t *testin
 	got, err := SummarizeRequiredChecks([]Check{namedCompletedCheck("build", ConclusionSuccess)}, nil, readErr)
 	if !errors.Is(err, readErr) || got != ChecksUnknown {
 		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v and the read error", got, err, ChecksUnknown)
+	}
+}
+
+func requiredCheck(t *testing.T, name string, appID int64) RequiredCheck {
+	t.Helper()
+	required, err := NewRequiredCheck(name, appID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return required
+}
+
+func TestNewRequiredCheckRefusesAnEmptyName(t *testing.T) {
+	if _, err := NewRequiredCheck("", 1); !errors.Is(err, ErrEmptyRequiredCheckName) {
+		t.Fatalf("NewRequiredCheck(\"\") error = %v, want %v", err, ErrEmptyRequiredCheckName)
+	}
+}
+
+func TestSummarizeChecksReadsAFailureOverASuccessWithoutAttempt(t *testing.T) {
+	failed := namedCompletedCheck("build", ConclusionFailure)
+	passed := namedCompletedCheck("build", ConclusionSuccess)
+	tests := []struct {
+		name   string
+		checks []Check
+	}{
+		{"failure listed first", []Check{failed, passed}},
+		{"success listed first", []Check{passed, failed}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SummarizeChecks(tt.checks); got != ChecksFailed {
+				t.Fatalf("SummarizeChecks = %v, want %v: a run without attempt must not hide a failure", got, ChecksFailed)
+			}
+		})
+	}
+}
+
+func TestSummarizeRequiredChecksReadsAFailureOverASuccessWithoutAttempt(t *testing.T) {
+	failed := namedCompletedCheck("build", ConclusionFailure)
+	passed := namedCompletedCheck("build", ConclusionSuccess)
+	required := []RequiredCheck{requiredCheck(t, "build", 0)}
+	tests := []struct {
+		name   string
+		checks []Check
+	}{
+		{"failure listed first", []Check{failed, passed}},
+		{"success listed first", []Check{passed, failed}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := SummarizeRequiredChecks(tt.checks, required, nil)
+			if err != nil || got != ChecksFailed {
+				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v: a run without attempt must not hide a failure", got, err, ChecksFailed)
+			}
+		})
+	}
+}
+
+func TestSummarizeChecksCountsEveryRunOfARepeatedCheck(t *testing.T) {
+	failedFirstRun := attempt(namedCompletedCheck("build", ConclusionFailure), 1)
+	passedRerun := attempt(namedCompletedCheck("build", ConclusionSuccess), 2)
+	if got := SummarizeChecks([]Check{failedFirstRun, passedRerun}); got != ChecksFailed {
+		t.Fatalf("SummarizeChecks = %v, want %v: SummarizeChecks keeps every run as published", got, ChecksFailed)
+	}
+	if got := SummarizeChecks([]Check{passedRerun, failedFirstRun}); got != ChecksFailed {
+		t.Fatalf("SummarizeChecks listed in reverse = %v, want %v", got, ChecksFailed)
 	}
 }

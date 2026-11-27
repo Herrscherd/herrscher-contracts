@@ -43,6 +43,8 @@ var (
 	// unreadable rule from an absent one, so [SummarizeRequiredChecks] reads it as
 	// pending.
 	ErrRequiredChecksUnknown = errors.New("the checks a branch requires are unknown")
+	// ErrEmptyRequiredCheckName reports a required check built with no name.
+	ErrEmptyRequiredCheckName = errors.New("a required check needs a name")
 	// ErrInvalidCommitSHA reports text that is not 40 or 64 lowercase hex
 	// digits.
 	ErrInvalidCommitSHA = errors.New("not a commit SHA: 40 or 64 lowercase hex digits")

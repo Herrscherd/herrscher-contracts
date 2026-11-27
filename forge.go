@@ -56,9 +56,6 @@ type Forge interface {
 	OpenPullRequest(ctx context.Context, draft PullRequestDraft) (PullRequest, error)
 	PullRequest(ctx context.Context, ref PullRequestRef, since Revision) (PullRequest, error)
 	MergePullRequest(ctx context.Context, ref PullRequestRef, method MergeMethod) error
-	// Checks returns every run of each check of the commit, one Check per run,
-	// with its AppID and Attempt set. SummarizeChecks reads the latest attempt of
-	// each name and app.
 	Checks(ctx context.Context, repo ForgeRepoRef, commit CommitSHA, page PageRequest) (Page[Check], error)
 	JobLog(ctx context.Context, job JobRef, maxBytes int) ([]byte, error)
 	ReviewThreads(ctx context.Context, ref PullRequestRef, page PageRequest) (Page[ReviewThread], error)
@@ -218,7 +215,11 @@ type PullRequestSignal struct {
 // and is nil otherwise. AppID is the app or integration that reported the
 // check, zero when the forge reports none. Attempt orders the runs of a check
 // with the same name and app: a larger value is a later run, so a re-run
-// supersedes the run it repeats.
+// supersedes the run it repeats. A plugin sets it to a value that strictly
+// increases with each re-run of the same check, such as the id of the GitHub
+// check run, and to 0 when the forge gives no such value. [SummarizeRequiredChecks]
+// reads only the latest attempt of each check; two runs with equal Attempt
+// are read as the more severe one.
 type Check struct {
 	Name       string
 	Commit     CommitSHA
@@ -230,13 +231,31 @@ type Check struct {
 	Attempt    int64
 }
 
-// RequiredCheck is a check that a branch requires to merge: its Name, and the
-// AppID of the app or integration that must report it. A zero AppID accepts a
-// check from any source, as a rule that names no integration does.
+// RequiredCheck is a check that a branch requires to merge: its name, and the
+// AppID of the app or integration that must report it. Its fields are
+// unexported, so a value is built only by [NewRequiredCheck]; the zero value
+// names no check.
 type RequiredCheck struct {
-	Name  string
-	AppID int64
+	name  string
+	appID int64
 }
+
+// NewRequiredCheck returns the requirement of the check name, reported by the
+// app appID. A zero appID accepts a check from any source, as a rule that names
+// no integration does. It returns an error matching [ErrEmptyRequiredCheckName]
+// when name is empty.
+func NewRequiredCheck(name string, appID int64) (RequiredCheck, error) {
+	if name == "" {
+		return RequiredCheck{}, ErrEmptyRequiredCheckName
+	}
+	return RequiredCheck{name: name, appID: appID}, nil
+}
+
+// Name is the name of the required check.
+func (r RequiredCheck) Name() string { return r.name }
+
+// AppID is the app that must report the check, zero when any source does.
+func (r RequiredCheck) AppID() int64 { return r.appID }
 
 // RequiredChecksSource is the optional rule set of a forge, which a plugin
 // implements when its forge reports the checks a branch requires to merge. A

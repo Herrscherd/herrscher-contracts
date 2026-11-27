@@ -151,9 +151,10 @@ func (c CheckConclusion) String() string {
 }
 
 // SummarizeChecks reads the checks of a pull request's head commit as one
-// [ChecksState]. Each name and app keeps only its latest attempt, so a re-run
-// replaces the run it repeats. A check that has not completed is pending. A
-// completed check takes the state of its conclusion:
+// [ChecksState]. Every check counts, so a re-run that repeats a failed check
+// still counts that failure; [SummarizeRequiredChecks] is the call that reads
+// only the latest attempt of each check. A check that has not completed is
+// pending. A completed check takes the state of its conclusion:
 //   - success, neutral, skipped: passed;
 //   - action_required: action required, a person must act before the check
 //     can finish;
@@ -169,28 +170,32 @@ func SummarizeChecks(checks []Check) ChecksState {
 	if len(checks) == 0 {
 		return ChecksNone
 	}
-	return rankChecks(latestAttempts(checks))
+	return rankChecks(checks)
 }
 
 // SummarizeRequiredChecks reads the checks of a pull request's head commit
 // against the checks its branch requires, as [RequiredChecksSource] returns
-// them, and the error of that read. Only the checks that a requirement matches
-// count, so a failing check that the branch does not require does not decide
-// the state. A required check that no check matches is pending: it has not been
-// created yet, so it has not passed. A requirement with an AppID matches only a
-// check that the same app reported. With no requirement and no error the result
-// is the one of [SummarizeChecks].
+// them, and the error of that read. Each run of a check is read through its
+// latest attempt, as [Check] describes; when two runs have the same attempt, the
+// more severe one is read. Only the checks that a requirement matches count, so
+// a failing check that the branch does not require does not decide the state. A
+// required check that no check matches is pending: it has not been created yet,
+// so it has not passed. A requirement with an AppID matches only a check that
+// the same app reported. With no requirement the state is that of every check,
+// each run read as above.
 //
 // An error wrapping [ErrRequiredChecksUnknown] reads as pending, unless the
 // checks already fail or wait for action, since the requirements cannot be
-// known. Any other error is returned with [ChecksUnknown], and a host must not
-// read it as a state.
+// known. That pending state is returned with the error, so the caller sees its
+// cause: a host bounds its wait for the requirements and shows that cause, since
+// pending alone does not say why the state is unknown. Any other error is
+// returned with [ChecksUnknown], and a host must not read it as a state.
 func SummarizeRequiredChecks(checks []Check, required []RequiredCheck, requiredErr error) (ChecksState, error) {
 	if requiredErr != nil {
 		return summarizeUnknownRequirements(checks, requiredErr)
 	}
 	if len(required) == 0 {
-		return SummarizeChecks(checks), nil
+		return summarizeAll(checks), nil
 	}
 	latest := latestAttempts(checks)
 	summary := rankChecks(matchedBy(latest, required))
@@ -209,15 +214,22 @@ func summarizeUnknownRequirements(checks []Check, requiredErr error) (ChecksStat
 	if !errors.Is(requiredErr, ErrRequiredChecksUnknown) {
 		return ChecksUnknown, requiredErr
 	}
-	summary := SummarizeChecks(checks)
+	summary := summarizeAll(checks)
 	if summary == ChecksFailed || summary == ChecksActionRequired {
 		return summary, nil
 	}
-	return ChecksPending, nil
+	return ChecksPending, requiredErr
+}
+
+func summarizeAll(checks []Check) ChecksState {
+	if len(checks) == 0 {
+		return ChecksNone
+	}
+	return rankChecks(latestAttempts(checks))
 }
 
 func (r RequiredCheck) matches(check Check) bool {
-	return check.Name == r.Name && (r.AppID == 0 || check.AppID == r.AppID)
+	return check.Name == r.name && (r.appID == 0 || check.AppID == r.appID)
 }
 
 func (r RequiredCheck) metBy(checks []Check) bool {
@@ -262,11 +274,38 @@ func latestAttempts(checks []Check) []Check {
 			latest = append(latest, check)
 			continue
 		}
-		if check.Attempt >= latest[position].Attempt {
+		if supersedes(check, latest[position]) {
 			latest[position] = check
 		}
 	}
 	return latest
+}
+
+func supersedes(check, current Check) bool {
+	if check.Attempt != current.Attempt {
+		return check.Attempt > current.Attempt
+	}
+	return severity(checkState(check)) > severity(checkState(current))
+}
+
+const (
+	severityPassed = iota
+	severityPending
+	severityActionRequired
+	severityFailed
+)
+
+func severity(state ChecksState) int {
+	switch state {
+	case ChecksFailed:
+		return severityFailed
+	case ChecksActionRequired:
+		return severityActionRequired
+	case ChecksPending:
+		return severityPending
+	case ChecksUnknown, ChecksNone, ChecksPassed:
+	}
+	return severityPassed
 }
 
 func rankChecks(checks []Check) ChecksState {
