@@ -217,11 +217,10 @@ type PullRequestSignal struct {
 // with the same name and app: a larger value is a later run, so a re-run
 // supersedes the run it repeats. A plugin sets it to a value that strictly
 // increases with each re-run of the same check, such as the id of the GitHub
-// check run, and to 0 when the forge gives no such value. A value of 0 keeps the
-// earlier failures of the same name and app: at equal attempts the more severe
-// run is read. So a plugin sets an increasing number, so that a successful re-run
-// supersedes an earlier failure. [SummarizeRequiredChecks] reads only the latest
-// attempt of each check.
+// check run, so that a successful re-run supersedes an earlier failure. It sets
+// 0 when the forge gives no such value, and a value of 0 keeps the earlier
+// failures of the same name and app: at equal attempts the more severe run is
+// read. [SummarizeRequiredChecks] reads only the latest attempt of each check.
 type Check struct {
 	Name       string
 	Commit     CommitSHA

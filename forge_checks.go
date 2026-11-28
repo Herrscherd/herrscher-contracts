@@ -153,8 +153,9 @@ func (c CheckConclusion) String() string {
 // SummarizeChecks reads the checks of a pull request's head commit as one
 // [ChecksState]. Every check counts, so a re-run that repeats a failed check
 // still counts that failure. [SummarizeRequiredChecks] differs on re-runs: it
-// reads only the latest attempt of each check, as described there. A check that has not completed is
-// pending. A completed check takes the state of its conclusion:
+// reads only the latest attempt of each check, as described there. A check that
+// has not completed is pending. A completed check takes the state of its
+// conclusion:
 //   - success, neutral, skipped: passed;
 //   - action_required: action required, a person must act before the check
 //     can finish;
@@ -175,7 +176,9 @@ func SummarizeChecks(checks []Check) ChecksState {
 
 // RequiredChecksSummary is the state of a pull request's checks against the
 // checks its branch requires. Cause is nil when the requirements were read. When
-// Cause is set, the requirements could not be read: if it wraps
+// the inputs are invalid, SummarizeRequiredChecks returns an empty summary with
+// a nil Cause and a non-nil error instead. When Cause is set, the requirements
+// could not be read: if it wraps
 // [ErrRequiredChecksUnknown], State is pending, or failed or action required when
 // a check already says so, and a host bounds its wait for the requirements and
 // shows Cause. Any other Cause leaves State [ChecksUnknown], which a host must
@@ -187,14 +190,15 @@ type RequiredChecksSummary struct {
 
 // SummarizeRequiredChecks reads the checks of a pull request's head commit
 // against the checks its branch requires, as [RequiredChecksSource] returns
-// them, and the error of that read. Each run of a check is read through its
-// latest attempt, as [Check] describes; when two runs have the same attempt, the
-// more severe one is read. Only the checks that a requirement matches count, so
-// a failing check that the branch does not require does not decide the state. A
-// required check that no check matches is pending: it has not been created yet,
-// so it has not passed. A requirement with an AppID matches only a check that
-// the same app reported. With no requirement the state is that of every check,
-// each run read as above.
+// them, with the error of that read as requiredErr. The returned error is
+// reserved for invalid input, see [RequiredChecksSummary]. Each run of a check
+// is read through its latest attempt, as [Check] describes; when two runs have
+// the same attempt, the more severe one is read. Only the checks that a
+// requirement matches count, so a failing check that the branch does not require
+// does not decide the state. A required check that no check matches is pending:
+// it has not been created yet, so it has not passed. A requirement with an AppID
+// matches only a check that the same app reported. With no requirement the state
+// is that of every check, each run read as above.
 //
 // This differs from [SummarizeChecks] on a re-run. SummarizeChecks counts every
 // run as published, so a failed run stays a failure after its re-run passes.
