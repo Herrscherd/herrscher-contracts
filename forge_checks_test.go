@@ -87,7 +87,7 @@ func namedCompletedCheck(name string, conclusion CheckConclusion) Check {
 	return check
 }
 
-func TestSummarizeRequiredChecksWithoutRequirementIsSummarizeChecks(t *testing.T) {
+func TestSummarizeRequiredChecksWithOneRunPerCheckMatchesSummarizeChecks(t *testing.T) {
 	tests := []struct {
 		name   string
 		checks []Check
@@ -99,9 +99,9 @@ func TestSummarizeRequiredChecksWithoutRequirementIsSummarizeChecks(t *testing.T
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SummarizeRequiredChecks(tt.checks, nil, nil)
-			if err != nil || got != SummarizeChecks(tt.checks) {
-				t.Fatalf("SummarizeRequiredChecks(checks, nil, nil) = %v, %v, want SummarizeChecks = %v", got, err, SummarizeChecks(tt.checks))
+			got := summarizeRequired(tt.checks, nil)
+			if got != SummarizeChecks(tt.checks) {
+				t.Fatalf("summarizeRequired(checks, nil) = %v, want SummarizeChecks = %v", got, SummarizeChecks(tt.checks))
 			}
 		})
 	}
@@ -112,9 +112,9 @@ func TestSummarizeRequiredChecksIgnoresAFailedCheckThatIsNotRequired(t *testing.
 		namedCompletedCheck("build", ConclusionSuccess),
 		namedCompletedCheck("lint", ConclusionFailure),
 	}
-	got, err := SummarizeRequiredChecks(checks, []RequiredCheck{requiredCheck(t, "build", 0)}, nil)
-	if err != nil || got != ChecksPassed {
-		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, ChecksPassed)
+	got := summarizeRequired(checks, []RequiredCheck{requiredCheck(t, "build", 0)})
+	if got != ChecksPassed {
+		t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, ChecksPassed)
 	}
 }
 
@@ -131,9 +131,9 @@ func TestSummarizeRequiredChecksIsPendingWhileARequiredCheckIsMissing(t *testing
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SummarizeRequiredChecks(tt.checks, tt.required, nil)
-			if err != nil || got != ChecksPending {
-				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, ChecksPending)
+			got := summarizeRequired(tt.checks, tt.required)
+			if got != ChecksPending {
+				t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, ChecksPending)
 			}
 		})
 	}
@@ -144,9 +144,9 @@ func TestSummarizeRequiredChecksPassesWhenEveryRequiredCheckPassed(t *testing.T)
 		namedCompletedCheck("build", ConclusionSuccess),
 		namedCompletedCheck("lint", ConclusionSkipped),
 	}
-	got, err := SummarizeRequiredChecks(checks, []RequiredCheck{requiredCheck(t, "build", 0), requiredCheck(t, "lint", 0)}, nil)
-	if err != nil || got != ChecksPassed {
-		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, ChecksPassed)
+	got := summarizeRequired(checks, []RequiredCheck{requiredCheck(t, "build", 0), requiredCheck(t, "lint", 0)})
+	if got != ChecksPassed {
+		t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, ChecksPassed)
 	}
 }
 
@@ -165,9 +165,9 @@ func TestSummarizeRequiredChecksKeepsFailedAndActionRequiredOverAMissingCheck(t 
 	required := []RequiredCheck{requiredCheck(t, "build", 0), requiredCheck(t, "lint", 0)}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SummarizeRequiredChecks(tt.checks, required, nil)
-			if err != nil || got != tt.want {
-				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, tt.want)
+			got := summarizeRequired(tt.checks, required)
+			if got != tt.want {
+				t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -194,9 +194,9 @@ func TestSummarizeChecksReadsTheLatestAttemptOfARerun(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SummarizeRequiredChecks(tt.checks, []RequiredCheck{requiredCheck(t, "build", 0)}, nil)
-			if err != nil || got != tt.want {
-				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, tt.want)
+			got := summarizeRequired(tt.checks, []RequiredCheck{requiredCheck(t, "build", 0)})
+			if got != tt.want {
+				t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -227,9 +227,9 @@ func TestSummarizeRequiredChecksRefusesARequiredCheckFromAnotherSource(t *testin
 		t.Run(tt.name, func(t *testing.T) {
 			check := namedCompletedCheck("build", ConclusionSuccess)
 			check.AppID = tt.appID
-			got, err := SummarizeRequiredChecks([]Check{check}, required, nil)
-			if err != nil || got != tt.want {
-				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, tt.want)
+			got := summarizeRequired([]Check{check}, required)
+			if got != tt.want {
+				t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -238,41 +238,59 @@ func TestSummarizeRequiredChecksRefusesARequiredCheckFromAnotherSource(t *testin
 func TestSummarizeRequiredChecksAcceptsAnySourceWhenTheRequirementNamesNone(t *testing.T) {
 	check := namedCompletedCheck("build", ConclusionSuccess)
 	check.AppID = 7
-	got, err := SummarizeRequiredChecks([]Check{check}, []RequiredCheck{requiredCheck(t, "build", 0)}, nil)
-	if err != nil || got != ChecksPassed {
-		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v", got, err, ChecksPassed)
+	got := summarizeRequired([]Check{check}, []RequiredCheck{requiredCheck(t, "build", 0)})
+	if got != ChecksPassed {
+		t.Fatalf("SummarizeRequiredChecks = %v, want %v", got, ChecksPassed)
 	}
 }
 
-func TestSummarizeRequiredChecksReadsAnUnknownRequirementAsPending(t *testing.T) {
+func TestSummarizeRequiredChecksReadsAnUnknownRequirementAsPendingWithTheCause(t *testing.T) {
 	unknown := fmt.Errorf("read rulesets: %w", ErrRequiredChecksUnknown)
 	passed := namedCompletedCheck("build", ConclusionSuccess)
 	failed := namedCompletedCheck("build", ConclusionFailure)
 	tests := []struct {
-		name    string
-		checks  []Check
-		want    ChecksState
-		wantErr error
+		name   string
+		checks []Check
+		want   ChecksState
 	}{
-		{"no check reads as pending with the cause", nil, ChecksPending, unknown},
-		{"a passing check does not prove the requirements", []Check{passed}, ChecksPending, unknown},
-		{"a failed check still outranks the unknown requirements", []Check{failed}, ChecksFailed, nil},
+		{"no check reads as pending", nil, ChecksPending},
+		{"a passing check does not prove the requirements", []Check{passed}, ChecksPending},
+		{"a failed check still outranks the unknown requirements", []Check{failed}, ChecksFailed},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SummarizeRequiredChecks(tt.checks, nil, unknown)
-			if !errors.Is(err, tt.wantErr) || got != tt.want {
-				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v and %v", got, err, tt.want, tt.wantErr)
+			summary, err := SummarizeRequiredChecks(tt.checks, nil, unknown)
+			if err != nil || summary.State != tt.want || !errors.Is(summary.Cause, ErrRequiredChecksUnknown) {
+				t.Fatalf("SummarizeRequiredChecks = %+v, %v, want state %v with the cause", summary, err, tt.want)
 			}
 		})
 	}
 }
 
-func TestSummarizeRequiredChecksReturnsAnotherReadErrorInsteadOfAState(t *testing.T) {
+func TestSummarizeRequiredChecksReturnsAnotherReadErrorAsCauseWithUnknownState(t *testing.T) {
 	readErr := errors.New("connection reset")
-	got, err := SummarizeRequiredChecks([]Check{namedCompletedCheck("build", ConclusionSuccess)}, nil, readErr)
-	if !errors.Is(err, readErr) || got != ChecksUnknown {
-		t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v and the read error", got, err, ChecksUnknown)
+	summary, err := SummarizeRequiredChecks([]Check{namedCompletedCheck("build", ConclusionSuccess)}, nil, readErr)
+	if err != nil || !errors.Is(summary.Cause, readErr) || summary.State != ChecksUnknown {
+		t.Fatalf("SummarizeRequiredChecks = %+v, %v, want %v with the read error as cause", summary, err, ChecksUnknown)
+	}
+}
+
+func TestSummarizeRequiredChecksRefusesARequirementWithoutAName(t *testing.T) {
+	_, err := SummarizeRequiredChecks([]Check{namedCompletedCheck("build", ConclusionSuccess)}, []RequiredCheck{{}}, nil)
+	if !errors.Is(err, ErrEmptyRequiredCheckName) {
+		t.Fatalf("SummarizeRequiredChecks with a zero requirement error = %v, want %v", err, ErrEmptyRequiredCheckName)
+	}
+}
+
+func TestSummarizeRequiredChecksWithoutRequirementReadsTheLatestAttempt(t *testing.T) {
+	failedFirstRun := attempt(namedCompletedCheck("build", ConclusionFailure), 1)
+	passedRerun := attempt(namedCompletedCheck("build", ConclusionSuccess), 2)
+	got := summarizeRequired([]Check{failedFirstRun, passedRerun}, nil)
+	if got != ChecksPassed {
+		t.Fatalf("SummarizeRequiredChecks without requirement = %v, want %v: a re-run supersedes the run it repeats", got, ChecksPassed)
+	}
+	if SummarizeChecks([]Check{failedFirstRun, passedRerun}) != ChecksFailed {
+		t.Fatalf("SummarizeChecks of the same runs must still count the failure")
 	}
 }
 
@@ -323,9 +341,9 @@ func TestSummarizeRequiredChecksReadsAFailureOverASuccessWithoutAttempt(t *testi
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SummarizeRequiredChecks(tt.checks, required, nil)
-			if err != nil || got != ChecksFailed {
-				t.Fatalf("SummarizeRequiredChecks = %v, %v, want %v: a run without attempt must not hide a failure", got, err, ChecksFailed)
+			got := summarizeRequired(tt.checks, required)
+			if got != ChecksFailed {
+				t.Fatalf("SummarizeRequiredChecks = %v, want %v: a run without attempt must not hide a failure", got, ChecksFailed)
 			}
 		})
 	}
@@ -340,4 +358,12 @@ func TestSummarizeChecksCountsEveryRunOfARepeatedCheck(t *testing.T) {
 	if got := SummarizeChecks([]Check{passedRerun, failedFirstRun}); got != ChecksFailed {
 		t.Fatalf("SummarizeChecks listed in reverse = %v, want %v", got, ChecksFailed)
 	}
+}
+
+func summarizeRequired(checks []Check, required []RequiredCheck) ChecksState {
+	summary, err := SummarizeRequiredChecks(checks, required, nil)
+	if err != nil {
+		return ChecksUnknown
+	}
+	return summary.State
 }

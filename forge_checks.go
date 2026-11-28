@@ -152,8 +152,8 @@ func (c CheckConclusion) String() string {
 
 // SummarizeChecks reads the checks of a pull request's head commit as one
 // [ChecksState]. Every check counts, so a re-run that repeats a failed check
-// still counts that failure; [SummarizeRequiredChecks] is the call that reads
-// only the latest attempt of each check. A check that has not completed is
+// still counts that failure. [SummarizeRequiredChecks] differs on re-runs: it
+// reads only the latest attempt of each check, as described there. A check that has not completed is
 // pending. A completed check takes the state of its conclusion:
 //   - success, neutral, skipped: passed;
 //   - action_required: action required, a person must act before the check
@@ -173,6 +173,18 @@ func SummarizeChecks(checks []Check) ChecksState {
 	return rankChecks(checks)
 }
 
+// RequiredChecksSummary is the state of a pull request's checks against the
+// checks its branch requires. Cause is nil when the requirements were read. When
+// Cause is set, the requirements could not be read: if it wraps
+// [ErrRequiredChecksUnknown], State is pending, or failed or action required when
+// a check already says so, and a host bounds its wait for the requirements and
+// shows Cause. Any other Cause leaves State [ChecksUnknown], which a host must
+// not read as a state.
+type RequiredChecksSummary struct {
+	State ChecksState
+	Cause error
+}
+
 // SummarizeRequiredChecks reads the checks of a pull request's head commit
 // against the checks its branch requires, as [RequiredChecksSource] returns
 // them, and the error of that read. Each run of a check is read through its
@@ -184,41 +196,49 @@ func SummarizeChecks(checks []Check) ChecksState {
 // the same app reported. With no requirement the state is that of every check,
 // each run read as above.
 //
-// An error wrapping [ErrRequiredChecksUnknown] reads as pending, unless the
-// checks already fail or wait for action, since the requirements cannot be
-// known. That pending state is returned with the error, so the caller sees its
-// cause: a host bounds its wait for the requirements and shows that cause, since
-// pending alone does not say why the state is unknown. Any other error is
-// returned with [ChecksUnknown], and a host must not read it as a state.
-func SummarizeRequiredChecks(checks []Check, required []RequiredCheck, requiredErr error) (ChecksState, error) {
+// This differs from [SummarizeChecks] on a re-run. SummarizeChecks counts every
+// run as published, so a failed run stays a failure after its re-run passes.
+// SummarizeRequiredChecks reads only the latest attempt, since a re-run replaces
+// the run it repeats, and that is the reading a host needs to merge.
+//
+// A requirement with an empty name is an invalid input: the error matches
+// [ErrEmptyRequiredCheckName] and the summary is empty. Otherwise, an error
+// read from the requirements is returned in the summary's Cause, see
+// [RequiredChecksSummary].
+func SummarizeRequiredChecks(checks []Check, required []RequiredCheck, requiredErr error) (RequiredChecksSummary, error) {
+	for _, requirement := range required {
+		if requirement.name == "" {
+			return RequiredChecksSummary{}, fmt.Errorf("required check: %w", ErrEmptyRequiredCheckName)
+		}
+	}
 	if requiredErr != nil {
-		return summarizeUnknownRequirements(checks, requiredErr)
+		return summarizeUnknownRequirements(checks, requiredErr), nil
 	}
 	if len(required) == 0 {
-		return summarizeAll(checks), nil
+		return RequiredChecksSummary{State: summarizeAll(checks)}, nil
 	}
 	latest := latestAttempts(checks)
 	summary := rankChecks(matchedBy(latest, required))
 	if summary == ChecksFailed || summary == ChecksActionRequired {
-		return summary, nil
+		return RequiredChecksSummary{State: summary}, nil
 	}
 	for _, requirement := range required {
 		if !requirement.metBy(latest) {
-			return ChecksPending, nil
+			return RequiredChecksSummary{State: ChecksPending}, nil
 		}
 	}
-	return summary, nil
+	return RequiredChecksSummary{State: summary}, nil
 }
 
-func summarizeUnknownRequirements(checks []Check, requiredErr error) (ChecksState, error) {
+func summarizeUnknownRequirements(checks []Check, requiredErr error) RequiredChecksSummary {
 	if !errors.Is(requiredErr, ErrRequiredChecksUnknown) {
-		return ChecksUnknown, requiredErr
+		return RequiredChecksSummary{State: ChecksUnknown, Cause: requiredErr}
 	}
-	summary := summarizeAll(checks)
-	if summary == ChecksFailed || summary == ChecksActionRequired {
-		return summary, nil
+	state := summarizeAll(checks)
+	if state != ChecksFailed && state != ChecksActionRequired {
+		state = ChecksPending
 	}
-	return ChecksPending, requiredErr
+	return RequiredChecksSummary{State: state, Cause: requiredErr}
 }
 
 func summarizeAll(checks []Check) ChecksState {
