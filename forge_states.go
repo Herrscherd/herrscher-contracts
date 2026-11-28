@@ -322,6 +322,7 @@ const (
 	IssueOpen
 	// IssueClosed is an issue that was resolved or dropped.
 	IssueClosed
+	issueStateEnd
 )
 
 // String renders the state as its short name. A value that names no state
@@ -334,6 +335,7 @@ func (s IssueState) String() string {
 		return "open"
 	case IssueClosed:
 		return "closed"
+	case issueStateEnd:
 	}
 	return fmt.Sprintf("IssueState(%d)", int(s))
 }
