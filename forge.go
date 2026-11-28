@@ -290,11 +290,10 @@ type Issue struct {
 // filter by mention refuses such a query with [ErrUnsupportedIssueFilter] rather
 // than ignoring the login.
 //
-// UpdatedSince selects the issues updated at or after the instant. The bound is
-// inclusive, and it is up to the plugin to keep it against the API of its forge
-// at a precision of one second. An issue updated exactly at the instant is
-// returned again by the next read that starts from the same instant, so a caller
-// deduplicates by [IssueRef] at the boundary. The zero time applies no filter.
+// UpdatedSince selects the issues updated at or after the instant. Implementations
+// must include issues updated exactly at UpdatedSince; a forge whose API filters
+// strictly after the bound must widen the request and filter locally. The zero
+// time applies no filter.
 type IssueQuery struct {
 	Labels       []string
 	Mentioned    ForgeLogin
