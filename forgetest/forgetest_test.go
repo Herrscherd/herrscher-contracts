@@ -454,3 +454,27 @@ func TestCheckRefusesForeignHostLetsALateCallFinish(t *testing.T) {
 		}
 	})
 }
+
+type requiredForge struct {
+	fakeForge
+}
+
+func (f requiredForge) RequiredChecks(context.Context, contracts.ForgeRepoRef, contracts.BranchName) ([]contracts.RequiredCheck, error) {
+	return nil, f.refusal()
+}
+
+func TestCheckRefusesForeignHostAlsoChecksTheRequiredChecksOfAForgeThatHasThem(t *testing.T) {
+	rec := &recorder{}
+	checkRefusesForeignHost(rec, requiredForge{}, foreignRepo(t), callTimeout)
+	if len(rec.failures) != 11 {
+		t.Fatalf("forgetful forge with required checks reported %d failures, want the ten reads and RequiredChecks: %q", len(rec.failures), rec.failures)
+	}
+}
+
+func TestCheckRefusesForeignHostAcceptsARequiredChecksMethodThatRefuses(t *testing.T) {
+	rec := &recorder{}
+	checkRefusesForeignHost(rec, requiredForge{fakeForge{refuses: true}}, foreignRepo(t), callTimeout)
+	if len(rec.failures) != 0 {
+		t.Fatalf("refusing forge with required checks reported %d failures: %q", len(rec.failures), rec.failures)
+	}
+}

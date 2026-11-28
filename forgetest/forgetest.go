@@ -27,6 +27,7 @@ type foreignRefs struct {
 	issue  contracts.IssueRef
 	job    contracts.JobRef
 	thread contracts.ThreadRef
+	branch contracts.BranchName
 }
 
 type foreignCall struct {
@@ -43,7 +44,8 @@ type foreignCall struct {
 // still running then is reported as a failure and left running, whether or not
 // it watches its context. The check proves only the refusal: a forge that
 // refuses every call passes it, so the plugin's own tests prove the calls on
-// its own host.
+// its own host. When forge also implements [contracts.IssueWriter] or
+// [contracts.RequiredChecksSource], their methods are called too.
 func CheckRefusesForeignHost(tb testing.TB, forge contracts.Forge, foreign contracts.ForgeRepoRef) {
 	tb.Helper()
 	checkRefusesForeignHost(tb, forge, foreign, callTimeout)
@@ -203,7 +205,11 @@ func newForeignRefs(foreign contracts.ForgeRepoRef) (foreignRefs, error) {
 	if err != nil {
 		return foreignRefs{}, err
 	}
-	return foreignRefs{commit: commit, pull: pull, issue: issue, job: job, thread: thread}, nil
+	branch, err := contracts.ParseBranchName("main")
+	if err != nil {
+		return foreignRefs{}, err
+	}
+	return foreignRefs{commit: commit, pull: pull, issue: issue, job: job, thread: thread, branch: branch}, nil
 }
 
 const callTimeout = 10 * time.Second
@@ -257,19 +263,24 @@ func foreignCalls(forge contracts.Forge, foreign contracts.ForgeRepoRef, refs fo
 			return err
 		}})
 	}
-	writer, writes := forge.(contracts.IssueWriter)
-	if !writes {
-		return calls
+	if writer, writes := forge.(contracts.IssueWriter); writes {
+		calls = append(calls,
+			foreignCall{"OpenIssue", func(ctx context.Context) error {
+				_, err := writer.OpenIssue(ctx, contracts.IssueDraft{Repo: foreign, Title: "t"})
+				return err
+			}},
+			foreignCall{"CommentOnIssue", func(ctx context.Context) error {
+				return writer.CommentOnIssue(ctx, refs.issue, "comment")
+			}},
+		)
 	}
-	return append(calls,
-		foreignCall{"OpenIssue", func(ctx context.Context) error {
-			_, err := writer.OpenIssue(ctx, contracts.IssueDraft{Repo: foreign, Title: "t"})
+	if source, reads := forge.(contracts.RequiredChecksSource); reads {
+		calls = append(calls, foreignCall{"RequiredChecks", func(ctx context.Context) error {
+			_, err := source.RequiredChecks(ctx, foreign, refs.branch)
 			return err
-		}},
-		foreignCall{"CommentOnIssue", func(ctx context.Context) error {
-			return writer.CommentOnIssue(ctx, refs.issue, "comment")
-		}},
-	)
+		}})
+	}
+	return calls
 }
 
 // CheckIssueWriterRefusesEmptyText calls the writes of writer with an empty

@@ -37,6 +37,14 @@ var (
 	// ErrInvalidBranchName reports text that git does not accept as a branch
 	// name.
 	ErrInvalidBranchName = errors.New("not a git branch name")
+
+	// ErrRequiredChecksUnknown is wrapped by the error of a read of the checks a
+	// branch requires that failed or was refused. A caller cannot tell an
+	// unreadable rule from an absent one, so [SummarizeRequiredChecks] reads it as
+	// pending.
+	ErrRequiredChecksUnknown = errors.New("the checks a branch requires are unknown")
+	// ErrEmptyRequiredCheckName reports a required check built with no name.
+	ErrEmptyRequiredCheckName = errors.New("a required check needs a name")
 	// ErrInvalidCommitSHA reports text that is not 40 or 64 lowercase hex
 	// digits.
 	ErrInvalidCommitSHA = errors.New("not a commit SHA: 40 or 64 lowercase hex digits")
