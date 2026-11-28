@@ -260,7 +260,9 @@ type ReviewComment struct {
 // repository. CreatedAt and UpdatedAt are the times the forge reports, and the
 // zero time where it reports none. IsPullRequest is set when the forge lists a
 // pull request among its issues, as GitHub does; the plugin reports it and does
-// not drop the pull request, so a caller that wants issues alone skips it.
+// not drop the pull request, so a caller that wants issues alone skips it. That
+// a pull request stays listed with IsPullRequest set is proved by the behavior
+// tests of the plugin, not by this contract.
 type Issue struct {
 	Ref           IssueRef
 	Title         string
@@ -281,16 +283,18 @@ type Issue struct {
 // listing. [IssueQuery.Listed] returns the state that is read, and
 // [IssueQuery.Validate] refuses a value outside the closed sets.
 //
-// Mentioned selects the issues whose body or comments mention the login as
-// @login, the meaning of the mentioned qualifier of GitHub's search. A plugin
-// whose forge cannot filter by mention refuses such a query with
-// [ErrInvalidIssueQuery] rather than ignoring the login.
+// Mentioned selects the issues that mention the login, as the mentioned
+// parameter of the REST issues endpoint describes it: a user mentioned in the
+// issue. The contract does not fix what counts as a mention; the plugin states
+// the meaning it gives to it in its documentation. A plugin whose forge cannot
+// filter by mention refuses such a query with [ErrUnsupportedIssueFilter] rather
+// than ignoring the login.
 //
-// UpdatedSince selects the issues updated at or after the instant, inclusive,
-// at a precision of one second, as GitHub's since parameter does. An issue
-// updated exactly at the instant is returned again by the next read that starts
-// from the same instant, so a caller deduplicates by [IssueRef] at the boundary.
-// The zero time applies no filter.
+// UpdatedSince selects the issues updated at or after the instant. The bound is
+// inclusive, and it is up to the plugin to keep it against the API of its forge
+// at a precision of one second. An issue updated exactly at the instant is
+// returned again by the next read that starts from the same instant, so a caller
+// deduplicates by [IssueRef] at the boundary. The zero time applies no filter.
 type IssueQuery struct {
 	Labels       []string
 	Mentioned    ForgeLogin
@@ -333,7 +337,8 @@ type IssueListing struct {
 // listing as Issues does.
 //
 // IssuesSince returns [ErrForgeWrongHost] for a repository on another host,
-// [ErrInvalidIssueQuery] for a query outside the closed sets, and
+// [ErrInvalidIssueQuery] for a query outside the closed sets,
+// [ErrUnsupportedIssueFilter] for a filter the forge cannot apply, and
 // [ErrInvalidPageLimit] for a limit outside its range.
 type ConditionalIssues interface {
 	IssuesSince(ctx context.Context, repo ForgeRepoRef, query IssueQuery, page PageRequest, since Revision) (IssueListing, error)

@@ -59,8 +59,12 @@ var (
 	// ErrInvalidForgeLogin reports text that names no forge login.
 	ErrInvalidForgeLogin = errors.New("not a forge login")
 	// ErrInvalidIssueQuery reports an issue query whose state, sort or direction
-	// is outside its closed set.
+	// is outside its closed set. A filter the forge cannot apply is
+	// [ErrUnsupportedIssueFilter] instead.
 	ErrInvalidIssueQuery = errors.New("issue query has a value outside its closed set")
+	// ErrUnsupportedIssueFilter reports an issue query that filters by a value the
+	// forge cannot apply, such as a mention on a forge without that filter.
+	ErrUnsupportedIssueFilter = errors.New("issue query filters by a value the forge cannot apply")
 	// ErrUnknownTokenSource reports a token source that names no source.
 	ErrUnknownTokenSource = errors.New("unknown forge token source")
 )

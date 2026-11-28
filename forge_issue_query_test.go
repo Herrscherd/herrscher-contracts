@@ -193,14 +193,13 @@ func mustLogin(t *testing.T, text string) ForgeLogin {
 	return login
 }
 
-func TestAnIssueIsNotAPullRequestUnlessTheForgeMarksIt(t *testing.T) {
-	var issue Issue
-	if issue.IsPullRequest {
-		t.Fatal("zero Issue reports IsPullRequest, want an issue unless the forge marks it")
+func TestIssueListingRevisionWithoutAnETagIsTheZeroRevision(t *testing.T) {
+	repo := mustRepo(t, "gitlab.example.com/octo/hello")
+	revision := IssueListingRevision(repo, IssueQuery{}, PageRequest{}, "")
+	if revision != Revision("") {
+		t.Fatalf("revision = %q, want the zero Revision that reads the listing in full", revision)
 	}
-	listed := Issue{Title: "pr", IsPullRequest: true}
-	listing := IssueListing{Page: Page[Issue]{Items: []Issue{issue, listed}}}
-	if got := listing.Page.Items[1].IsPullRequest; !got {
-		t.Fatal("marked pull request lost its IsPullRequest flag in the listing")
+	if _, ok := IssueListingETag(revision, repo, IssueQuery{}, PageRequest{}); ok {
+		t.Fatal("zero revision accepted as a binding, want it treated as absent")
 	}
 }

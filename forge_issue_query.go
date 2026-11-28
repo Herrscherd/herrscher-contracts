@@ -91,8 +91,12 @@ const issueListingSeparator = "/"
 // IssueListingRevision builds the [Revision] of an issue listing read for repo,
 // query and page, from the etag the forge reported for that read. The revision
 // is valid only for the same repository, the same query and the same page: see
-// [IssueListingETag].
+// [IssueListingETag]. An empty etag gives the zero Revision, which names no
+// revision, so the listing is read in full.
 func IssueListingRevision(repo ForgeRepoRef, query IssueQuery, page PageRequest, etag string) Revision {
+	if etag == "" {
+		return Revision("")
+	}
 	return Revision(issueListingFingerprint(repo, query, page) + issueListingSeparator + etag)
 }
 
